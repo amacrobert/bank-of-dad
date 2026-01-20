@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(docker compose:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(git fetch:*)",
+      "Bash(ls:*)"
     ]
   }
 }
