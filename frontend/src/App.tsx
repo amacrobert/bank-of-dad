@@ -1,39 +1,22 @@
-import { useEffect, useState } from 'react'
-
-interface MessageResponse {
-  message: string
-}
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
+import NotFound from "./pages/NotFound";
 
 function App() {
-  const [message, setMessage] = useState<string>('Loading...')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('http://localhost:8001/message')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to fetch message')
-        }
-        return response.json() as Promise<MessageResponse>
-      })
-      .then((data) => {
-        setMessage(data.message)
-      })
-      .catch((err) => {
-        setError(err.message)
-      })
-  }, [])
-
   return (
-    <div className="app">
-      <h1>Bank of Dad</h1>
-      {error ? (
-        <p className="error">Error: {error}</p>
-      ) : (
-        <p className="message">{message}</p>
-      )}
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        {/* Placeholder routes - implemented in later phases */}
+        <Route path="/dashboard" element={<div>Parent Dashboard (coming in US1)</div>} />
+        <Route path="/setup" element={<div>Setup Page (coming in US1)</div>} />
+        <Route path="/auth/callback" element={<div>OAuth Callback (coming in US1)</div>} />
+        <Route path="/child/dashboard" element={<div>Child Dashboard (coming in US4)</div>} />
+        <Route path="/:familySlug" element={<div>Family Login (coming in US4)</div>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

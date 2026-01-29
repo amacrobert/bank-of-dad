@@ -2,46 +2,50 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+
+	"bank-of-dad/internal/config"
+	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/store"
 )
 
-type MessageResponse struct {
-	Message string `json:"message"`
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func messageHandler(w http.ResponseWriter, r *http.Request) {
-	response := MessageResponse{
-		Message: "Hello from Bank of Dad!",
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
+	db, err := store.Open(cfg.DatabasePath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
 
-func main() {
+	sessionStore := store.NewSessionStore(db)
+	_ = store.NewAuthEventStore(db)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/message", messageHandler)
 
-	handler := corsMiddleware(mux)
+	// Public endpoints
+	mux.HandleFunc("GET /api/health", handleHealth)
 
-	log.Println("Backend server starting on port 8001...")
-	if err := http.ListenAndServe(":8001", handler); err != nil {
+	// Apply middleware chain: CORS → Logging → Routes
+	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)
+	handler := corsMiddleware(middleware.RequestLogging(mux))
+
+	// Store references for later route registration
+	_ = sessionStore // Will be used by auth routes in subsequent phases
+
+	addr := fmt.Sprintf(":%s", cfg.ServerPort)
+	log.Printf("Backend server starting on %s...", addr)
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

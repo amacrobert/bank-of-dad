@@ -25,12 +25,12 @@
 
 **Purpose**: Project initialization, dependency installation, and directory structure
 
-- [ ] T001 Add Go dependencies (`modernc.org/sqlite`, `golang.org/x/oauth2`, `golang.org/x/crypto`, `github.com/stretchr/testify`) to `backend/go.mod` and run `go mod tidy`
-- [ ] T002 Create backend directory structure: `backend/internal/auth/`, `backend/internal/family/`, `backend/internal/store/`, `backend/internal/middleware/`, `backend/internal/config/`, `backend/tests/contract/`, `backend/tests/integration/`
-- [ ] T003 [P] Add `react-router-dom` dependency to `frontend/package.json` and run `npm install`
-- [ ] T004 [P] Create frontend directory structure: `frontend/src/pages/`, `frontend/src/components/`
-- [ ] T005 [P] Create shared TypeScript types in `frontend/src/types.ts` (User, Child, Family, AuthState, ApiError)
-- [ ] T006 [P] Create typed fetch wrapper in `frontend/src/api.ts` with `credentials: 'include'`, JSON handling, and error typing per contracts/auth-api.md
+- [x] T001 Add Go dependencies (`modernc.org/sqlite`, `golang.org/x/oauth2`, `golang.org/x/crypto`, `github.com/stretchr/testify`) to `backend/go.mod` and run `go mod tidy`
+- [x] T002 Create backend directory structure: `backend/internal/auth/`, `backend/internal/family/`, `backend/internal/store/`, `backend/internal/middleware/`, `backend/internal/config/`, `backend/tests/contract/`, `backend/tests/integration/`
+- [x] T003 [P] Add `react-router-dom` dependency to `frontend/package.json` and run `npm install`
+- [x] T004 [P] Create frontend directory structure: `frontend/src/pages/`, `frontend/src/components/`
+- [x] T005 [P] Create shared TypeScript types in `frontend/src/types.ts` (User, Child, Family, AuthState, ApiError)
+- [x] T006 [P] Create typed fetch wrapper in `frontend/src/api.ts` with `credentials: 'include'`, JSON handling, and error typing per contracts/auth-api.md
 
 ---
 

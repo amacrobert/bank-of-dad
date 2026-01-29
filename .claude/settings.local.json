@@ -8,7 +8,10 @@
       "Bash(ls:*)",
       "Bash(bash:*)",
       "Bash(git checkout:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
