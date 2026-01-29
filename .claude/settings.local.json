@@ -5,7 +5,10 @@
       "Bash(curl:*)",
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(git fetch:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(bash:*)",
+      "Bash(git checkout:*)",
+      "WebSearch"
     ]
   }
 }
