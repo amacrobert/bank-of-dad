@@ -11,7 +11,12 @@
       "WebSearch",
       "Bash(go get:*)",
       "Bash(go mod tidy:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)",
+      "Bash(lsof:*)"
     ]
   }
 }

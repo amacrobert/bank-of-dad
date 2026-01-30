@@ -23,6 +23,11 @@ export default function ProtectedRoute({
           navigate("/");
           return;
         }
+        // Redirect unregistered parents to setup
+        if (data.user_type === "parent" && data.family_id === 0) {
+          navigate("/setup", { replace: true });
+          return;
+        }
         setUser(data);
         setLoading(false);
       })

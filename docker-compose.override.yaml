@@ -2,6 +2,13 @@
 # This file is automatically merged with docker-compose.yaml when running `docker compose up`
 
 services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - db-data:/data
+    environment:
+      - COOKIE_SECURE=false
+
   frontend:
     build:
       context: ./frontend

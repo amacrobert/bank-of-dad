@@ -40,23 +40,23 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Implement environment configuration loader in `backend/internal/config/config.go` (Google OAuth client ID/secret, redirect URL, database path, cookie domain, server port) reading from environment variables
-- [ ] T008 Implement SQLite connection manager in `backend/internal/store/sqlite.go` with WAL mode, read/write pools, PRAGMAs (`journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `foreign_keys=ON`), and schema migration (create all 5 tables from data-model.md)
-- [ ] T009 [P] Write unit tests for SQLite connection and migration in `backend/internal/store/sqlite_test.go` (verify tables created, PRAGMAs set, WAL mode active)
-- [ ] T010 Implement session store operations (Create, GetByToken, DeleteByToken, DeleteExpired) in `backend/internal/store/session.go` using 32-byte `crypto/rand` tokens, base64-encoded
-- [ ] T011 [P] Write unit tests for session store in `backend/internal/store/session_test.go` (create session, get valid session, reject expired session, delete session, cleanup expired)
-- [ ] T012 Implement auth middleware in `backend/internal/middleware/auth.go` that reads `session` cookie, validates token against sessions table, checks expiry, and attaches `user_type`, `user_id`, `family_id` to request context. Return 401 for invalid/expired sessions
-- [ ] T013 [P] Implement CORS middleware in `backend/internal/middleware/cors.go` replacing the inline CORS in `backend/main.go` (allow credentials, configurable origins)
-- [ ] T014 [P] Implement auth event logging middleware in `backend/internal/middleware/logging.go` that logs auth events to `auth_events` table (event_type, user_type, user_id, family_id, ip_address, details) without sensitive data per FR-018
-- [ ] T015 [P] Implement auth event store operations (LogEvent, GetEventsByFamily) in `backend/internal/store/auth_event.go`
-- [ ] T016 [P] Write unit tests for auth event store in `backend/internal/store/auth_event_test.go` (log event, query by family, verify no sensitive data fields)
-- [ ] T017 Implement health check endpoint `GET /api/health` and refactor `backend/main.go` to use new router structure with middleware chain (CORS → logging → routes, auth middleware applied per-route)
-- [ ] T018 [P] Update `frontend/src/App.tsx` to set up react-router-dom `BrowserRouter` with route definitions for all pages (/, /dashboard, /setup, /auth/callback, /:familySlug, /child/dashboard, *)
-- [ ] T019 [P] Implement `ProtectedRoute` component in `frontend/src/components/ProtectedRoute.tsx` that calls `GET /api/auth/me` to verify session, redirects to home if unauthenticated, and passes user context to children
-- [ ] T020 [P] Implement shared `Layout` component in `frontend/src/components/Layout.tsx` with navigation bar, user display name, and logout button (calls `POST /api/auth/logout`)
-- [ ] T021 [P] Implement `NotFound` page in `frontend/src/pages/NotFound.tsx` showing "This bank doesn't exist" message with link to create your own (edge case: non-existent family URL)
-- [ ] T022 Update Vite config in `frontend/vite.config.ts` to proxy `/api` requests to backend (`http://localhost:8001`) for development
-- [ ] T023 Update `docker-compose.yaml` and `docker-compose.override.yaml` to pass Google OAuth environment variables and mount SQLite data volume
+- [x] T007 Implement environment configuration loader in `backend/internal/config/config.go` (Google OAuth client ID/secret, redirect URL, database path, cookie domain, server port) reading from environment variables
+- [x] T008 Implement SQLite connection manager in `backend/internal/store/sqlite.go` with WAL mode, read/write pools, PRAGMAs (`journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `foreign_keys=ON`), and schema migration (create all 5 tables from data-model.md)
+- [x] T009 [P] Write unit tests for SQLite connection and migration in `backend/internal/store/sqlite_test.go` (verify tables created, PRAGMAs set, WAL mode active)
+- [x] T010 Implement session store operations (Create, GetByToken, DeleteByToken, DeleteExpired) in `backend/internal/store/session.go` using 32-byte `crypto/rand` tokens, base64-encoded
+- [x] T011 [P] Write unit tests for session store in `backend/internal/store/session_test.go` (create session, get valid session, reject expired session, delete session, cleanup expired)
+- [x] T012 Implement auth middleware in `backend/internal/middleware/auth.go` that reads `session` cookie, validates token against sessions table, checks expiry, and attaches `user_type`, `user_id`, `family_id` to request context. Return 401 for invalid/expired sessions
+- [x] T013 [P] Implement CORS middleware in `backend/internal/middleware/cors.go` replacing the inline CORS in `backend/main.go` (allow credentials, configurable origins)
+- [x] T014 [P] Implement auth event logging middleware in `backend/internal/middleware/logging.go` that logs auth events to `auth_events` table (event_type, user_type, user_id, family_id, ip_address, details) without sensitive data per FR-018
+- [x] T015 [P] Implement auth event store operations (LogEvent, GetEventsByFamily) in `backend/internal/store/auth_event.go`
+- [x] T016 [P] Write unit tests for auth event store in `backend/internal/store/auth_event_test.go` (log event, query by family, verify no sensitive data fields)
+- [x] T017 Implement health check endpoint `GET /api/health` and refactor `backend/main.go` to use new router structure with middleware chain (CORS → logging → routes, auth middleware applied per-route)
+- [x] T018 [P] Update `frontend/src/App.tsx` to set up react-router-dom `BrowserRouter` with route definitions for all pages (/, /dashboard, /setup, /auth/callback, /:familySlug, /child/dashboard, *)
+- [x] T019 [P] Implement `ProtectedRoute` component in `frontend/src/components/ProtectedRoute.tsx` that calls `GET /api/auth/me` to verify session, redirects to home if unauthenticated, and passes user context to children
+- [x] T020 [P] Implement shared `Layout` component in `frontend/src/components/Layout.tsx` with navigation bar, user display name, and logout button (calls `POST /api/auth/logout`)
+- [x] T021 [P] Implement `NotFound` page in `frontend/src/pages/NotFound.tsx` showing "This bank doesn't exist" message with link to create your own (edge case: non-existent family URL)
+- [x] T022 Update Vite config in `frontend/vite.config.ts` to proxy `/api` requests to backend (`http://localhost:8001`) for development
+- [x] T023 Update `docker-compose.yaml` and `docker-compose.override.yaml` to pass Google OAuth environment variables and mount SQLite data volume
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -77,19 +77,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T026 [P] [US1] Implement family store operations (Create, GetBySlug, SlugExists, SuggestSlugs) in `backend/internal/store/family.go` with slug validation (3-30 chars, lowercase alphanumeric + hyphens, regex `^[a-z0-9][a-z0-9-]*[a-z0-9]$`) per FR-003, FR-004
-- [ ] T027 [P] [US1] Write unit tests for family store in `backend/internal/store/family_test.go` (create family, duplicate slug rejection, slug validation, slug suggestions)
-- [ ] T028 [P] [US1] Implement parent store operations (Create, GetByGoogleID, GetByID) in `backend/internal/store/parent.go`
-- [ ] T029 [P] [US1] Write unit tests for parent store in `backend/internal/store/parent_test.go` (create parent, find by Google ID, duplicate Google ID rejection)
-- [ ] T030 [US1] Implement slug validation helper in `backend/internal/family/validation.go` (ValidateSlug function checking format and length per FR-003)
-- [ ] T031 [US1] Implement Google OAuth handlers in `backend/internal/auth/google.go`: `HandleGoogleLogin` (generate state, set cookie, redirect to Google), `HandleGoogleCallback` (validate state, exchange code, fetch userinfo, create-or-find parent, create session, redirect to /dashboard or /setup)
-- [ ] T032 [US1] Implement family handlers in `backend/internal/family/handlers.go`: `HandleCreateFamily` (POST /api/families — validate slug, create family, link to parent), `HandleCheckSlug` (GET /api/families/check-slug — return availability + suggestions)
-- [ ] T033 [US1] Register US1 routes in `backend/main.go`: `GET /api/auth/google/login`, `GET /api/auth/google/callback`, `POST /api/families` (auth required), `GET /api/families/check-slug` (auth required)
-- [ ] T034 [P] [US1] Implement `HomePage` in `frontend/src/pages/HomePage.tsx` with "Sign in with Google" button that navigates to `/api/auth/google/login`
-- [ ] T035 [P] [US1] Implement `GoogleCallback` page in `frontend/src/pages/GoogleCallback.tsx` that handles OAuth redirect (reads auth state, redirects to dashboard or setup)
-- [ ] T036 [US1] Implement `SlugPicker` component in `frontend/src/components/SlugPicker.tsx` with slug input field, real-time availability checking via `GET /api/families/check-slug`, validation feedback, and slug suggestions display
-- [ ] T037 [US1] Implement setup page (slug selection) in `frontend/src/pages/SetupPage.tsx` using `SlugPicker` component, calls `POST /api/families` on submit, redirects to dashboard on success
-- [ ] T038 [US1] Implement basic `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` showing parent display name, family slug/URL, and placeholder for child list (completed in US3)
+- [x] T026 [P] [US1] Implement family store operations (Create, GetBySlug, SlugExists, SuggestSlugs) in `backend/internal/store/family.go` with slug validation (3-30 chars, lowercase alphanumeric + hyphens, regex `^[a-z0-9][a-z0-9-]*[a-z0-9]$`) per FR-003, FR-004
+- [x] T027 [P] [US1] Write unit tests for family store in `backend/internal/store/family_test.go` (create family, duplicate slug rejection, slug validation, slug suggestions)
+- [x] T028 [P] [US1] Implement parent store operations (Create, GetByGoogleID, GetByID) in `backend/internal/store/parent.go`
+- [x] T029 [P] [US1] Write unit tests for parent store in `backend/internal/store/parent_test.go` (create parent, find by Google ID, duplicate Google ID rejection)
+- [x] T030 [US1] Implement slug validation helper in `backend/internal/family/validation.go` (ValidateSlug function checking format and length per FR-003)
+- [x] T031 [US1] Implement Google OAuth handlers in `backend/internal/auth/google.go`: `HandleGoogleLogin` (generate state, set cookie, redirect to Google), `HandleGoogleCallback` (validate state, exchange code, fetch userinfo, create-or-find parent, create session, redirect to /dashboard or /setup)
+- [x] T032 [US1] Implement family handlers in `backend/internal/family/handlers.go`: `HandleCreateFamily` (POST /api/families — validate slug, create family, link to parent), `HandleCheckSlug` (GET /api/families/check-slug — return availability + suggestions)
+- [x] T033 [US1] Register US1 routes in `backend/main.go`: `GET /api/auth/google/login`, `GET /api/auth/google/callback`, `POST /api/families` (auth required), `GET /api/families/check-slug` (auth required)
+- [x] T034 [P] [US1] Implement `HomePage` in `frontend/src/pages/HomePage.tsx` with "Sign in with Google" button that navigates to `/api/auth/google/login`
+- [x] T035 [P] [US1] Implement `GoogleCallback` page in `frontend/src/pages/GoogleCallback.tsx` that handles OAuth redirect (reads auth state, redirects to dashboard or setup)
+- [x] T036 [US1] Implement `SlugPicker` component in `frontend/src/components/SlugPicker.tsx` with slug input field, real-time availability checking via `GET /api/families/check-slug`, validation feedback, and slug suggestions display
+- [x] T037 [US1] Implement setup page (slug selection) in `frontend/src/pages/SetupPage.tsx` using `SlugPicker` component, calls `POST /api/families` on submit, redirects to dashboard on success
+- [x] T038 [US1] Implement basic `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` showing parent display name, family slug/URL, and placeholder for child list (completed in US3)
 
 **Checkpoint**: Parent registration via Google fully functional. Parent can sign in, choose slug, see dashboard.
 
@@ -110,11 +110,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T041 [US2] Implement `HandleGetMe` in `backend/internal/auth/handlers.go` (GET /api/auth/me — read session context, return parent or child identity with family slug)
-- [ ] T042 [US2] Implement `HandleLogout` in `backend/internal/auth/handlers.go` (POST /api/auth/logout — delete session from DB, clear cookie, log auth event)
-- [ ] T043 [US2] Register US2 routes in `backend/main.go`: `POST /api/auth/logout` (auth required), `GET /api/auth/me` (auth required)
-- [ ] T044 [US2] Update `Layout` component in `frontend/src/components/Layout.tsx` to call `POST /api/auth/logout` on logout button click and redirect to home page
-- [ ] T045 [US2] Update `ProtectedRoute` in `frontend/src/components/ProtectedRoute.tsx` to use `GET /api/auth/me` response to distinguish parent vs child and redirect unregistered parents to setup
+- [x] T041 [US2] Implement `HandleGetMe` in `backend/internal/auth/handlers.go` (GET /api/auth/me — read session context, return parent or child identity with family slug)
+- [x] T042 [US2] Implement `HandleLogout` in `backend/internal/auth/handlers.go` (POST /api/auth/logout — delete session from DB, clear cookie, log auth event)
+- [x] T043 [US2] Register US2 routes in `backend/main.go`: `POST /api/auth/logout` (auth required), `GET /api/auth/me` (auth required)
+- [x] T044 [US2] Update `Layout` component in `frontend/src/components/Layout.tsx` to call `POST /api/auth/logout` on logout button click and redirect to home page
+- [x] T045 [US2] Update `ProtectedRoute` in `frontend/src/components/ProtectedRoute.tsx` to use `GET /api/auth/me` response to distinguish parent vs child and redirect unregistered parents to setup
 
 **Checkpoint**: Parent login/logout fully functional. Combined with US1, complete parent access cycle works.
 
@@ -135,13 +135,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T048 [P] [US3] Implement child store operations (Create, GetByFamilyAndName, ListByFamily, GetByID) in `backend/internal/store/child.go` with bcrypt password hashing (cost 12) per FR-008, unique constraint on (family_id, first_name) per FR-007
-- [ ] T049 [P] [US3] Write unit tests for child store in `backend/internal/store/child_test.go` (create child with hashed password, verify bcrypt hash not plaintext, find by family+name, duplicate name rejection, list by family)
-- [ ] T050 [US3] Implement child management handlers in `backend/internal/family/handlers.go` (append): `HandleCreateChild` (POST /api/children — validate password min 6 chars per FR-006, validate unique name per FR-007, hash password, create child, return login URL), `HandleListChildren` (GET /api/children — list all children in parent's family)
-- [ ] T051 [US3] Register US3 routes in `backend/main.go`: `POST /api/children` (parent auth required), `GET /api/children` (parent auth required)
-- [ ] T052 [P] [US3] Implement `AddChildForm` component in `frontend/src/components/AddChildForm.tsx` with first name input, password input, validation feedback (min 6 chars), submit calls `POST /api/children`, displays login URL and credentials on success
-- [ ] T053 [P] [US3] Implement `ChildList` component in `frontend/src/components/ChildList.tsx` that calls `GET /api/children` and displays list of children with name, locked status, and created date
-- [ ] T054 [US3] Update `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` to include `AddChildForm` and `ChildList` components
+- [x] T048 [P] [US3] Implement child store operations (Create, GetByFamilyAndName, ListByFamily, GetByID) in `backend/internal/store/child.go` with bcrypt password hashing (cost 12) per FR-008, unique constraint on (family_id, first_name) per FR-007
+- [x] T049 [P] [US3] Write unit tests for child store in `backend/internal/store/child_test.go` (create child with hashed password, verify bcrypt hash not plaintext, find by family+name, duplicate name rejection, list by family)
+- [x] T050 [US3] Implement child management handlers in `backend/internal/family/handlers.go` (append): `HandleCreateChild` (POST /api/children — validate password min 6 chars per FR-006, validate unique name per FR-007, hash password, create child, return login URL), `HandleListChildren` (GET /api/children — list all children in parent's family)
+- [x] T051 [US3] Register US3 routes in `backend/main.go`: `POST /api/children` (parent auth required), `GET /api/children` (parent auth required)
+- [x] T052 [P] [US3] Implement `AddChildForm` component in `frontend/src/components/AddChildForm.tsx` with first name input, password input, validation feedback (min 6 chars), submit calls `POST /api/children`, displays login URL and credentials on success
+- [x] T053 [P] [US3] Implement `ChildList` component in `frontend/src/components/ChildList.tsx` that calls `GET /api/children` and displays list of children with name, locked status, and created date
+- [x] T054 [US3] Update `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` to include `AddChildForm` and `ChildList` components
 
 **Checkpoint**: Child account creation fully functional. Parent can create children and see them listed.
 
@@ -162,13 +162,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T057 [US4] Implement child authentication operations in `backend/internal/store/child.go` (append): `IncrementFailedAttempts`, `LockAccount`, `ResetFailedAttempts`, `IsLocked` — account lockout after 5 failures per FR-010
-- [ ] T058 [US4] Write unit tests for child lockout logic in `backend/internal/store/child_test.go` (append) — test increment attempts, lock at 5, reset on success, is_locked flag
-- [ ] T059 [US4] Implement child login handler in `backend/internal/auth/child.go`: `HandleChildLogin` (POST /api/auth/child/login — find family by slug, find child by family+name, check locked status, compare bcrypt password, create 24-hour session, handle lockout at 5 failures, log auth events)
-- [ ] T060 [US4] Implement family lookup handler in `backend/internal/family/handlers.go` (append): `HandleGetFamily` (GET /api/families/:slug — return exists true/false, public endpoint)
-- [ ] T061 [US4] Register US4 routes in `backend/main.go`: `POST /api/auth/child/login` (no auth), `GET /api/families/:slug` (no auth)
-- [ ] T062 [US4] Implement `FamilyLogin` page in `frontend/src/pages/FamilyLogin.tsx` — reads `:familySlug` from URL params, calls `GET /api/families/:slug` to verify family exists (show 404 if not), displays first name + password inputs, submits to `POST /api/auth/child/login`, shows friendly error messages for invalid credentials and locked accounts, redirects to child dashboard on success
-- [ ] T063 [US4] Implement `ChildDashboard` page in `frontend/src/pages/ChildDashboard.tsx` — displays child's first name, family name, and placeholder account balance, with logout button
+- [x] T057 [US4] Implement child authentication operations in `backend/internal/store/child.go` (append): `IncrementFailedAttempts`, `LockAccount`, `ResetFailedAttempts`, `IsLocked` — account lockout after 5 failures per FR-010
+- [x] T058 [US4] Write unit tests for child lockout logic in `backend/internal/store/child_test.go` (append) — test increment attempts, lock at 5, reset on success, is_locked flag
+- [x] T059 [US4] Implement child login handler in `backend/internal/auth/child.go`: `HandleChildLogin` (POST /api/auth/child/login — find family by slug, find child by family+name, check locked status, compare bcrypt password, create 24-hour session, handle lockout at 5 failures, log auth events)
+- [x] T060 [US4] Implement family lookup handler in `backend/internal/family/handlers.go` (append): `HandleGetFamily` (GET /api/families/:slug — return exists true/false, public endpoint)
+- [x] T061 [US4] Register US4 routes in `backend/main.go`: `POST /api/auth/child/login` (no auth), `GET /api/families/:slug` (no auth)
+- [x] T062 [US4] Implement `FamilyLogin` page in `frontend/src/pages/FamilyLogin.tsx` — reads `:familySlug` from URL params, calls `GET /api/families/:slug` to verify family exists (show 404 if not), displays first name + password inputs, submits to `POST /api/auth/child/login`, shows friendly error messages for invalid credentials and locked accounts, redirects to child dashboard on success
+- [x] T063 [US4] Implement `ChildDashboard` page in `frontend/src/pages/ChildDashboard.tsx` — displays child's first name, family name, and placeholder account balance, with logout button
 
 **Checkpoint**: Child login fully functional. Complete parent-to-child flow works (register, create child, child logs in).
 
@@ -189,12 +189,12 @@
 
 ### Implementation for User Story 5
 
-- [ ] T066 [US5] Implement child update operations in `backend/internal/store/child.go` (append): `UpdatePassword` (hash new password, reset is_locked + failed_attempts), `UpdateName` (validate uniqueness within family, update first_name + updated_at)
-- [ ] T067 [US5] Write unit tests for child update operations in `backend/internal/store/child_test.go` (append) — test password update rehashes, unlock on reset, name update, duplicate name rejection
-- [ ] T068 [US5] Implement credential management handlers in `backend/internal/family/handlers.go` (append): `HandleResetPassword` (PUT /api/children/:id/password — validate parent owns family, validate password min 6, hash + update, log event), `HandleUpdateName` (PUT /api/children/:id/name — validate parent owns family, validate unique name, update, log event)
-- [ ] T069 [US5] Register US5 routes in `backend/main.go`: `PUT /api/children/:id/password` (parent auth required), `PUT /api/children/:id/name` (parent auth required)
-- [ ] T070 [US5] Implement `ManageChild` component in `frontend/src/components/ManageChild.tsx` — displays child info, "Reset Password" button with new password input, "Update Name" input, calls respective API endpoints, shows success/error feedback
-- [ ] T071 [US5] Update `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` to show `ManageChild` component when a child is selected from `ChildList`
+- [x] T066 [US5] Implement child update operations in `backend/internal/store/child.go` (append): `UpdatePassword` (hash new password, reset is_locked + failed_attempts), `UpdateName` (validate uniqueness within family, update first_name + updated_at)
+- [x] T067 [US5] Write unit tests for child update operations in `backend/internal/store/child_test.go` (append) — test password update rehashes, unlock on reset, name update, duplicate name rejection
+- [x] T068 [US5] Implement credential management handlers in `backend/internal/family/handlers.go` (append): `HandleResetPassword` (PUT /api/children/:id/password — validate parent owns family, validate password min 6, hash + update, log event), `HandleUpdateName` (PUT /api/children/:id/name — validate parent owns family, validate unique name, update, log event)
+- [x] T069 [US5] Register US5 routes in `backend/main.go`: `PUT /api/children/:id/password` (parent auth required), `PUT /api/children/:id/name` (parent auth required)
+- [x] T070 [US5] Implement `ManageChild` component in `frontend/src/components/ManageChild.tsx` — displays child info, "Reset Password" button with new password input, "Update Name" input, calls respective API endpoints, shows success/error feedback
+- [x] T071 [US5] Update `ParentDashboard` in `frontend/src/pages/ParentDashboard.tsx` to show `ManageChild` component when a child is selected from `ChildList`
 
 **Checkpoint**: Credential management fully functional. Parents can manage all child account details.
 
@@ -215,9 +215,9 @@
 
 ### Implementation for User Story 6
 
-- [ ] T074 [US6] Implement session cookie Max-Age differentiation in `backend/internal/auth/session.go`: parent sessions set `Max-Age=604800` (7 days per FR-012), child sessions set `Max-Age=86400` (24 hours per FR-013), verify `HttpOnly`, `Secure` (configurable for dev), `SameSite=Lax` attributes
-- [ ] T075 [US6] Implement expired session cleanup goroutine in `backend/internal/store/session.go` (append): `StartCleanupLoop` that runs `DeleteExpired` periodically (every hour), started from `main.go`
-- [ ] T076 [US6] Update auth middleware in `backend/internal/middleware/auth.go` to lazily delete expired sessions on access (delete row + clear cookie + return 401) in addition to the periodic cleanup
+- [x] T074 [US6] Implement session cookie Max-Age differentiation in `backend/internal/auth/session.go`: parent sessions set `Max-Age=604800` (7 days per FR-012), child sessions set `Max-Age=86400` (24 hours per FR-013), verify `HttpOnly`, `Secure` (configurable for dev), `SameSite=Lax` attributes
+- [x] T075 [US6] Implement expired session cleanup goroutine in `backend/internal/store/session.go` (append): `StartCleanupLoop` that runs `DeleteExpired` periodically (every hour), started from `main.go`
+- [x] T076 [US6] Update auth middleware in `backend/internal/middleware/auth.go` to lazily delete expired sessions on access (delete row + clear cookie + return 401) in addition to the periodic cleanup
 
 **Checkpoint**: Session persistence fully functional. All user stories complete.
 
@@ -227,12 +227,12 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T077 [P] Add input sanitization for all user-provided strings (slug, child name) in `backend/internal/family/validation.go` — trim whitespace, reject HTML/script content per constitution Security-First principle
-- [ ] T078 [P] Add rate limiting for child login endpoint to supplement account lockout in `backend/internal/middleware/auth.go` (or new file `backend/internal/middleware/ratelimit.go`)
-- [ ] T079 Verify all auth events are logged by reviewing each handler calls `LogEvent` — cross-reference with FR-018 event types (login_success, login_failure, logout, account_created, account_locked, password_reset, name_updated) in `backend/internal/store/auth_event.go`
+- [x] T077 [P] Add input sanitization for all user-provided strings (slug, child name) in `backend/internal/family/validation.go` — trim whitespace, reject HTML/script content per constitution Security-First principle
+- [x] T078 [P] Add rate limiting for child login endpoint to supplement account lockout in `backend/internal/middleware/auth.go` (or new file `backend/internal/middleware/ratelimit.go`)
+- [x] T079 Verify all auth events are logged by reviewing each handler calls `LogEvent` — cross-reference with FR-018 event types (login_success, login_failure, logout, account_created, account_locked, password_reset, name_updated) in `backend/internal/store/auth_event.go`
 - [ ] T080 Run `quickstart.md` validation scenarios manually against running application, document any failures
-- [ ] T081 [P] Update `backend/Dockerfile` to ensure SQLite data volume mount works correctly in production build
-- [ ] T082 [P] Update `frontend/nginx.conf` to handle SPA routing for all new pages (/:familySlug, /dashboard, /setup, /auth/callback, /child/dashboard)
+- [x] T081 [P] Update `backend/Dockerfile` to ensure SQLite data volume mount works correctly in production build
+- [x] T082 [P] Update `frontend/nginx.conf` to handle SPA routing for all new pages (/:familySlug, /dashboard, /setup, /auth/callback, /child/dashboard)
 
 ---
 

@@ -5,8 +5,25 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"time"
 )
+
+// parseTime tries multiple formats that SQLite might use for datetime values.
+func parseTime(s string) (time.Time, error) {
+	formats := []string{
+		time.RFC3339,
+		time.DateTime,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02 15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse time %q", s)
+}
 
 type Session struct {
 	Token     string
@@ -68,16 +85,32 @@ func (s *SessionStore) GetByToken(token string) (*Session, error) {
 		return nil, fmt.Errorf("scan session: %w", err)
 	}
 
-	sess.CreatedAt, err = time.Parse(time.DateTime, createdAt)
+	sess.CreatedAt, err = parseTime(createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("parse created_at: %w", err)
 	}
-	sess.ExpiresAt, err = time.Parse(time.DateTime, expiresAt)
+	sess.ExpiresAt, err = parseTime(expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("parse expires_at: %w", err)
 	}
 
 	return &sess, nil
+}
+
+// ValidateSession looks up a session by token and returns the user info if valid.
+// If the session exists but is expired, it lazily deletes the row from the DB.
+// Implements middleware.SessionValidator interface.
+func (s *SessionStore) ValidateSession(token string) (string, int64, int64, error) {
+	sess, err := s.GetByToken(token)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	if sess == nil {
+		// Lazy cleanup: delete the expired row if it exists
+		s.DeleteByToken(token)
+		return "", 0, 0, fmt.Errorf("session not found or expired")
+	}
+	return sess.UserType, sess.UserID, sess.FamilyID, nil
 }
 
 // DeleteByToken removes a single session row by token.
@@ -100,4 +133,26 @@ func (s *SessionStore) DeleteExpired() (int64, error) {
 		return 0, fmt.Errorf("delete expired sessions: %w", err)
 	}
 	return res.RowsAffected()
+}
+
+// StartCleanupLoop runs DeleteExpired periodically in a goroutine.
+// It runs immediately on start, then every interval. Stops when stop is closed.
+func (s *SessionStore) StartCleanupLoop(interval time.Duration, stop <-chan struct{}) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			n, err := s.DeleteExpired()
+			if err != nil {
+				log.Printf("Session cleanup error: %v", err)
+			} else if n > 0 {
+				log.Printf("Cleaned up %d expired sessions", n)
+			}
+			select {
+			case <-ticker.C:
+			case <-stop:
+				return
+			}
+		}
+	}()
 }
