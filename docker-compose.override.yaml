@@ -22,3 +22,4 @@ services:
       - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
     environment:
       - NODE_ENV=development
+      - API_URL=http://backend:8001
