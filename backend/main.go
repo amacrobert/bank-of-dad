@@ -2,46 +2,103 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"time"
+
+	"bank-of-dad/internal/auth"
+	"bank-of-dad/internal/config"
+	"bank-of-dad/internal/family"
+	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/store"
 )
 
-type MessageResponse struct {
-	Message string `json:"message"`
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func messageHandler(w http.ResponseWriter, r *http.Request) {
-	response := MessageResponse{
-		Message: "Hello from Bank of Dad!",
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
+	db, err := store.Open(cfg.DatabasePath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
 
-func main() {
+	sessionStore := store.NewSessionStore(db)
+
+	// Start session cleanup goroutine (every hour)
+	stopCleanup := make(chan struct{})
+	defer close(stopCleanup)
+	sessionStore.StartCleanupLoop(1*time.Hour, stopCleanup)
+	parentStore := store.NewParentStore(db)
+	familyStore := store.NewFamilyStore(db)
+	childStore := store.NewChildStore(db)
+	eventStore := store.NewAuthEventStore(db)
+
+	// Initialize handlers
+	googleAuth := auth.NewGoogleAuth(
+		cfg.GoogleClientID,
+		cfg.GoogleClientSecret,
+		cfg.GoogleRedirectURL,
+		parentStore,
+		sessionStore,
+		eventStore,
+		cfg.FrontendURL,
+		cfg.CookieSecure,
+	)
+
+	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore)
+	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
+	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
+
+	// Auth middleware
+	requireAuth := middleware.RequireAuth(sessionStore)
+	requireParent := middleware.RequireParent(sessionStore)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/message", messageHandler)
 
-	handler := corsMiddleware(mux)
+	// Public endpoints
+	mux.HandleFunc("GET /api/health", handleHealth)
 
-	log.Println("Backend server starting on port 8001...")
-	if err := http.ListenAndServe(":8001", handler); err != nil {
+	// US1: Google OAuth (public)
+	mux.HandleFunc("GET /api/auth/google/login", googleAuth.HandleLogin)
+	mux.HandleFunc("GET /api/auth/google/callback", googleAuth.HandleCallback)
+
+	// US1: Family management (auth required)
+	mux.Handle("POST /api/families", requireParent(http.HandlerFunc(familyHandlers.HandleCreateFamily)))
+	mux.Handle("GET /api/families/check-slug", requireParent(http.HandlerFunc(familyHandlers.HandleCheckSlug)))
+
+	// US2: Auth session endpoints (any authenticated user)
+	mux.Handle("GET /api/auth/me", requireAuth(http.HandlerFunc(authHandlers.HandleGetMe)))
+	mux.Handle("POST /api/auth/logout", requireAuth(http.HandlerFunc(authHandlers.HandleLogout)))
+
+	// US3: Child management (parent auth required)
+	mux.Handle("POST /api/children", requireParent(http.HandlerFunc(familyHandlers.HandleCreateChild)))
+	mux.Handle("GET /api/children", requireParent(http.HandlerFunc(familyHandlers.HandleListChildren)))
+
+	// US5: Child credential management (parent auth required)
+	mux.Handle("PUT /api/children/{id}/password", requireParent(http.HandlerFunc(familyHandlers.HandleResetPassword)))
+	mux.Handle("PUT /api/children/{id}/name", requireParent(http.HandlerFunc(familyHandlers.HandleUpdateName)))
+
+	// US4: Child login and family lookup (public)
+	childLoginRateLimit := middleware.RateLimit(10, 1*time.Minute)
+	mux.Handle("POST /api/auth/child/login", childLoginRateLimit(http.HandlerFunc(childAuth.HandleChildLogin)))
+	mux.HandleFunc("GET /api/families/{slug}", familyHandlers.HandleGetFamily)
+
+	// Apply middleware chain: CORS → Logging → Routes
+	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)
+	handler := corsMiddleware(middleware.RequestLogging(mux))
+
+	addr := fmt.Sprintf(":%s", cfg.ServerPort)
+	log.Printf("Backend server starting on %s...", addr)
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

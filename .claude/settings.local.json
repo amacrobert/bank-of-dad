@@ -5,7 +5,18 @@
       "Bash(curl:*)",
       "Bash(.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(git fetch:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(bash:*)",
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(npm install:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)",
+      "Bash(lsof:*)"
     ]
   }
 }
