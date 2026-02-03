@@ -25,10 +25,10 @@
 
 **Purpose**: Database schema changes and shared types
 
-- [ ] T001 Add balance_cents column to children table migration in backend/internal/store/db.go
-- [ ] T002 Create transactions table with index in backend/internal/store/db.go
-- [ ] T003 [P] Add Transaction model and types in backend/internal/store/transaction.go
-- [ ] T004 [P] Add TypeScript types (Transaction, BalanceResponse, etc.) in frontend/src/types.ts
+- [x] T001 Add balance_cents column to children table migration in backend/internal/store/db.go
+- [x] T002 Create transactions table with index in backend/internal/store/db.go
+- [x] T003 [P] Add Transaction model and types in backend/internal/store/transaction.go
+- [x] T004 [P] Add TypeScript types (Transaction, BalanceResponse, etc.) in frontend/src/types.ts
 
 ---
 
@@ -40,18 +40,18 @@
 
 ### Tests First
 
-- [ ] T005 Write failing tests for TransactionStore.Deposit() in backend/internal/store/transaction_test.go
-- [ ] T006 [P] Write failing tests for TransactionStore.Withdraw() in backend/internal/store/transaction_test.go
-- [ ] T007 [P] Write failing tests for TransactionStore.ListByChild() in backend/internal/store/transaction_test.go
-- [ ] T008 [P] Write failing tests for ChildStore.GetBalance() in backend/internal/store/child_test.go
+- [x] T005 Write failing tests for TransactionStore.Deposit() in backend/internal/store/transaction_test.go
+- [x] T006 [P] Write failing tests for TransactionStore.Withdraw() in backend/internal/store/transaction_test.go
+- [x] T007 [P] Write failing tests for TransactionStore.ListByChild() in backend/internal/store/transaction_test.go
+- [x] T008 [P] Write failing tests for ChildStore.GetBalance() in backend/internal/store/child_test.go
 
 ### Implementation
 
-- [ ] T009 Implement TransactionStore.Deposit() with atomic balance update in backend/internal/store/transaction.go
-- [ ] T010 Implement TransactionStore.Withdraw() with insufficient funds check in backend/internal/store/transaction.go
-- [ ] T011 Implement TransactionStore.ListByChild() ordered by created_at DESC in backend/internal/store/transaction.go
-- [ ] T012 Add GetBalance() method to ChildStore in backend/internal/store/child.go
-- [ ] T013 Run all store tests and verify they pass
+- [x] T009 Implement TransactionStore.Deposit() with atomic balance update in backend/internal/store/transaction.go
+- [x] T010 Implement TransactionStore.Withdraw() with insufficient funds check in backend/internal/store/transaction.go
+- [x] T011 Implement TransactionStore.ListByChild() ordered by created_at DESC in backend/internal/store/transaction.go
+- [x] T012 Add GetBalance() method to ChildStore in backend/internal/store/child.go
+- [x] T013 Run all store tests and verify they pass
 
 **Checkpoint**: Store layer ready - balance operations work atomically, tests pass
 
@@ -67,21 +67,21 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T014 [P] [US1] Write failing test for GET /api/children returning balances in backend/internal/family/handler_test.go
-- [ ] T015 [P] [US1] Write failing test for parent authorization (can't see other family's children) in backend/internal/family/handler_test.go
+- [x] T014 [P] [US1] Write failing test for GET /api/children returning balances in backend/internal/family/handler_test.go
+- [x] T015 [P] [US1] Write failing test for parent authorization (can't see other family's children) in backend/internal/family/handler_test.go
 
 ### Backend Implementation for User Story 1
 
-- [ ] T016 [US1] Modify ListChildren handler to include balance_cents in response in backend/internal/family/handler.go
-- [ ] T017 [US1] Update ChildListResponse to include balance_cents in backend/internal/family/handler.go
-- [ ] T018 [US1] Run US1 backend tests and verify they pass
+- [x] T016 [US1] Modify ListChildren handler to include balance_cents in response in backend/internal/family/handler.go
+- [x] T017 [US1] Update ChildListResponse to include balance_cents in backend/internal/family/handler.go
+- [x] T018 [US1] Run US1 backend tests and verify they pass
 
 ### Frontend Implementation for User Story 1
 
-- [ ] T019 [P] [US1] Add getChildrenWithBalances API function in frontend/src/api.ts
-- [ ] T020 [P] [US1] Create BalanceDisplay component in frontend/src/components/BalanceDisplay.tsx
-- [ ] T021 [US1] Update ParentDashboard to show balance for each child in frontend/src/pages/ParentDashboard.tsx
-- [ ] T022 [US1] Handle empty state (no children) with guidance message in frontend/src/pages/ParentDashboard.tsx
+- [x] T019 [P] [US1] Add getChildrenWithBalances API function in frontend/src/api.ts
+- [x] T020 [P] [US1] Create BalanceDisplay component in frontend/src/components/BalanceDisplay.tsx
+- [x] T021 [US1] Update ParentDashboard to show balance for each child in frontend/src/pages/ParentDashboard.tsx
+- [x] T022 [US1] Handle empty state (no children) with guidance message in frontend/src/pages/ParentDashboard.tsx
 
 **Checkpoint**: Parents can view all children's balances - MVP complete and testable
 

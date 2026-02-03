@@ -16,6 +16,7 @@ type Child struct {
 	PasswordHash        string
 	IsLocked            bool
 	FailedLoginAttempts int
+	BalanceCents        int64
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -54,9 +55,9 @@ func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	var isLocked int
 	var createdAt, updatedAt string
 	err := s.db.Read.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
 		 FROM children WHERE id = ?`, id,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &createdAt, &updatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -74,9 +75,9 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 	var isLocked int
 	var createdAt, updatedAt string
 	err := s.db.Read.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
 		 FROM children WHERE family_id = ? AND first_name = ?`, familyID, firstName,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &createdAt, &updatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -91,7 +92,7 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	rows, err := s.db.Read.Query(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
 		 FROM children WHERE family_id = ? ORDER BY first_name`, familyID,
 	)
 	if err != nil {
@@ -104,7 +105,7 @@ func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 		var c Child
 		var isLocked int
 		var createdAt, updatedAt string
-		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
 		c.IsLocked = isLocked != 0
@@ -181,4 +182,17 @@ func (s *ChildStore) UpdateName(id, familyID int64, newName string) error {
 		return fmt.Errorf("update name: %w", err)
 	}
 	return nil
+}
+
+// GetBalance returns the current balance in cents for a child.
+func (s *ChildStore) GetBalance(id int64) (int64, error) {
+	var balance int64
+	err := s.db.Read.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, id).Scan(&balance)
+	if err == sql.ErrNoRows {
+		return 0, fmt.Errorf("child not found")
+	}
+	if err != nil {
+		return 0, fmt.Errorf("get balance: %w", err)
+	}
+	return balance, nil
 }

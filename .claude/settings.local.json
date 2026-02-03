@@ -20,7 +20,8 @@
       "Bash(.specify/scripts/bash/create-new-feature.sh:*)",
       "Bash(git branch:*)",
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
-      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)"
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
