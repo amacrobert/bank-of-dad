@@ -1,0 +1,397 @@
+openapi: 3.0.3
+info:
+  title: Bank of Dad - Account Balances API
+  description: API endpoints for managing child account balances and transactions
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001/api
+    description: Local development server
+
+paths:
+  /children:
+    get:
+      summary: List children with balances
+      description: Returns all children in the parent's family with their current balances
+      operationId: listChildrenWithBalances
+      tags:
+        - children
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: List of children with balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildListWithBalancesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /children/{childId}/balance:
+    get:
+      summary: Get child balance
+      description: Returns the current balance for a specific child. Parents can view any of their children's balances. Children can only view their own balance.
+      operationId: getChildBalance
+      tags:
+        - balances
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/childId'
+      responses:
+        '200':
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /children/{childId}/deposit:
+    post:
+      summary: Deposit money
+      description: Add money to a child's account. Only parents can deposit money into their children's accounts.
+      operationId: depositMoney
+      tags:
+        - transactions
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/childId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositRequest'
+      responses:
+        '200':
+          description: Deposit successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /children/{childId}/withdraw:
+    post:
+      summary: Withdraw money
+      description: Remove money from a child's account. Only parents can withdraw money from their children's accounts. Cannot exceed current balance.
+      operationId: withdrawMoney
+      tags:
+        - transactions
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/childId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawRequest'
+      responses:
+        '200':
+          description: Withdrawal successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Bad request (invalid amount or insufficient funds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientFunds:
+                  summary: Insufficient funds
+                  value:
+                    error: "insufficient_funds"
+                    message: "Cannot withdraw $25.00. Current balance is $20.00."
+                invalidAmount:
+                  summary: Invalid amount
+                  value:
+                    error: "invalid_amount"
+                    message: "Amount must be a positive number greater than zero."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /children/{childId}/transactions:
+    get:
+      summary: Get transaction history
+      description: Returns all transactions for a specific child, ordered by most recent first. Parents can view their children's transactions. Children can only view their own transactions.
+      operationId: getTransactionHistory
+      tags:
+        - transactions
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/childId'
+      responses:
+        '200':
+          description: Transaction history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_token
+
+  parameters:
+    childId:
+      name: childId
+      in: path
+      required: true
+      description: The ID of the child
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  schemas:
+    BalanceResponse:
+      type: object
+      required:
+        - child_id
+        - balance_cents
+      properties:
+        child_id:
+          type: integer
+          format: int64
+          description: The child's ID
+          example: 1
+        balance_cents:
+          type: integer
+          format: int64
+          description: Current balance in cents
+          example: 1250
+          minimum: 0
+
+    ChildWithBalance:
+      type: object
+      required:
+        - id
+        - first_name
+        - balance_cents
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        first_name:
+          type: string
+          example: "Emma"
+        balance_cents:
+          type: integer
+          format: int64
+          example: 2500
+          minimum: 0
+
+    ChildListWithBalancesResponse:
+      type: object
+      required:
+        - children
+      properties:
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChildWithBalance'
+
+    DepositRequest:
+      type: object
+      required:
+        - amount_cents
+      properties:
+        amount_cents:
+          type: integer
+          format: int64
+          description: Amount to deposit in cents (must be positive)
+          example: 1000
+          minimum: 1
+          maximum: 99999999
+        note:
+          type: string
+          description: Optional description for the deposit
+          example: "Weekly allowance"
+          maxLength: 500
+
+    WithdrawRequest:
+      type: object
+      required:
+        - amount_cents
+      properties:
+        amount_cents:
+          type: integer
+          format: int64
+          description: Amount to withdraw in cents (must be positive, cannot exceed balance)
+          example: 500
+          minimum: 1
+          maximum: 99999999
+        note:
+          type: string
+          description: Optional description for the withdrawal
+          example: "Bought a book"
+          maxLength: 500
+
+    Transaction:
+      type: object
+      required:
+        - id
+        - child_id
+        - parent_id
+        - amount_cents
+        - type
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        child_id:
+          type: integer
+          format: int64
+          example: 1
+        parent_id:
+          type: integer
+          format: int64
+          example: 1
+        amount_cents:
+          type: integer
+          format: int64
+          description: Transaction amount in cents (always positive)
+          example: 1000
+          minimum: 1
+        type:
+          type: string
+          enum:
+            - deposit
+            - withdrawal
+          description: Type of transaction
+          example: "deposit"
+        note:
+          type: string
+          nullable: true
+          description: Optional transaction description
+          example: "Weekly allowance"
+        created_at:
+          type: string
+          format: date-time
+          description: When the transaction occurred
+          example: "2026-02-03T12:00:00Z"
+
+    TransactionResponse:
+      type: object
+      required:
+        - transaction
+        - new_balance_cents
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        new_balance_cents:
+          type: integer
+          format: int64
+          description: Balance after the transaction
+          example: 2500
+
+    TransactionListResponse:
+      type: object
+      required:
+        - transactions
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "invalid_amount"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Amount must be a positive number greater than zero."
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: Suggestions for resolving the error
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "unauthorized"
+            message: "Authentication required."
+    Forbidden:
+      description: Not authorized to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "forbidden"
+            message: "You do not have permission to access this resource."
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "not_found"
+            message: "Child not found."
+
+tags:
+  - name: children
+    description: Child management endpoints
+  - name: balances
+    description: Balance query endpoints
+  - name: transactions
+    description: Transaction management endpoints

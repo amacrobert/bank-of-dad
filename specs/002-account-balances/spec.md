@@ -1,6 +1,6 @@
 # Feature Specification: Account Balances
 
-**Feature Branch**: `001-account-balances`
+**Feature Branch**: `002-account-balances`
 **Created**: 2026-02-03
 **Status**: Draft
 **Input**: User description: "Add account balances. Each child has an account balance. Account balances are read-only for children. Parents can add or remove money from their childrens' accounts. On the parents' page, they can see all account balances for accounts at their bank (aka their children)."
