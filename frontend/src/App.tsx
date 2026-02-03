@@ -1,39 +1,26 @@
-import { useEffect, useState } from 'react'
-
-interface MessageResponse {
-  message: string
-}
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
+import GoogleCallback from "./pages/GoogleCallback";
+import SetupPage from "./pages/SetupPage";
+import ParentDashboard from "./pages/ParentDashboard";
+import FamilyLogin from "./pages/FamilyLogin";
+import ChildDashboard from "./pages/ChildDashboard";
+import NotFound from "./pages/NotFound";
 
 function App() {
-  const [message, setMessage] = useState<string>('Loading...')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('http://localhost:8001/message')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to fetch message')
-        }
-        return response.json() as Promise<MessageResponse>
-      })
-      .then((data) => {
-        setMessage(data.message)
-      })
-      .catch((err) => {
-        setError(err.message)
-      })
-  }, [])
-
   return (
-    <div className="app">
-      <h1>Bank of Dad</h1>
-      {error ? (
-        <p className="error">Error: {error}</p>
-      ) : (
-        <p className="message">{message}</p>
-      )}
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/dashboard" element={<ParentDashboard />} />
+        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/auth/callback" element={<GoogleCallback />} />
+        <Route path="/child/dashboard" element={<ChildDashboard />} />
+        <Route path="/:familySlug" element={<FamilyLogin />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
