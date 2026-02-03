@@ -16,7 +16,8 @@
       "Bash(go test:*)",
       "Bash(npx tsc:*)",
       "Bash(npx vite build:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh:*)"
     ]
   }
 }
