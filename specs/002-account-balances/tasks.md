@@ -196,7 +196,7 @@
 **Purpose**: Final validation and cleanup
 
 - [x] T064 Run all backend tests (go test ./...) and verify 100% pass
-- [ ] T065 Run all frontend tests and verify pass
+- [x] T065 Run all frontend tests and verify pass (no test suite configured; TypeScript build passes)
 - [ ] T066 Manual test: Parent creates deposit, child views updated balance
 - [ ] T067 Manual test: Parent creates withdrawal, verify insufficient funds handling
 - [ ] T068 Verify all success criteria from spec.md are met
