@@ -21,6 +21,7 @@ export interface Child {
   id: number;
   first_name: string;
   is_locked: boolean;
+  balance_cents: number;
   created_at: string;
 }
 
@@ -56,4 +57,49 @@ export interface ChildCreateResponse {
 
 export interface ChildListResponse {
   children: Child[];
+}
+
+// Account Balances Feature (002-account-balances)
+
+export type TransactionType = 'deposit' | 'withdrawal';
+
+export interface Transaction {
+  id: number;
+  child_id: number;
+  parent_id: number;
+  amount_cents: number;
+  type: TransactionType;
+  note?: string;
+  created_at: string;
+}
+
+export interface BalanceResponse {
+  child_id: number;
+  balance_cents: number;
+}
+
+export interface ChildWithBalance {
+  id: number;
+  first_name: string;
+  balance_cents: number;
+  is_locked: boolean;
+}
+
+export interface TransactionListResponse {
+  transactions: Transaction[];
+}
+
+export interface TransactionResponse {
+  transaction: Transaction;
+  new_balance_cents: number;
+}
+
+export interface DepositRequest {
+  amount_cents: number;
+  note?: string;
+}
+
+export interface WithdrawRequest {
+  amount_cents: number;
+  note?: string;
 }

@@ -221,3 +221,27 @@ func TestUpdateName_DuplicateRejected(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
 }
+
+// T008: Tests for ChildStore.GetBalance()
+func TestGetBalance(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	require.NoError(t, err)
+
+	// Initial balance should be 0
+	balance, err := cs.GetBalance(child.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), balance)
+}
+
+func TestGetBalance_NotFound(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+
+	_, err := cs.GetBalance(99999) // Non-existent ID
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}

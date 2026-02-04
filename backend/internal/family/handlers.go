@@ -201,19 +201,21 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type childResponse struct {
-		ID        int64  `json:"id"`
-		FirstName string `json:"first_name"`
-		IsLocked  bool   `json:"is_locked"`
-		CreatedAt string `json:"created_at"`
+		ID           int64  `json:"id"`
+		FirstName    string `json:"first_name"`
+		IsLocked     bool   `json:"is_locked"`
+		BalanceCents int64  `json:"balance_cents"`
+		CreatedAt    string `json:"created_at"`
 	}
 
 	result := make([]childResponse, len(children))
 	for i, c := range children {
 		result[i] = childResponse{
-			ID:        c.ID,
-			FirstName: c.FirstName,
-			IsLocked:  c.IsLocked,
-			CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			ID:           c.ID,
+			FirstName:    c.FirstName,
+			IsLocked:     c.IsLocked,
+			BalanceCents: c.BalanceCents,
+			CreatedAt:    c.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		}
 	}
 

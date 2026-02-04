@@ -119,12 +119,66 @@ func (db *DB) migrate() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_auth_events_created ON auth_events(created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_auth_events_family ON auth_events(family_id)`,
+		// Account balances feature (002-account-balances)
+		`CREATE TABLE IF NOT EXISTS transactions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			child_id INTEGER NOT NULL,
+			parent_id INTEGER NOT NULL,
+			amount_cents INTEGER NOT NULL,
+			transaction_type TEXT NOT NULL CHECK(transaction_type IN ('deposit', 'withdrawal')),
+			note TEXT,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+			FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE RESTRICT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_transactions_child_created ON transactions(child_id, created_at DESC)`,
 	}
 
 	for _, stmt := range statements {
 		if _, err := db.Write.Exec(stmt); err != nil {
 			return fmt.Errorf("exec migration: %w", err)
 		}
+	}
+
+	// Add balance_cents column if it doesn't exist (idempotent migration for existing databases)
+	if err := db.addColumnIfNotExists("children", "balance_cents", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("add balance_cents column: %w", err)
+	}
+
+	return nil
+}
+
+// addColumnIfNotExists adds a column to a table if it doesn't already exist.
+// This is used for idempotent migrations since SQLite doesn't support IF NOT EXISTS for ALTER TABLE.
+func (db *DB) addColumnIfNotExists(table, column, definition string) error {
+	// Check if column exists by querying table_info
+	rows, err := db.Read.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return fmt.Errorf("query table_info: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info: %w", err)
+		}
+		if name == column {
+			// Column already exists
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info: %w", err)
+	}
+
+	// Column doesn't exist, add it
+	_, err = db.Write.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition))
+	if err != nil {
+		return fmt.Errorf("alter table: %w", err)
 	}
 
 	return nil

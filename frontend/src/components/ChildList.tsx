@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { get } from "../api";
 import { ChildListResponse, Child } from "../types";
+import BalanceDisplay from "./BalanceDisplay";
 
 interface ChildListProps {
   refreshKey: number;
@@ -27,7 +28,12 @@ export default function ChildList({ refreshKey, onSelectChild }: ChildListProps)
   }
 
   if (children.length === 0) {
-    return <p>No children added yet. Add your first child above!</p>;
+    return (
+      <div className="child-list-empty">
+        <p>No children added yet. Add your first child above!</p>
+        <p className="hint">Once you add children, you can deposit money into their accounts.</p>
+      </div>
+    );
   }
 
   return (
@@ -36,19 +42,23 @@ export default function ChildList({ refreshKey, onSelectChild }: ChildListProps)
       <ul>
         {children.map((child) => (
           <li key={child.id} className="child-item">
-            <span className="child-name">{child.first_name}</span>
-            {child.is_locked && <span className="child-locked"> (locked)</span>}
-            <span className="child-date">
-              Added {new Date(child.created_at).toLocaleDateString()}
-            </span>
-            {onSelectChild && (
-              <button
-                onClick={() => onSelectChild(child)}
-                className="btn-manage"
-              >
-                Manage
-              </button>
-            )}
+            <div className="child-info">
+              <span className="child-name">{child.first_name}</span>
+              {child.is_locked && <span className="child-locked"> (locked)</span>}
+            </div>
+            <div className="child-balance">
+              <BalanceDisplay balanceCents={child.balance_cents} />
+            </div>
+            <div className="child-actions">
+              {onSelectChild && (
+                <button
+                  onClick={() => onSelectChild(child)}
+                  className="btn-manage"
+                >
+                  Manage
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
