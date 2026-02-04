@@ -97,26 +97,26 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [P] [US2] Write failing test for POST /api/children/{id}/deposit in backend/internal/balance/handler_test.go
-- [ ] T024 [P] [US2] Write failing test for deposit validation (amount > 0, max amount) in backend/internal/balance/handler_test.go
-- [ ] T025 [P] [US2] Write failing test for deposit authorization (parent only, own family) in backend/internal/balance/handler_test.go
+- [x] T023 [P] [US2] Write failing test for POST /api/children/{id}/deposit in backend/internal/balance/handler_test.go
+- [x] T024 [P] [US2] Write failing test for deposit validation (amount > 0, max amount) in backend/internal/balance/handler_test.go
+- [x] T025 [P] [US2] Write failing test for deposit authorization (parent only, own family) in backend/internal/balance/handler_test.go
 
 ### Backend Implementation for User Story 2
 
-- [ ] T026 [US2] Create balance handler package structure in backend/internal/balance/handler.go
-- [ ] T027 [US2] Implement HandleDeposit endpoint in backend/internal/balance/handler.go
-- [ ] T028 [US2] Add amount validation (positive, max 99999999 cents) in backend/internal/balance/handler.go
-- [ ] T029 [US2] Add note validation (max 500 chars, trim whitespace) in backend/internal/balance/handler.go
-- [ ] T030 [US2] Register POST /api/children/{id}/deposit route with RequireParent middleware in backend/main.go
-- [ ] T031 [US2] Run US2 backend tests and verify they pass
+- [x] T026 [US2] Create balance handler package structure in backend/internal/balance/handler.go
+- [x] T027 [US2] Implement HandleDeposit endpoint in backend/internal/balance/handler.go
+- [x] T028 [US2] Add amount validation (positive, max 99999999 cents) in backend/internal/balance/handler.go
+- [x] T029 [US2] Add note validation (max 500 chars, trim whitespace) in backend/internal/balance/handler.go
+- [x] T030 [US2] Register POST /api/children/{id}/deposit route with RequireParent middleware in backend/main.go
+- [x] T031 [US2] Run US2 backend tests and verify they pass
 
 ### Frontend Implementation for User Story 2
 
-- [ ] T032 [P] [US2] Add deposit API function in frontend/src/api.ts
-- [ ] T033 [P] [US2] Create DepositForm component in frontend/src/components/DepositForm.tsx
-- [ ] T034 [US2] Add deposit UI to ParentDashboard (form appears when child selected) in frontend/src/pages/ParentDashboard.tsx
-- [ ] T035 [US2] Handle deposit success (show new balance, clear form) in frontend/src/pages/ParentDashboard.tsx
-- [ ] T036 [US2] Handle deposit errors (validation, server errors) in frontend/src/components/DepositForm.tsx
+- [x] T032 [P] [US2] Add deposit API function in frontend/src/api.ts
+- [x] T033 [P] [US2] Create DepositForm component in frontend/src/components/DepositForm.tsx
+- [x] T034 [US2] Add deposit UI to ParentDashboard (form appears when child selected) in frontend/src/pages/ParentDashboard.tsx
+- [x] T035 [US2] Handle deposit success (show new balance, clear form) in frontend/src/pages/ParentDashboard.tsx
+- [x] T036 [US2] Handle deposit errors (validation, server errors) in frontend/src/components/DepositForm.tsx
 
 **Checkpoint**: Parents can deposit money - core banking feature functional
 
@@ -132,23 +132,23 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T037 [P] [US3] Write failing test for POST /api/children/{id}/withdraw in backend/internal/balance/handler_test.go
-- [ ] T038 [P] [US3] Write failing test for insufficient funds error in backend/internal/balance/handler_test.go
-- [ ] T039 [P] [US3] Write failing test for withdraw to exactly $0.00 (should succeed) in backend/internal/balance/handler_test.go
+- [x] T037 [P] [US3] Write failing test for POST /api/children/{id}/withdraw in backend/internal/balance/handler_test.go
+- [x] T038 [P] [US3] Write failing test for insufficient funds error in backend/internal/balance/handler_test.go
+- [x] T039 [P] [US3] Write failing test for withdraw to exactly $0.00 (should succeed) in backend/internal/balance/handler_test.go
 
 ### Backend Implementation for User Story 3
 
-- [ ] T040 [US3] Implement HandleWithdraw endpoint in backend/internal/balance/handler.go
-- [ ] T041 [US3] Add insufficient funds error response with current balance in backend/internal/balance/handler.go
-- [ ] T042 [US3] Register POST /api/children/{id}/withdraw route with RequireParent middleware in backend/main.go
-- [ ] T043 [US3] Run US3 backend tests and verify they pass
+- [x] T040 [US3] Implement HandleWithdraw endpoint in backend/internal/balance/handler.go
+- [x] T041 [US3] Add insufficient funds error response with current balance in backend/internal/balance/handler.go
+- [x] T042 [US3] Register POST /api/children/{id}/withdraw route with RequireParent middleware in backend/main.go
+- [x] T043 [US3] Run US3 backend tests and verify they pass
 
 ### Frontend Implementation for User Story 3
 
-- [ ] T044 [P] [US3] Add withdraw API function in frontend/src/api.ts
-- [ ] T045 [P] [US3] Create WithdrawForm component in frontend/src/components/WithdrawForm.tsx
-- [ ] T046 [US3] Add withdraw UI to ParentDashboard (alongside deposit) in frontend/src/pages/ParentDashboard.tsx
-- [ ] T047 [US3] Handle insufficient funds error with clear message in frontend/src/components/WithdrawForm.tsx
+- [x] T044 [P] [US3] Add withdraw API function in frontend/src/api.ts
+- [x] T045 [P] [US3] Create WithdrawForm component in frontend/src/components/WithdrawForm.tsx
+- [x] T046 [US3] Add withdraw UI to ParentDashboard (alongside deposit) in frontend/src/pages/ParentDashboard.tsx
+- [x] T047 [US3] Handle insufficient funds error with clear message in frontend/src/components/WithdrawForm.tsx
 
 **Checkpoint**: Parents can withdraw money - complete parent banking controls
 
@@ -164,28 +164,28 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T048 [P] [US4] Write failing test for GET /api/children/{id}/balance in backend/internal/balance/handler_test.go
-- [ ] T049 [P] [US4] Write failing test for GET /api/children/{id}/transactions in backend/internal/balance/handler_test.go
-- [ ] T050 [P] [US4] Write failing test for child can only view own balance (not siblings) in backend/internal/balance/handler_test.go
-- [ ] T051 [P] [US4] Write failing test for transactions ordered newest-first in backend/internal/balance/handler_test.go
+- [x] T048 [P] [US4] Write failing test for GET /api/children/{id}/balance in backend/internal/balance/handler_test.go
+- [x] T049 [P] [US4] Write failing test for GET /api/children/{id}/transactions in backend/internal/balance/handler_test.go
+- [x] T050 [P] [US4] Write failing test for child can only view own balance (not siblings) in backend/internal/balance/handler_test.go
+- [x] T051 [P] [US4] Write failing test for transactions ordered newest-first in backend/internal/balance/handler_test.go
 
 ### Backend Implementation for User Story 4
 
-- [ ] T052 [US4] Implement HandleGetBalance endpoint in backend/internal/balance/handler.go
-- [ ] T053 [US4] Implement HandleGetTransactions endpoint in backend/internal/balance/handler.go
-- [ ] T054 [US4] Add authorization check (child can only view self, parent can view own children) in backend/internal/balance/handler.go
-- [ ] T055 [US4] Register GET /api/children/{id}/balance route with RequireAuth middleware in backend/main.go
-- [ ] T056 [US4] Register GET /api/children/{id}/transactions route with RequireAuth middleware in backend/main.go
-- [ ] T057 [US4] Run US4 backend tests and verify they pass
+- [x] T052 [US4] Implement HandleGetBalance endpoint in backend/internal/balance/handler.go
+- [x] T053 [US4] Implement HandleGetTransactions endpoint in backend/internal/balance/handler.go
+- [x] T054 [US4] Add authorization check (child can only view self, parent can view own children) in backend/internal/balance/handler.go
+- [x] T055 [US4] Register GET /api/children/{id}/balance route with RequireAuth middleware in backend/main.go
+- [x] T056 [US4] Register GET /api/children/{id}/transactions route with RequireAuth middleware in backend/main.go
+- [x] T057 [US4] Run US4 backend tests and verify they pass
 
 ### Frontend Implementation for User Story 4
 
-- [ ] T058 [P] [US4] Add getBalance and getTransactions API functions in frontend/src/api.ts
-- [ ] T059 [P] [US4] Create TransactionHistory component in frontend/src/components/TransactionHistory.tsx
-- [ ] T060 [US4] Update ChildDashboard to fetch and display balance in frontend/src/pages/ChildDashboard.tsx
-- [ ] T061 [US4] Update ChildDashboard to fetch and display transaction history in frontend/src/pages/ChildDashboard.tsx
-- [ ] T062 [US4] Handle empty transaction history state in frontend/src/components/TransactionHistory.tsx
-- [ ] T063 [US4] Ensure no edit/add/remove controls visible to child in frontend/src/pages/ChildDashboard.tsx
+- [x] T058 [P] [US4] Add getBalance and getTransactions API functions in frontend/src/api.ts
+- [x] T059 [P] [US4] Create TransactionHistory component in frontend/src/components/TransactionHistory.tsx
+- [x] T060 [US4] Update ChildDashboard to fetch and display balance in frontend/src/pages/ChildDashboard.tsx
+- [x] T061 [US4] Update ChildDashboard to fetch and display transaction history in frontend/src/pages/ChildDashboard.tsx
+- [x] T062 [US4] Handle empty transaction history state in frontend/src/components/TransactionHistory.tsx
+- [x] T063 [US4] Ensure no edit/add/remove controls visible to child in frontend/src/pages/ChildDashboard.tsx
 
 **Checkpoint**: Children can view their finances - complete user experience
 
@@ -195,7 +195,7 @@
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T064 Run all backend tests (go test ./...) and verify 100% pass
+- [x] T064 Run all backend tests (go test ./...) and verify 100% pass
 - [ ] T065 Run all frontend tests and verify pass
 - [ ] T066 Manual test: Parent creates deposit, child views updated balance
 - [ ] T067 Manual test: Parent creates withdrawal, verify insufficient funds handling

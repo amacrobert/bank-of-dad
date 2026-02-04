@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bank-of-dad/internal/auth"
+	"bank-of-dad/internal/balance"
 	"bank-of-dad/internal/config"
 	"bank-of-dad/internal/family"
 	"bank-of-dad/internal/middleware"
@@ -52,6 +53,8 @@ func main() {
 	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore)
 	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
+	txStore := store.NewTransactionStore(db)
+	balanceHandler := balance.NewHandler(txStore, childStore)
 
 	// Auth middleware
 	requireAuth := middleware.RequireAuth(sessionStore)
@@ -86,6 +89,12 @@ func main() {
 	childLoginRateLimit := middleware.RateLimit(10, 1*time.Minute)
 	mux.Handle("POST /api/auth/child/login", childLoginRateLimit(http.HandlerFunc(childAuth.HandleChildLogin)))
 	mux.HandleFunc("GET /api/families/{slug}", familyHandlers.HandleGetFamily)
+
+	// Account Balances (002-account-balances)
+	mux.Handle("POST /api/children/{id}/deposit", requireParent(http.HandlerFunc(balanceHandler.HandleDeposit)))
+	mux.Handle("POST /api/children/{id}/withdraw", requireParent(http.HandlerFunc(balanceHandler.HandleWithdraw)))
+	mux.Handle("GET /api/children/{id}/balance", requireAuth(http.HandlerFunc(balanceHandler.HandleGetBalance)))
+	mux.Handle("GET /api/children/{id}/transactions", requireAuth(http.HandlerFunc(balanceHandler.HandleGetTransactions)))
 
 	// Apply middleware chain: CORS → Logging → Routes
 	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)

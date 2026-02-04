@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { put, ApiRequestError } from "../api";
 import { Child } from "../types";
+import BalanceDisplay from "./BalanceDisplay";
+import DepositForm from "./DepositForm";
+import WithdrawForm from "./WithdrawForm";
 
 interface ManageChildProps {
   child: Child;
@@ -14,6 +17,24 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
+
+  const handleDepositSuccess = (newBalance: number) => {
+    setCurrentBalance(newBalance);
+    setShowDeposit(false);
+    onUpdated();
+  };
+
+  const handleWithdrawSuccess = (newBalance: number) => {
+    setCurrentBalance(newBalance);
+    setShowWithdraw(false);
+    onUpdated();
+  };
+
+  // Update local child reference with current balance for withdrawal form
+  const childWithCurrentBalance = { ...child, balance_cents: currentBalance };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +88,35 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
       <h3>Manage {child.first_name}</h3>
       {child.is_locked && (
         <p className="warning">This account is locked. Reset the password to unlock it.</p>
+      )}
+
+      <div className="balance-section">
+        <h4>Balance</h4>
+        <BalanceDisplay balanceCents={currentBalance} size="large" />
+        <div className="balance-actions">
+          <button onClick={() => { setShowDeposit(true); setShowWithdraw(false); }} className="btn-primary">
+            Deposit
+          </button>
+          <button onClick={() => { setShowWithdraw(true); setShowDeposit(false); }} className="btn-secondary" disabled={currentBalance === 0}>
+            Withdraw
+          </button>
+        </div>
+      </div>
+
+      {showDeposit && (
+        <DepositForm
+          child={childWithCurrentBalance}
+          onSuccess={handleDepositSuccess}
+          onCancel={() => setShowDeposit(false)}
+        />
+      )}
+
+      {showWithdraw && (
+        <WithdrawForm
+          child={childWithCurrentBalance}
+          onSuccess={handleWithdrawSuccess}
+          onCancel={() => setShowWithdraw(false)}
+        />
       )}
 
       <form onSubmit={handleResetPassword}>

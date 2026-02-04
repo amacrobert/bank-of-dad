@@ -57,3 +57,28 @@ export function put<T>(path: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   });
 }
+
+// Account Balances API functions (002-account-balances)
+import {
+  DepositRequest,
+  WithdrawRequest,
+  TransactionResponse,
+  BalanceResponse,
+  TransactionListResponse
+} from "./types";
+
+export function deposit(childId: number, data: DepositRequest): Promise<TransactionResponse> {
+  return post<TransactionResponse>(`/children/${childId}/deposit`, data);
+}
+
+export function withdraw(childId: number, data: WithdrawRequest): Promise<TransactionResponse> {
+  return post<TransactionResponse>(`/children/${childId}/withdraw`, data);
+}
+
+export function getBalance(childId: number): Promise<BalanceResponse> {
+  return get<BalanceResponse>(`/children/${childId}/balance`);
+}
+
+export function getTransactions(childId: number): Promise<TransactionListResponse> {
+  return get<TransactionListResponse>(`/children/${childId}/transactions`);
+}

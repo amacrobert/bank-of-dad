@@ -194,7 +194,7 @@ func (s *TransactionStore) GetByID(id int64) (*Transaction, error) {
 func (s *TransactionStore) ListByChild(childID int64) ([]Transaction, error) {
 	rows, err := s.db.Read.Query(
 		`SELECT id, child_id, parent_id, amount_cents, transaction_type, note, created_at
-		 FROM transactions WHERE child_id = ? ORDER BY created_at DESC`, childID,
+		 FROM transactions WHERE child_id = ? ORDER BY created_at DESC, id DESC`, childID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
