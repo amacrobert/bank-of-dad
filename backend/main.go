@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/auth"
 	"bank-of-dad/internal/balance"
 	"bank-of-dad/internal/config"
@@ -55,6 +56,14 @@ func main() {
 	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	txStore := store.NewTransactionStore(db)
 	balanceHandler := balance.NewHandler(txStore, childStore)
+	scheduleStore := store.NewScheduleStore(db)
+	allowanceHandler := allowance.NewHandler(scheduleStore, childStore)
+
+	// Start allowance scheduler goroutine (check every 5 minutes)
+	stopScheduler := make(chan struct{})
+	defer close(stopScheduler)
+	scheduler := allowance.NewScheduler(scheduleStore, txStore, childStore)
+	scheduler.Start(5*time.Minute, stopScheduler)
 
 	// Auth middleware
 	requireAuth := middleware.RequireAuth(sessionStore)
@@ -95,6 +104,16 @@ func main() {
 	mux.Handle("POST /api/children/{id}/withdraw", requireParent(http.HandlerFunc(balanceHandler.HandleWithdraw)))
 	mux.Handle("GET /api/children/{id}/balance", requireAuth(http.HandlerFunc(balanceHandler.HandleGetBalance)))
 	mux.Handle("GET /api/children/{id}/transactions", requireAuth(http.HandlerFunc(balanceHandler.HandleGetTransactions)))
+
+	// Allowance Scheduling (003-allowance-scheduling)
+	mux.Handle("POST /api/schedules", requireParent(http.HandlerFunc(allowanceHandler.HandleCreateSchedule)))
+	mux.Handle("GET /api/schedules", requireParent(http.HandlerFunc(allowanceHandler.HandleListSchedules)))
+	mux.Handle("GET /api/schedules/{id}", requireParent(http.HandlerFunc(allowanceHandler.HandleGetSchedule)))
+	mux.Handle("PUT /api/schedules/{id}", requireParent(http.HandlerFunc(allowanceHandler.HandleUpdateSchedule)))
+	mux.Handle("DELETE /api/schedules/{id}", requireParent(http.HandlerFunc(allowanceHandler.HandleDeleteSchedule)))
+	mux.Handle("POST /api/schedules/{id}/pause", requireParent(http.HandlerFunc(allowanceHandler.HandlePauseSchedule)))
+	mux.Handle("POST /api/schedules/{id}/resume", requireParent(http.HandlerFunc(allowanceHandler.HandleResumeSchedule)))
+	mux.Handle("GET /api/children/{childId}/upcoming-allowances", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetUpcomingAllowances)))
 
 	// Apply middleware chain: CORS → Logging → Routes
 	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)

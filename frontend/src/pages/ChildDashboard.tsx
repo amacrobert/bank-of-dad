@@ -4,6 +4,7 @@ import { get, post, getBalance, getTransactions } from "../api";
 import { ChildUser, Transaction } from "../types";
 import BalanceDisplay from "../components/BalanceDisplay";
 import TransactionHistory from "../components/TransactionHistory";
+import UpcomingAllowances from "../components/UpcomingAllowances";
 
 export default function ChildDashboard() {
   const navigate = useNavigate();
@@ -79,6 +80,10 @@ export default function ChildDashboard() {
           ) : (
             <BalanceDisplay balanceCents={balance} size="large" />
           )}
+        </section>
+
+        <section className="upcoming-section">
+          <UpcomingAllowances childId={user.user_id} />
         </section>
 
         <section className="transactions-section">

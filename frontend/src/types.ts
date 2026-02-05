@@ -61,7 +61,7 @@ export interface ChildListResponse {
 
 // Account Balances Feature (002-account-balances)
 
-export type TransactionType = 'deposit' | 'withdrawal';
+export type TransactionType = 'deposit' | 'withdrawal' | 'allowance';
 
 export interface Transaction {
   id: number;
@@ -70,6 +70,7 @@ export interface Transaction {
   amount_cents: number;
   type: TransactionType;
   note?: string;
+  schedule_id?: number;
   created_at: string;
 }
 
@@ -102,4 +103,59 @@ export interface DepositRequest {
 export interface WithdrawRequest {
   amount_cents: number;
   note?: string;
+}
+
+// Allowance Scheduling Feature (003-allowance-scheduling)
+
+export type Frequency = 'weekly' | 'biweekly' | 'monthly';
+export type ScheduleStatus = 'active' | 'paused';
+
+export interface AllowanceSchedule {
+  id: number;
+  child_id: number;
+  parent_id: number;
+  amount_cents: number;
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+  note?: string;
+  status: ScheduleStatus;
+  next_run_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleWithChild extends AllowanceSchedule {
+  child_first_name: string;
+}
+
+export interface ScheduleListResponse {
+  schedules: ScheduleWithChild[];
+}
+
+export interface CreateScheduleRequest {
+  child_id: number;
+  amount_cents: number;
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+  note?: string;
+}
+
+export interface UpdateScheduleRequest {
+  amount_cents?: number;
+  frequency?: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+  note?: string;
+}
+
+export interface UpcomingAllowance {
+  amount_cents: number;
+  next_date: string;
+  note?: string;
+}
+
+export interface UpcomingAllowancesResponse {
+  allowances: UpcomingAllowance[];
 }
