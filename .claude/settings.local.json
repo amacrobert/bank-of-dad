@@ -25,7 +25,11 @@
       "Bash(npm test)",
       "Bash(npm run)",
       "Bash(echo:*)",
-      "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad rev-parse --git-dir)"
+      "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad rev-parse --git-dir)",
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/setup-plan.sh:*)",
+      "Bash(go list:*)",
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/update-agent-context.sh:*)"
     ]
   }
 }
