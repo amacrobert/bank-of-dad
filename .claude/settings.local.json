@@ -23,7 +23,9 @@
       "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
       "Bash(npm run build:*)",
       "Bash(npm test)",
-      "Bash(npm run)"
+      "Bash(npm run)",
+      "Bash(echo:*)",
+      "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad rev-parse --git-dir)"
     ]
   }
 }

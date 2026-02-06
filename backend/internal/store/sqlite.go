@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -125,7 +126,7 @@ func (db *DB) migrate() error {
 			child_id INTEGER NOT NULL,
 			parent_id INTEGER NOT NULL,
 			amount_cents INTEGER NOT NULL,
-			transaction_type TEXT NOT NULL CHECK(transaction_type IN ('deposit', 'withdrawal')),
+			transaction_type TEXT NOT NULL CHECK(transaction_type IN ('deposit', 'withdrawal', 'allowance')),
 			note TEXT,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
@@ -143,6 +144,51 @@ func (db *DB) migrate() error {
 	// Add balance_cents column if it doesn't exist (idempotent migration for existing databases)
 	if err := db.addColumnIfNotExists("children", "balance_cents", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		return fmt.Errorf("add balance_cents column: %w", err)
+	}
+
+	// Migrate transactions CHECK constraint to allow 'allowance' type (003-allowance-scheduling)
+	// For existing databases, the old CHECK constraint only allows ('deposit', 'withdrawal').
+	// SQLite doesn't support ALTER CHECK, so we recreate the table if needed.
+	if err := db.migrateTransactionsCheckConstraint(); err != nil {
+		return fmt.Errorf("migrate transactions check constraint: %w", err)
+	}
+
+	// Allowance scheduling feature (003-allowance-scheduling)
+	allowanceStatements := []string{
+		`CREATE TABLE IF NOT EXISTS allowance_schedules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			child_id INTEGER NOT NULL,
+			parent_id INTEGER NOT NULL,
+			amount_cents INTEGER NOT NULL,
+			frequency TEXT NOT NULL CHECK(frequency IN ('weekly', 'biweekly', 'monthly')),
+			day_of_week INTEGER CHECK(day_of_week >= 0 AND day_of_week <= 6),
+			day_of_month INTEGER CHECK(day_of_month >= 1 AND day_of_month <= 31),
+			note TEXT,
+			status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused')),
+			next_run_at DATETIME,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+			FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE RESTRICT,
+			CHECK(
+				(frequency = 'weekly' AND day_of_week IS NOT NULL) OR
+				(frequency = 'biweekly' AND day_of_week IS NOT NULL) OR
+				(frequency = 'monthly' AND day_of_month IS NOT NULL)
+			)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_schedules_due ON allowance_schedules(status, next_run_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_schedules_child ON allowance_schedules(child_id)`,
+	}
+
+	for _, stmt := range allowanceStatements {
+		if _, err := db.Write.Exec(stmt); err != nil {
+			return fmt.Errorf("exec allowance migration: %w", err)
+		}
+	}
+
+	// Add schedule_id column to transactions (nullable FK for allowance tracking)
+	if err := db.addColumnIfNotExists("transactions", "schedule_id", "INTEGER REFERENCES allowance_schedules(id) ON DELETE SET NULL"); err != nil {
+		return fmt.Errorf("add schedule_id column: %w", err)
 	}
 
 	return nil
@@ -183,3 +229,94 @@ func (db *DB) addColumnIfNotExists(table, column, definition string) error {
 
 	return nil
 }
+
+// migrateTransactionsCheckConstraint recreates the transactions table if its CHECK constraint
+// doesn't include 'allowance'. This is needed because SQLite doesn't support ALTER CHECK.
+func (db *DB) migrateTransactionsCheckConstraint() error {
+	// Check the current table SQL to see if 'allowance' is already in the constraint
+	var tableSql string
+	err := db.Read.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='transactions'").Scan(&tableSql)
+	if err == sql.ErrNoRows {
+		// Table doesn't exist yet, will be created by main migration
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("query sqlite_master: %w", err)
+	}
+
+	// If the constraint already includes 'allowance', no migration needed
+	if strings.Contains(tableSql, "allowance") {
+		return nil
+	}
+
+	// Need to recreate the table. Check if schedule_id column exists already.
+	hasScheduleID := strings.Contains(tableSql, "schedule_id")
+
+	// Temporarily disable foreign keys for the migration
+	if _, err := db.Write.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("disable foreign keys: %w", err)
+	}
+
+	tx, err := db.Write.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Create new table with updated constraint
+	newTableSQL := `CREATE TABLE transactions_new (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL,
+		parent_id INTEGER NOT NULL,
+		amount_cents INTEGER NOT NULL,
+		transaction_type TEXT NOT NULL CHECK(transaction_type IN ('deposit', 'withdrawal', 'allowance')),
+		note TEXT,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		schedule_id INTEGER REFERENCES allowance_schedules(id) ON DELETE SET NULL,
+		FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+		FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE RESTRICT
+	)`
+	if _, err := tx.Exec(newTableSQL); err != nil {
+		return fmt.Errorf("create new table: %w", err)
+	}
+
+	// Copy data from old table
+	var copySQL string
+	if hasScheduleID {
+		copySQL = `INSERT INTO transactions_new (id, child_id, parent_id, amount_cents, transaction_type, note, created_at, schedule_id)
+			SELECT id, child_id, parent_id, amount_cents, transaction_type, note, created_at, schedule_id FROM transactions`
+	} else {
+		copySQL = `INSERT INTO transactions_new (id, child_id, parent_id, amount_cents, transaction_type, note, created_at)
+			SELECT id, child_id, parent_id, amount_cents, transaction_type, note, created_at FROM transactions`
+	}
+	if _, err := tx.Exec(copySQL); err != nil {
+		return fmt.Errorf("copy data: %w", err)
+	}
+
+	// Drop old table
+	if _, err := tx.Exec("DROP TABLE transactions"); err != nil {
+		return fmt.Errorf("drop old table: %w", err)
+	}
+
+	// Rename new table
+	if _, err := tx.Exec("ALTER TABLE transactions_new RENAME TO transactions"); err != nil {
+		return fmt.Errorf("rename table: %w", err)
+	}
+
+	// Recreate the index
+	if _, err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_transactions_child_created ON transactions(child_id, created_at DESC)"); err != nil {
+		return fmt.Errorf("recreate index: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	// Re-enable foreign keys
+	if _, err := db.Write.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("re-enable foreign keys: %w", err)
+	}
+
+	return nil
+}
+

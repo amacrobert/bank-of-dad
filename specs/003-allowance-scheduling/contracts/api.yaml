@@ -1,0 +1,501 @@
+openapi: 3.0.3
+info:
+  title: Bank of Dad - Allowance Scheduling API
+  description: API endpoints for managing recurring allowance schedules
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001/api
+    description: Local development server
+
+paths:
+  /schedules:
+    get:
+      summary: List all allowance schedules
+      description: Returns all allowance schedules for the parent's family
+      operationId: listSchedules
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: List of schedules with child names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create a new allowance schedule
+      description: Create a recurring allowance schedule for a child. Only parents can create schedules.
+      operationId: createSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+      responses:
+        '201':
+          description: Schedule created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schedules/{scheduleId}:
+    get:
+      summary: Get a specific schedule
+      description: Returns details of a specific allowance schedule
+      operationId: getSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/scheduleId'
+      responses:
+        '200':
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceSchedule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update a schedule
+      description: Update an existing allowance schedule. Only the amount, frequency, day, and note can be changed.
+      operationId: updateSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/scheduleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleRequest'
+      responses:
+        '200':
+          description: Schedule updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a schedule
+      description: Permanently delete an allowance schedule. No future deposits will be made.
+      operationId: deleteSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/scheduleId'
+      responses:
+        '204':
+          description: Schedule deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schedules/{scheduleId}/pause:
+    post:
+      summary: Pause a schedule
+      description: Pause an active schedule. No deposits will be made while paused.
+      operationId: pauseSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/scheduleId'
+      responses:
+        '200':
+          description: Schedule paused successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceSchedule'
+        '400':
+          description: Schedule is already paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schedules/{scheduleId}/resume:
+    post:
+      summary: Resume a paused schedule
+      description: Resume a paused schedule. The next deposit will be calculated from today.
+      operationId: resumeSchedule
+      tags:
+        - schedules
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/scheduleId'
+      responses:
+        '200':
+          description: Schedule resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowanceSchedule'
+        '400':
+          description: Schedule is already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /children/{childId}/upcoming-allowances:
+    get:
+      summary: Get upcoming allowances for a child
+      description: Returns all upcoming allowance payments for a child, sorted by date. Children can only view their own; parents can view any child in their family.
+      operationId: getUpcomingAllowances
+      tags:
+        - allowances
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/childId'
+      responses:
+        '200':
+          description: List of upcoming allowances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpcomingAllowancesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_token
+
+  parameters:
+    scheduleId:
+      name: scheduleId
+      in: path
+      required: true
+      description: The ID of the allowance schedule
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+    childId:
+      name: childId
+      in: path
+      required: true
+      description: The ID of the child
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  schemas:
+    Frequency:
+      type: string
+      enum:
+        - weekly
+        - biweekly
+        - monthly
+      description: How often the allowance is deposited
+
+    ScheduleStatus:
+      type: string
+      enum:
+        - active
+        - paused
+      description: Current status of the schedule
+
+    AllowanceSchedule:
+      type: object
+      required:
+        - id
+        - child_id
+        - parent_id
+        - amount_cents
+        - frequency
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        child_id:
+          type: integer
+          format: int64
+          example: 1
+        parent_id:
+          type: integer
+          format: int64
+          example: 1
+        amount_cents:
+          type: integer
+          format: int64
+          description: Allowance amount in cents
+          example: 1000
+          minimum: 1
+          maximum: 99999999
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        day_of_week:
+          type: integer
+          description: Day of week (0=Sunday, 6=Saturday). Required for weekly/biweekly.
+          minimum: 0
+          maximum: 6
+          example: 5
+        day_of_month:
+          type: integer
+          description: Day of month (1-31). Required for monthly.
+          minimum: 1
+          maximum: 31
+          example: 1
+        note:
+          type: string
+          nullable: true
+          description: Optional note that appears on each deposit
+          maxLength: 500
+          example: "Weekly allowance"
+        status:
+          $ref: '#/components/schemas/ScheduleStatus'
+        next_run_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the next deposit will be made
+          example: "2026-02-07T00:00:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-04T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-04T10:00:00Z"
+
+    ScheduleWithChild:
+      allOf:
+        - $ref: '#/components/schemas/AllowanceSchedule'
+        - type: object
+          required:
+            - child_first_name
+          properties:
+            child_first_name:
+              type: string
+              description: Name of the child receiving the allowance
+              example: "Emma"
+
+    ScheduleListResponse:
+      type: object
+      required:
+        - schedules
+      properties:
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleWithChild'
+
+    CreateScheduleRequest:
+      type: object
+      required:
+        - child_id
+        - amount_cents
+        - frequency
+      properties:
+        child_id:
+          type: integer
+          format: int64
+          description: ID of the child to receive allowance
+          example: 1
+        amount_cents:
+          type: integer
+          format: int64
+          description: Amount in cents
+          minimum: 1
+          maximum: 99999999
+          example: 1000
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        day_of_week:
+          type: integer
+          description: Required for weekly/biweekly
+          minimum: 0
+          maximum: 6
+        day_of_month:
+          type: integer
+          description: Required for monthly
+          minimum: 1
+          maximum: 31
+        note:
+          type: string
+          maxLength: 500
+          example: "Weekly allowance"
+
+    UpdateScheduleRequest:
+      type: object
+      properties:
+        amount_cents:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 99999999
+        frequency:
+          $ref: '#/components/schemas/Frequency'
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+        day_of_month:
+          type: integer
+          minimum: 1
+          maximum: 31
+        note:
+          type: string
+          maxLength: 500
+
+    UpcomingAllowance:
+      type: object
+      required:
+        - amount_cents
+        - next_date
+      properties:
+        amount_cents:
+          type: integer
+          format: int64
+          example: 1000
+        next_date:
+          type: string
+          format: date-time
+          example: "2026-02-07T00:00:00Z"
+        note:
+          type: string
+          nullable: true
+          example: "Weekly allowance"
+
+    UpcomingAllowancesResponse:
+      type: object
+      required:
+        - allowances
+      properties:
+        allowances:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingAllowance'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "invalid_frequency"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Frequency must be 'weekly', 'biweekly', or 'monthly'."
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "unauthorized"
+            message: "Authentication required."
+    Forbidden:
+      description: Not authorized to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "forbidden"
+            message: "You do not have permission to access this resource."
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "not_found"
+            message: "Schedule not found."
+
+tags:
+  - name: schedules
+    description: Allowance schedule management (parent only)
+  - name: allowances
+    description: Allowance visibility (parent and child)
