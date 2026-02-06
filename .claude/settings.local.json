@@ -29,7 +29,8 @@
       "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/create-new-feature.sh:*)",
       "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(go list:*)",
-      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/update-agent-context.sh:*)"
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/update-agent-context.sh:*)",
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/check-prerequisites.sh:*)"
     ]
   }
 }
