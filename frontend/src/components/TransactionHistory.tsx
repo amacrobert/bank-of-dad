@@ -24,7 +24,17 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
 
   const formatAmount = (cents: number, type: string) => {
     const dollars = (cents / 100).toFixed(2);
-    return type === "deposit" ? `+$${dollars}` : `-$${dollars}`;
+    // Deposits and allowances are positive, withdrawals are negative
+    return type === "withdrawal" ? `-$${dollars}` : `+$${dollars}`;
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "deposit": return "Deposit";
+      case "withdrawal": return "Withdrawal";
+      case "allowance": return "Allowance";
+      default: return type;
+    }
   };
 
   return (
@@ -37,6 +47,7 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
               <span className={`transaction-amount ${tx.type}`}>
                 {formatAmount(tx.amount_cents, tx.type)}
               </span>
+              <span className="transaction-type">{getTypeLabel(tx.type)}</span>
               {tx.note && <span className="transaction-note">{tx.note}</span>}
             </div>
           </li>

@@ -153,8 +153,8 @@
 **Purpose**: Final validation across all stories, edge cases, and cleanup
 
 - [x] T039 Verify edge case: scheduled deposits after system downtime — tested in TestScheduler_ProcessDueSchedules_HandlesMissed (schedule with past next_run_at is processed)
-- [ ] T040 Verify edge case: deleting a child cascades to delete their allowance schedules — confirm ON DELETE CASCADE works with existing child deletion flow
-- [ ] T041 Verify allowance transactions display correctly in existing transaction history views for both parent and child dashboards — "allowance" type should render with clear automatic-deposit indicator
+- [x] T040 Verify edge case: deleting a child cascades to delete their allowance schedules — added TestScheduleStore_CascadeDeleteOnChildRemoval test, confirms ON DELETE CASCADE works
+- [x] T041 Verify allowance transactions display correctly in existing transaction history views for both parent and child dashboards — updated TransactionHistory.tsx to show type label and handle allowance as positive amount
 - [x] T042 Run full backend test suite: `cd backend && go test ./... -v` — all tests pass
 - [x] T043 Run frontend build verification: `cd frontend && npm run build` — no TypeScript errors
 

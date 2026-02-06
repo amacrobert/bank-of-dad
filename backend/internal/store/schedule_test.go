@@ -336,3 +336,36 @@ func TestScheduleStore_ListActiveByChild(t *testing.T) {
 	assert.Len(t, active, 1)
 	assert.Equal(t, int64(1000), active[0].AmountCents)
 }
+
+// T040: Verify ON DELETE CASCADE removes schedules when child is deleted
+func TestScheduleStore_CascadeDeleteOnChildRemoval(t *testing.T) {
+	db := testDB(t)
+	ss := NewScheduleStore(db)
+	cs := NewChildStore(db)
+
+	fam := createTestFamily(t, db)
+	parent := createTestParent(t, db, fam.ID)
+	child := createTestChild(t, db, fam.ID)
+
+	// Create schedule for the child
+	created := createTestSchedule(t, db, child.ID, parent.ID)
+
+	// Verify schedule exists
+	sched, err := ss.GetByID(created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, sched)
+
+	// Delete the child
+	_, err = db.Write.Exec("DELETE FROM children WHERE id = ?", child.ID)
+	require.NoError(t, err)
+
+	// Verify child is gone
+	deletedChild, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.Nil(t, deletedChild)
+
+	// Verify schedule was CASCADE deleted
+	deletedSched, err := ss.GetByID(created.ID)
+	require.NoError(t, err)
+	assert.Nil(t, deletedSched, "Schedule should be deleted when child is deleted (CASCADE)")
+}
