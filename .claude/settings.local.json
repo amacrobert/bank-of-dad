@@ -30,7 +30,14 @@
       "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/setup-plan.sh:*)",
       "Bash(go list:*)",
       "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/update-agent-context.sh:*)",
-      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/check-prerequisites.sh:*)"
+      "Bash(/Users/andrewmacrobert/projects/bank-of-dad/.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(node -e:*)",
+      "Bash(npx eslint:*)",
+      "Bash(golangci-lint:*)",
+      "Bash(go install:*)",
+      "Bash(~/go/bin/golangci-lint run:*)",
+      "Bash(~/go/bin/golangci-lint:*)",
+      "WebFetch(domain:golangci-lint.run)"
     ]
   }
 }

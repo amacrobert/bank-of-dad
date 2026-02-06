@@ -17,7 +17,7 @@
 
 **Purpose**: Create directory structure and skeleton workflow file
 
-- [ ] T001 Create `.github/workflows/ci.yml` with PR trigger (`on: pull_request`), concurrency group (`cancel-in-progress: true` keyed on `github.head_ref`), and two empty job definitions (`backend` and `frontend`) on `ubuntu-latest`
+- [x] T001 Create `.github/workflows/ci.yml` with PR trigger (`on: pull_request`), concurrency group (`cancel-in-progress: true` keyed on `github.head_ref`), and two empty job definitions (`backend` and `frontend`) on `ubuntu-latest`
 
 **Checkpoint**: Workflow file exists and would trigger on PRs (no steps yet)
 
@@ -31,11 +31,11 @@
 
 **Covers**: US1 (PR triggers + status), US2 (unit tests), US5 (build verification)
 
-- [ ] T002 [US1] Configure backend job environment in `.github/workflows/ci.yml`: checkout (`actions/checkout`), Go 1.24 setup (`actions/setup-go`), Go module cache, working directory set to `backend/`
-- [ ] T003 [US1] Configure frontend job environment in `.github/workflows/ci.yml`: checkout (`actions/checkout`), Node 20 setup (`actions/setup-node`), npm cache, `npm ci` install step, working directory set to `frontend/`
-- [ ] T004 [US5] Add backend build verification step (`go build ./...`) to backend job in `.github/workflows/ci.yml`
-- [ ] T005 [US2] Add backend unit test step (`go test ./...`) to backend job in `.github/workflows/ci.yml`
-- [ ] T006 [US5] Add frontend type check (`tsc --noEmit`) and build verification (`vite build`) steps to frontend job in `.github/workflows/ci.yml`
+- [x] T002 [US1] Configure backend job environment in `.github/workflows/ci.yml`: checkout (`actions/checkout`), Go 1.24 setup (`actions/setup-go`), Go module cache, working directory set to `backend/`
+- [x] T003 [US1] Configure frontend job environment in `.github/workflows/ci.yml`: checkout (`actions/checkout`), Node 20 setup (`actions/setup-node`), npm cache, `npm ci` install step, working directory set to `frontend/`
+- [x] T004 [US5] Add backend build verification step (`go build ./...`) to backend job in `.github/workflows/ci.yml`
+- [x] T005 [US2] Add backend unit test step (`go test ./...`) to backend job in `.github/workflows/ci.yml`
+- [x] T006 [US5] Add frontend type check (`tsc --noEmit`) and build verification (`vite build`) steps to frontend job in `.github/workflows/ci.yml`
 
 **Checkpoint**: Pipeline triggers on PRs, backend compiles + tests run, frontend type checks + builds. This is a functional MVP.
 
@@ -47,11 +47,11 @@
 
 **Independent Test**: Push a PR with a linting violation (e.g., unused variable in Go, missing React hook dependency) and verify the pipeline catches it with a clear error message.
 
-- [ ] T007 [P] [US3] Create golangci-lint configuration in `backend/.golangci.yml` — enable linters: `govet`, `staticcheck`, `errcheck`, `gosimple`, `unused`, `ineffassign`, `gocritic`. Set run timeout to 5 minutes.
-- [ ] T008 [P] [US3] Install ESLint dev dependencies and add `lint` script to `frontend/package.json`. Dependencies: `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`. Script: `"lint": "eslint src/"`.
-- [ ] T009 [P] [US3] Create ESLint flat config in `frontend/eslint.config.js` with `@eslint/js` recommended rules, `typescript-eslint` recommended rules, `react-hooks` plugin, and `react-refresh` plugin. Scope to `src/` directory only.
-- [ ] T010 [US3] Add golangci-lint step to backend job in `.github/workflows/ci.yml` using `golangci/golangci-lint-action` with `working-directory: backend/`
-- [ ] T011 [US3] Add ESLint step (`npm run lint`) to frontend job in `.github/workflows/ci.yml`
+- [x] T007 [P] [US3] Create golangci-lint configuration in `backend/.golangci.yml` — enable linters: `govet`, `staticcheck`, `errcheck`, `gosimple`, `unused`, `ineffassign`, `gocritic`. Set run timeout to 5 minutes.
+- [x] T008 [P] [US3] Install ESLint dev dependencies and add `lint` script to `frontend/package.json`. Dependencies: `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`. Script: `"lint": "eslint src/"`.
+- [x] T009 [P] [US3] Create ESLint flat config in `frontend/eslint.config.js` with `@eslint/js` recommended rules, `typescript-eslint` recommended rules, `react-hooks` plugin, and `react-refresh` plugin. Scope to `src/` directory only.
+- [x] T010 [US3] Add golangci-lint step to backend job in `.github/workflows/ci.yml` using `golangci/golangci-lint-action` with `working-directory: backend/`
+- [x] T011 [US3] Add ESLint step (`npm run lint`) to frontend job in `.github/workflows/ci.yml`
 
 **Checkpoint**: Full CI pipeline with all checks — build, test, lint, static analysis for both backend and frontend.
 
