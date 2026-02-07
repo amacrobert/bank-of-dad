@@ -63,7 +63,7 @@
 
 - [x] T012 [P] Run `golangci-lint run ./...` locally in `backend/` and fix any pre-existing violations found in `backend/` source files
 - [x] T013 [P] Run `npx eslint src/` locally in `frontend/` and fix any pre-existing violations found in `frontend/src/` source files
-- [ ] T014 Push branch and open test PR to verify the complete CI pipeline runs both jobs successfully with all checks passing
+- [x] T014 Push branch and open test PR to verify the complete CI pipeline runs both jobs successfully with all checks passing
 
 ---
 
