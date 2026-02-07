@@ -86,7 +86,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session")
 	if err == nil && cookie.Value != "" {
-		h.sessionStore.DeleteByToken(cookie.Value)
+		h.sessionStore.DeleteByToken(cookie.Value) //nolint:errcheck // best-effort cleanup on logout
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -103,7 +103,7 @@ func (h *Handlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	familyID := middleware.GetFamilyID(r)
 	userType := middleware.GetUserType(r)
 
-	h.eventStore.LogEvent(store.AuthEvent{
+	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "logout",
 		UserType:  userType,
 		UserID:    userID,
