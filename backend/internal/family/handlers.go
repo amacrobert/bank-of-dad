@@ -260,7 +260,7 @@ func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.eventStore.LogEvent(store.AuthEvent{
+	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "password_reset",
 		UserType:  "parent",
 		UserID:    middleware.GetUserID(r),
@@ -320,7 +320,7 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.eventStore.LogEvent(store.AuthEvent{
+	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "name_updated",
 		UserType:  "parent",
 		UserID:    middleware.GetUserID(r),
