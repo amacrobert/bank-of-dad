@@ -61,8 +61,8 @@
 
 **Purpose**: Fix pre-existing issues caught by new linters and verify the complete pipeline end-to-end.
 
-- [ ] T012 [P] Run `golangci-lint run ./...` locally in `backend/` and fix any pre-existing violations found in `backend/` source files
-- [ ] T013 [P] Run `npx eslint src/` locally in `frontend/` and fix any pre-existing violations found in `frontend/src/` source files
+- [x] T012 [P] Run `golangci-lint run ./...` locally in `backend/` and fix any pre-existing violations found in `backend/` source files
+- [x] T013 [P] Run `npx eslint src/` locally in `frontend/` and fix any pre-existing violations found in `frontend/src/` source files
 - [ ] T014 Push branch and open test PR to verify the complete CI pipeline runs both jobs successfully with all checks passing
 
 ---

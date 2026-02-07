@@ -42,7 +42,7 @@ func Open(path string) (*DB, error) {
 	db := &DB{Write: writeDB, Read: readDB}
 
 	if err := db.migrate(); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck // closing on initialization failure
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 

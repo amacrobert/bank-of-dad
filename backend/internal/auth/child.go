@@ -62,7 +62,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if child == nil {
-		ca.eventStore.LogEvent(store.AuthEvent{
+		ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "login_failure",
 			UserType:  "child",
 			FamilyID:  fam.ID,
@@ -90,7 +90,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	if !ca.childStore.CheckPassword(child, req.Password) {
 		attempts, _ := ca.childStore.IncrementFailedAttempts(child.ID)
 
-		ca.eventStore.LogEvent(store.AuthEvent{
+		ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "login_failure",
 			UserType:  "child",
 			UserID:    child.ID,
@@ -101,8 +101,8 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if attempts >= 5 {
-			ca.childStore.LockAccount(child.ID)
-			ca.eventStore.LogEvent(store.AuthEvent{
+			ca.childStore.LockAccount(child.ID)       //nolint:errcheck // best-effort cleanup
+			ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 				EventType: "account_locked",
 				UserType:  "child",
 				UserID:    child.ID,
@@ -126,7 +126,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Password correct — reset failed attempts
-	ca.childStore.ResetFailedAttempts(child.ID)
+	ca.childStore.ResetFailedAttempts(child.ID) //nolint:errcheck // best-effort cleanup
 
 	// Create session (24-hour TTL for children)
 	sessionToken, err := ca.sessionStore.Create("child", child.ID, fam.ID, 24*time.Hour)
@@ -145,7 +145,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	ca.eventStore.LogEvent(store.AuthEvent{
+	ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
 		UserType:  "child",
 		UserID:    child.ID,

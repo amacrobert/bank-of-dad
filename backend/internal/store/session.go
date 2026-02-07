@@ -107,7 +107,7 @@ func (s *SessionStore) ValidateSession(token string) (string, int64, int64, erro
 	}
 	if sess == nil {
 		// Lazy cleanup: delete the expired row if it exists
-		s.DeleteByToken(token)
+		s.DeleteByToken(token) //nolint:errcheck // best-effort cleanup of expired session
 		return "", 0, 0, fmt.Errorf("session not found or expired")
 	}
 	return sess.UserType, sess.UserID, sess.FamilyID, nil
