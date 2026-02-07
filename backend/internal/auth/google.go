@@ -116,7 +116,7 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"Failed to get user info"}`, http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on HTTP response body
 
 	var userInfo googleUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
@@ -139,7 +139,7 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		g.eventStore.LogEvent(store.AuthEvent{
+		g.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "account_created",
 			UserType:  "parent",
 			UserID:    parent.ID,
@@ -166,7 +166,7 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	g.eventStore.LogEvent(store.AuthEvent{
+	g.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
 		UserType:  "parent",
 		UserID:    parent.ID,
