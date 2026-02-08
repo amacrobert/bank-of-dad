@@ -61,7 +61,7 @@ export interface ChildListResponse {
 
 // Account Balances Feature (002-account-balances)
 
-export type TransactionType = 'deposit' | 'withdrawal' | 'allowance';
+export type TransactionType = 'deposit' | 'withdrawal' | 'allowance' | 'interest';
 
 export interface Transaction {
   id: number;
@@ -76,7 +76,10 @@ export interface Transaction {
 
 export interface BalanceResponse {
   child_id: number;
+  first_name: string;
   balance_cents: number;
+  interest_rate_bps: number;
+  interest_rate_display: string;
 }
 
 export interface ChildWithBalance {
@@ -103,6 +106,18 @@ export interface DepositRequest {
 export interface WithdrawRequest {
   amount_cents: number;
   note?: string;
+}
+
+// Interest Accrual Feature (005-interest-accrual)
+
+export interface InterestRateRequest {
+  interest_rate_bps: number;
+}
+
+export interface InterestRateResponse {
+  child_id: number;
+  interest_rate_bps: number;
+  interest_rate_display: string;
 }
 
 // Allowance Scheduling Feature (003-allowance-scheduling)
