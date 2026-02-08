@@ -15,6 +15,7 @@ const (
 	TransactionTypeDeposit    TransactionType = "deposit"
 	TransactionTypeWithdrawal TransactionType = "withdrawal"
 	TransactionTypeAllowance  TransactionType = "allowance"
+	TransactionTypeInterest   TransactionType = "interest"
 )
 
 // Transaction represents a record of money added or removed from a child's account.

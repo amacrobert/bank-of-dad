@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { put, ApiRequestError } from "../api";
+import { useState, useEffect } from "react";
+import { put, getBalance, ApiRequestError } from "../api";
 import { Child } from "../types";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
+import InterestRateForm from "./InterestRateForm";
 
 interface ManageChildProps {
   child: Child;
@@ -20,6 +21,15 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
+  const [interestRateBps, setInterestRateBps] = useState(0);
+
+  useEffect(() => {
+    getBalance(child.id).then((data) => {
+      setInterestRateBps(data.interest_rate_bps);
+    }).catch(() => {
+      // Ignore - interest rate will show as 0
+    });
+  }, [child.id]);
 
   const handleDepositSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
@@ -118,6 +128,13 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
           onCancel={() => setShowWithdraw(false)}
         />
       )}
+
+      <InterestRateForm
+        childId={child.id}
+        childName={child.first_name}
+        currentRateBps={interestRateBps}
+        onSuccess={(newRate) => setInterestRateBps(newRate)}
+      />
 
       <form onSubmit={handleResetPassword}>
         <h4>Reset Password</h4>

@@ -83,6 +83,13 @@ export function getTransactions(childId: number): Promise<TransactionListRespons
   return get<TransactionListResponse>(`/children/${childId}/transactions`);
 }
 
+// Interest Accrual API functions (005-interest-accrual)
+import { InterestRateRequest, InterestRateResponse } from "./types";
+
+export function setInterestRate(childId: number, data: InterestRateRequest): Promise<InterestRateResponse> {
+  return put<InterestRateResponse>(`/children/${childId}/interest-rate`, data);
+}
+
 // Allowance Scheduling API functions (003-allowance-scheduling)
 import {
   AllowanceSchedule,

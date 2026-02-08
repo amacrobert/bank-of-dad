@@ -2,6 +2,7 @@ package balance
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,15 +18,17 @@ const (
 
 // Handler handles balance-related HTTP requests.
 type Handler struct {
-	txStore    *store.TransactionStore
-	childStore *store.ChildStore
+	txStore       *store.TransactionStore
+	childStore    *store.ChildStore
+	interestStore *store.InterestStore
 }
 
 // NewHandler creates a new balance handler.
-func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore) *Handler {
+func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore) *Handler {
 	return &Handler{
-		txStore:    txStore,
-		childStore: childStore,
+		txStore:       txStore,
+		childStore:    childStore,
+		interestStore: interestStore,
 	}
 }
 
@@ -264,8 +267,11 @@ func formatMoney(amount float64) string {
 
 // BalanceResponse represents a balance query response.
 type BalanceResponse struct {
-	ChildID      int64 `json:"child_id"`
-	BalanceCents int64 `json:"balance_cents"`
+	ChildID             int64  `json:"child_id"`
+	FirstName           string `json:"first_name"`
+	BalanceCents        int64  `json:"balance_cents"`
+	InterestRateBps     int    `json:"interest_rate_bps"`
+	InterestRateDisplay string `json:"interest_rate_display"`
 }
 
 // TransactionListResponse represents a list of transactions.
@@ -326,9 +332,18 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get interest rate
+	rateBps := 0
+	if h.interestStore != nil {
+		rateBps, _ = h.interestStore.GetInterestRate(childID)
+	}
+
 	writeJSON(w, http.StatusOK, BalanceResponse{
-		ChildID:      child.ID,
-		BalanceCents: child.BalanceCents,
+		ChildID:             child.ID,
+		FirstName:           child.FirstName,
+		BalanceCents:        child.BalanceCents,
+		InterestRateBps:     rateBps,
+		InterestRateDisplay: fmt.Sprintf("%.2f%%", float64(rateBps)/100.0),
 	})
 }
 
