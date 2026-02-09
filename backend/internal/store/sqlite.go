@@ -191,6 +191,19 @@ func (db *DB) migrate() error {
 		return fmt.Errorf("add schedule_id column: %w", err)
 	}
 
+	// Interest accrual feature (005-interest-accrual)
+	if err := db.addColumnIfNotExists("children", "interest_rate_bps", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("add interest_rate_bps column: %w", err)
+	}
+	if err := db.addColumnIfNotExists("children", "last_interest_at", "DATETIME"); err != nil {
+		return fmt.Errorf("add last_interest_at column: %w", err)
+	}
+
+	// Migrate transactions CHECK constraint to include 'interest' type (005-interest-accrual)
+	if err := db.migrateTransactionsInterestType(); err != nil {
+		return fmt.Errorf("migrate transactions interest type: %w", err)
+	}
+
 	return nil
 }
 
@@ -313,6 +326,77 @@ func (db *DB) migrateTransactionsCheckConstraint() error {
 	}
 
 	// Re-enable foreign keys
+	if _, err := db.Write.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("re-enable foreign keys: %w", err)
+	}
+
+	return nil
+}
+
+// migrateTransactionsInterestType recreates the transactions table if its CHECK constraint
+// doesn't include 'interest'. This is needed because SQLite doesn't support ALTER CHECK.
+func (db *DB) migrateTransactionsInterestType() error {
+	var tableSql string
+	err := db.Read.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='transactions'").Scan(&tableSql)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("query sqlite_master: %w", err)
+	}
+
+	if strings.Contains(tableSql, "interest") {
+		return nil
+	}
+
+	if _, err := db.Write.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("disable foreign keys: %w", err)
+	}
+
+	tx, err := db.Write.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	newTableSQL := `CREATE TABLE transactions_new (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL,
+		parent_id INTEGER NOT NULL,
+		amount_cents INTEGER NOT NULL,
+		transaction_type TEXT NOT NULL CHECK(transaction_type IN ('deposit', 'withdrawal', 'allowance', 'interest')),
+		note TEXT,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		schedule_id INTEGER REFERENCES allowance_schedules(id) ON DELETE SET NULL,
+		FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
+		FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE RESTRICT
+	)`
+	if _, err := tx.Exec(newTableSQL); err != nil {
+		return fmt.Errorf("create new table: %w", err)
+	}
+
+	copySQL := `INSERT INTO transactions_new (id, child_id, parent_id, amount_cents, transaction_type, note, created_at, schedule_id)
+		SELECT id, child_id, parent_id, amount_cents, transaction_type, note, created_at, schedule_id FROM transactions`
+	if _, err := tx.Exec(copySQL); err != nil {
+		return fmt.Errorf("copy data: %w", err)
+	}
+
+	if _, err := tx.Exec("DROP TABLE transactions"); err != nil {
+		return fmt.Errorf("drop old table: %w", err)
+	}
+
+	if _, err := tx.Exec("ALTER TABLE transactions_new RENAME TO transactions"); err != nil {
+		return fmt.Errorf("rename table: %w", err)
+	}
+
+	if _, err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_transactions_child_created ON transactions(child_id, created_at DESC)"); err != nil {
+		return fmt.Errorf("recreate index: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
 	if _, err := db.Write.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return fmt.Errorf("re-enable foreign keys: %w", err)
 	}
