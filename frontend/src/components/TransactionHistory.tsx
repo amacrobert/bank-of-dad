@@ -24,7 +24,7 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
 
   const formatAmount = (cents: number, type: string) => {
     const dollars = (cents / 100).toFixed(2);
-    // Deposits and allowances are positive, withdrawals are negative
+    // Deposits, allowances, and interest are positive; withdrawals are negative
     return type === "withdrawal" ? `-$${dollars}` : `+$${dollars}`;
   };
 
@@ -33,6 +33,7 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
       case "deposit": return "Deposit";
       case "withdrawal": return "Withdrawal";
       case "allowance": return "Allowance";
+      case "interest": return "Interest earned";
       default: return type;
     }
   };

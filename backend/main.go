@@ -12,6 +12,7 @@ import (
 	"bank-of-dad/internal/balance"
 	"bank-of-dad/internal/config"
 	"bank-of-dad/internal/family"
+	"bank-of-dad/internal/interest"
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
 )
@@ -55,15 +56,23 @@ func main() {
 	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	txStore := store.NewTransactionStore(db)
-	balanceHandler := balance.NewHandler(txStore, childStore)
+	interestStore := store.NewInterestStore(db)
+	balanceHandler := balance.NewHandler(txStore, childStore, interestStore)
 	scheduleStore := store.NewScheduleStore(db)
 	allowanceHandler := allowance.NewHandler(scheduleStore, childStore)
+	interestHandler := interest.NewHandler(interestStore, childStore)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopScheduler := make(chan struct{})
 	defer close(stopScheduler)
 	scheduler := allowance.NewScheduler(scheduleStore, txStore, childStore)
 	scheduler.Start(5*time.Minute, stopScheduler)
+
+	// Start interest accrual scheduler goroutine (check every hour)
+	stopInterest := make(chan struct{})
+	defer close(stopInterest)
+	interestScheduler := interest.NewScheduler(interestStore)
+	interestScheduler.Start(1*time.Hour, stopInterest)
 
 	// Auth middleware
 	requireAuth := middleware.RequireAuth(sessionStore)
@@ -104,6 +113,9 @@ func main() {
 	mux.Handle("POST /api/children/{id}/withdraw", requireParent(http.HandlerFunc(balanceHandler.HandleWithdraw)))
 	mux.Handle("GET /api/children/{id}/balance", requireAuth(http.HandlerFunc(balanceHandler.HandleGetBalance)))
 	mux.Handle("GET /api/children/{id}/transactions", requireAuth(http.HandlerFunc(balanceHandler.HandleGetTransactions)))
+
+	// Interest Accrual (005-interest-accrual)
+	mux.Handle("PUT /api/children/{id}/interest-rate", requireParent(http.HandlerFunc(interestHandler.HandleSetInterestRate)))
 
 	// Allowance Scheduling (003-allowance-scheduling)
 	mux.Handle("POST /api/schedules", requireParent(http.HandlerFunc(allowanceHandler.HandleCreateSchedule)))
