@@ -90,8 +90,9 @@ func (s *InterestStore) ListDueForInterest() ([]InterestDue, error) {
 }
 
 // ApplyInterest atomically calculates interest, creates a transaction, updates the balance,
-// and sets last_interest_at. Returns an error if the calculated interest rounds to zero.
-func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int) error {
+// and sets last_interest_at. periodsPerYear controls proration: 12 for monthly, 26 for biweekly, 52 for weekly.
+// Returns an error if the calculated interest rounds to zero.
+func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, periodsPerYear int) error {
 	// Get current balance
 	var balanceCents int64
 	err := s.db.Read.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&balanceCents)
@@ -106,9 +107,13 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int) erro
 		return fmt.Errorf("no interest with zero rate")
 	}
 
-	// Calculate interest: balance_cents * rate_bps / 12 / 10000
+	if periodsPerYear <= 0 {
+		return fmt.Errorf("periodsPerYear must be positive")
+	}
+
+	// Calculate interest: balance_cents * rate_bps / periodsPerYear / 10000
 	// Use float64 for the intermediate calculation to get proper rounding
-	interestFloat := float64(balanceCents) * float64(rateBps) / 12.0 / 10000.0
+	interestFloat := float64(balanceCents) * float64(rateBps) / float64(periodsPerYear) / 10000.0
 	interestCents := int64(math.Round(interestFloat))
 
 	if interestCents <= 0 {

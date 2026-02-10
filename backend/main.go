@@ -57,10 +57,11 @@ func main() {
 	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	txStore := store.NewTransactionStore(db)
 	interestStore := store.NewInterestStore(db)
-	balanceHandler := balance.NewHandler(txStore, childStore, interestStore)
+	interestScheduleStore := store.NewInterestScheduleStore(db)
+	balanceHandler := balance.NewHandler(txStore, childStore, interestStore, interestScheduleStore)
 	scheduleStore := store.NewScheduleStore(db)
 	allowanceHandler := allowance.NewHandler(scheduleStore, childStore)
-	interestHandler := interest.NewHandler(interestStore, childStore)
+	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopScheduler := make(chan struct{})
@@ -72,6 +73,7 @@ func main() {
 	stopInterest := make(chan struct{})
 	defer close(stopInterest)
 	interestScheduler := interest.NewScheduler(interestStore)
+	interestScheduler.SetInterestScheduleStore(interestScheduleStore)
 	interestScheduler.Start(1*time.Hour, stopInterest)
 
 	// Auth middleware
@@ -126,6 +128,18 @@ func main() {
 	mux.Handle("POST /api/schedules/{id}/pause", requireParent(http.HandlerFunc(allowanceHandler.HandlePauseSchedule)))
 	mux.Handle("POST /api/schedules/{id}/resume", requireParent(http.HandlerFunc(allowanceHandler.HandleResumeSchedule)))
 	mux.Handle("GET /api/children/{childId}/upcoming-allowances", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetUpcomingAllowances)))
+
+	// Interest schedule endpoints (006-account-management-enhancements)
+	mux.Handle("PUT /api/children/{childId}/interest-schedule", requireParent(http.HandlerFunc(interestHandler.HandleSetInterestSchedule)))
+	mux.Handle("GET /api/children/{childId}/interest-schedule", requireAuth(http.HandlerFunc(interestHandler.HandleGetInterestSchedule)))
+	mux.Handle("DELETE /api/children/{childId}/interest-schedule", requireParent(http.HandlerFunc(interestHandler.HandleDeleteInterestSchedule)))
+
+	// Child-scoped allowance endpoints (006-account-management-enhancements)
+	mux.Handle("GET /api/children/{childId}/allowance", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetChildAllowance)))
+	mux.Handle("PUT /api/children/{childId}/allowance", requireParent(http.HandlerFunc(allowanceHandler.HandleSetChildAllowance)))
+	mux.Handle("DELETE /api/children/{childId}/allowance", requireParent(http.HandlerFunc(allowanceHandler.HandleDeleteChildAllowance)))
+	mux.Handle("POST /api/children/{childId}/allowance/pause", requireParent(http.HandlerFunc(allowanceHandler.HandlePauseChildAllowance)))
+	mux.Handle("POST /api/children/{childId}/allowance/resume", requireParent(http.HandlerFunc(allowanceHandler.HandleResumeChildAllowance)))
 
 	// Apply middleware chain: CORS → Logging → Routes
 	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)

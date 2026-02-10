@@ -11,6 +11,9 @@ export default function ChildDashboard() {
   const [user, setUser] = useState<ChildUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState<number>(0);
+  const [interestRateBps, setInterestRateBps] = useState<number>(0);
+  const [interestRateDisplay, setInterestRateDisplay] = useState<string>("");
+  const [nextInterestAt, setNextInterestAt] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -31,6 +34,9 @@ export default function ChildDashboard() {
           getTransactions(data.user_id)
         ]).then(([balanceRes, txRes]) => {
           setBalance(balanceRes.balance_cents);
+          setInterestRateBps(balanceRes.interest_rate_bps);
+          setInterestRateDisplay(balanceRes.interest_rate_display);
+          setNextInterestAt(balanceRes.next_interest_at || null);
           setTransactions(txRes.transactions || []);
         }).catch(() => {
           // Silently fail for now - user can see their account
@@ -81,6 +87,16 @@ export default function ChildDashboard() {
             <BalanceDisplay balanceCents={balance} size="large" />
           )}
         </section>
+
+        {interestRateBps > 0 && !loadingData && (
+          <section className="interest-info-section">
+            <h3>Interest</h3>
+            <p>{interestRateDisplay} annual interest</p>
+            {nextInterestAt && (
+              <p>Next interest payment: {new Date(nextInterestAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
+            )}
+          </section>
+        )}
 
         <section className="upcoming-section">
           <UpcomingAllowances childId={user.user_id} />

@@ -80,6 +80,7 @@ export interface BalanceResponse {
   balance_cents: number;
   interest_rate_bps: number;
   interest_rate_display: string;
+  next_interest_at?: string;
 }
 
 export interface ChildWithBalance {
@@ -173,4 +174,19 @@ export interface UpcomingAllowance {
 
 export interface UpcomingAllowancesResponse {
   allowances: UpcomingAllowance[];
+}
+
+// Interest Schedule Feature (006-account-management-enhancements)
+
+export interface InterestSchedule {
+  id: number;
+  child_id: number;
+  parent_id: number;
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+  status: ScheduleStatus;
+  next_run_at?: string;
+  created_at: string;
+  updated_at: string;
 }

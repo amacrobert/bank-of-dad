@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { put, getBalance, ApiRequestError } from "../api";
-import { Child } from "../types";
+import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
+import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
 import InterestRateForm from "./InterestRateForm";
+import InterestScheduleForm from "./InterestScheduleForm";
+import TransactionHistory from "./TransactionHistory";
+import ChildAllowanceForm from "./ChildAllowanceForm";
 
 interface ManageChildProps {
   child: Child;
@@ -22,24 +25,36 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
   const [interestRateBps, setInterestRateBps] = useState(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
+  const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
+
+  const loadTransactions = () => {
+    getTransactions(child.id).then((data) => {
+      setTransactions(data.transactions || []);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     getBalance(child.id).then((data) => {
       setInterestRateBps(data.interest_rate_bps);
-    }).catch(() => {
-      // Ignore - interest rate will show as 0
-    });
+    }).catch(() => {});
+    loadTransactions();
+    getChildAllowance(child.id).then(setAllowance).catch(() => {});
+    getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
   }, [child.id]);
 
   const handleDepositSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
     setShowDeposit(false);
+    loadTransactions();
     onUpdated();
   };
 
   const handleWithdrawSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
     setShowWithdraw(false);
+    loadTransactions();
     onUpdated();
   };
 
@@ -129,12 +144,31 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         />
       )}
 
+      <ChildAllowanceForm
+        childId={child.id}
+        childName={child.first_name}
+        allowance={allowance}
+        onUpdated={setAllowance}
+      />
+
       <InterestRateForm
         childId={child.id}
         childName={child.first_name}
         currentRateBps={interestRateBps}
         onSuccess={(newRate) => setInterestRateBps(newRate)}
       />
+
+      <InterestScheduleForm
+        childId={child.id}
+        childName={child.first_name}
+        schedule={interestSchedule}
+        onUpdated={setInterestSchedule}
+      />
+
+      <div className="transaction-history-section">
+        <h4>Transaction History</h4>
+        <TransactionHistory transactions={transactions} />
+      </div>
 
       <form onSubmit={handleResetPassword}>
         <h4>Reset Password</h4>
