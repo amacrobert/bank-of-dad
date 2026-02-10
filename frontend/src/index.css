@@ -1,41 +1,66 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+@theme {
+  --color-forest: #2D5A3D;
+  --color-forest-light: #3A7A52;
+  --color-sage: #87A98F;
+  --color-sage-light: #B5C9BA;
+  --color-cream: #FDF6EC;
+  --color-cream-dark: #F5EBD9;
+  --color-sand: #E8DCC8;
+  --color-terracotta: #C4704B;
+  --color-amber: #D4A84B;
+  --color-amber-light: #F0D078;
+  --color-bark: #3D2E1F;
+  --color-bark-light: #6B5744;
+  --font-display: "Nunito", sans-serif;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f5f5f5;
-  color: #333;
+  font-family: "Nunito", sans-serif;
+  background-color: #FDF6EC;
+  color: #3D2E1F;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.app {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-h1 {
-  color: #2c5530;
-  margin-bottom: 2rem;
+@keyframes gentle-sway {
+  0%, 100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
 }
 
-.message {
-  font-size: 1.5rem;
-  color: #555;
-  padding: 1rem;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
-.error {
-  font-size: 1.2rem;
-  color: #c0392b;
-  padding: 1rem;
-  background-color: #fde8e8;
-  border-radius: 8px;
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.animate-gentle-sway {
+  animation: gentle-sway 4s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }

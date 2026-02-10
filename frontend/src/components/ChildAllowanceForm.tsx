@@ -7,6 +7,11 @@ import {
   ApiRequestError,
 } from "../api";
 import { AllowanceSchedule, Frequency } from "../types";
+import Card from "./ui/Card";
+import Input from "./ui/Input";
+import Select from "./ui/Select";
+import Button from "./ui/Button";
+import { Calendar } from "lucide-react";
 
 interface ChildAllowanceFormProps {
   childId: number;
@@ -40,7 +45,6 @@ export default function ChildAllowanceForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Pre-populate form from existing allowance
   useEffect(() => {
     if (allowance) {
       setAmount((allowance.amount_cents / 100).toFixed(2));
@@ -158,119 +162,139 @@ export default function ChildAllowanceForm({
   };
 
   return (
-    <div className="child-allowance-form">
-      <h4>Allowance for {childName}</h4>
+    <Card padding="md">
+      <div className="flex items-center gap-2 mb-4">
+        <Calendar className="h-5 w-5 text-forest" aria-hidden="true" />
+        <h4 className="text-base font-bold text-bark">Allowance for {childName}</h4>
+      </div>
 
       {allowance && (
-        <div className="allowance-status">
-          <p>
-            Status: <strong>{allowance.status === "active" ? "Active" : "Paused"}</strong>
+        <div className="mb-4 p-3 bg-cream rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-bark-light">Status:</span>
+              <span className={`
+                inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold
+                ${allowance.status === "active"
+                  ? "bg-sage-light/40 text-forest"
+                  : "bg-sand text-bark-light"
+                }
+              `}>
+                {allowance.status === "active" ? "Active" : "Paused"}
+              </span>
+            </div>
             {allowance.status === "active" && allowance.next_run_at && (
-              <> &mdash; Next: {formatNextRun(allowance.next_run_at)}</>
+              <span className="text-xs text-bark-light">
+                Next: {formatNextRun(allowance.next_run_at)}
+              </span>
             )}
-          </p>
-          <div className="allowance-actions">
+          </div>
+          <div className="flex gap-2">
             {allowance.status === "active" ? (
-              <button type="button" onClick={handlePause} disabled={saving} className="btn-secondary">
+              <Button variant="secondary" onClick={handlePause} disabled={saving} className="text-sm !min-h-[36px] !px-3 !py-1">
                 Pause
-              </button>
+              </Button>
             ) : (
-              <button type="button" onClick={handleResume} disabled={saving} className="btn-primary">
+              <Button variant="primary" onClick={handleResume} disabled={saving} className="text-sm !min-h-[36px] !px-3 !py-1">
                 Resume
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={handleDelete} disabled={saving} className="btn-danger">
+            <Button variant="danger" onClick={handleDelete} disabled={saving} className="text-sm !min-h-[36px] !px-3 !py-1">
               Remove
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="allowance-amount">Amount ($)</label>
-          <input
-            type="number"
-            id="allowance-amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            step="0.01"
-            min="0.01"
-            max="999999.99"
-            required
-            disabled={saving}
-          />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="allowance-amount" className="block text-sm font-semibold text-bark-light">
+            Amount
+          </label>
+          <div className="flex items-center rounded-xl border border-sand bg-white overflow-hidden focus-within:ring-2 focus-within:ring-forest/30 focus-within:border-forest transition-all">
+            <span className="px-3 py-3 bg-cream-dark text-bark-light text-base font-medium border-r border-sand">$</span>
+            <input
+              type="number"
+              id="allowance-amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              step="0.01"
+              min="0.01"
+              max="999999.99"
+              required
+              disabled={saving}
+              className="flex-1 min-h-[48px] px-3 py-3 bg-transparent text-bark text-base placeholder:text-bark-light/50 focus:outline-none disabled:cursor-not-allowed"
+            />
+          </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="allowance-frequency">Frequency</label>
-          <select
-            id="allowance-frequency"
-            value={frequency}
-            onChange={(e) => setFrequency(e.target.value as Frequency)}
-            disabled={saving}
-          >
-            <option value="weekly">Weekly</option>
-            <option value="biweekly">Every 2 Weeks</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </div>
+        <Select
+          label="Frequency"
+          id="allowance-frequency"
+          value={frequency}
+          onChange={(e) => setFrequency(e.target.value as Frequency)}
+          disabled={saving}
+        >
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Every 2 Weeks</option>
+          <option value="monthly">Monthly</option>
+        </Select>
 
         {frequency !== "monthly" && (
-          <div className="form-group">
-            <label htmlFor="allowance-day-of-week">Day of Week</label>
-            <select
-              id="allowance-day-of-week"
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(Number(e.target.value))}
-              disabled={saving}
-            >
-              {DAYS_OF_WEEK.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Day of Week"
+            id="allowance-day-of-week"
+            value={dayOfWeek}
+            onChange={(e) => setDayOfWeek(Number(e.target.value))}
+            disabled={saving}
+          >
+            {DAYS_OF_WEEK.map((d) => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </Select>
         )}
 
         {frequency === "monthly" && (
-          <div className="form-group">
-            <label htmlFor="allowance-day-of-month">Day of Month</label>
-            <input
-              type="number"
-              id="allowance-day-of-month"
-              value={dayOfMonth}
-              onChange={(e) => setDayOfMonth(Number(e.target.value))}
-              min={1}
-              max={31}
-              required
-              disabled={saving}
-            />
-          </div>
-        )}
-
-        <div className="form-group">
-          <label htmlFor="allowance-note">Note (optional)</label>
-          <input
-            type="text"
-            id="allowance-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g., Weekly allowance"
-            maxLength={500}
+          <Input
+            label="Day of Month"
+            id="allowance-day-of-month"
+            type="number"
+            value={dayOfMonth}
+            onChange={(e) => setDayOfMonth(Number(e.target.value))}
+            min={1}
+            max={31}
+            required
             disabled={saving}
           />
-        </div>
+        )}
 
-        <button type="submit" disabled={saving} className="btn-primary">
+        <Input
+          label="Note (optional)"
+          id="allowance-note"
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g., Weekly allowance"
+          maxLength={500}
+          disabled={saving}
+        />
+
+        <Button type="submit" loading={saving} className="w-full">
           {saving ? "Saving..." : allowance ? "Update Allowance" : "Set Up Allowance"}
-        </button>
+        </Button>
       </form>
 
-      {success && <p className="success">{success}</p>}
-      {error && <p className="error">{error}</p>}
-    </div>
+      {success && (
+        <div className="mt-3 bg-forest/5 border border-forest/15 rounded-xl p-3">
+          <p className="text-sm text-forest font-medium">{success}</p>
+        </div>
+      )}
+      {error && (
+        <div className="mt-3 bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
+          <p className="text-sm text-terracotta font-medium">{error}</p>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -4,12 +4,16 @@ import { post } from "../api";
 import { ApiRequestError } from "../api";
 import { Family } from "../types";
 import SlugPicker from "../components/SlugPicker";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import { Leaf, PartyPopper } from "lucide-react";
 
 export default function SetupPage() {
   const navigate = useNavigate();
   const [selectedSlug, setSelectedSlug] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
 
   const handleSubmit = async () => {
     if (!selectedSlug) return;
@@ -19,7 +23,7 @@ export default function SetupPage() {
 
     try {
       await post<Family>("/families", { slug: selectedSlug });
-      navigate("/dashboard", { replace: true });
+      setCreated(true);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.body.message || err.body.error);
@@ -30,24 +34,77 @@ export default function SetupPage() {
     }
   };
 
+  const step = created ? 2 : 1;
+
   return (
-    <div className="setup-page">
-      <h1>Set up your family bank</h1>
-      <p>Choose a unique URL for your family. Your kids will use this to log in.</p>
+    <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md animate-fade-in-up">
+        {/* Progress dots */}
+        <div className="flex justify-center gap-2 mb-8">
+          {[1, 2].map((s) => (
+            <div
+              key={s}
+              className={`w-3 h-3 rounded-full transition-colors ${
+                s <= step ? "bg-forest" : "bg-sand"
+              }`}
+            />
+          ))}
+        </div>
 
-      <SlugPicker onSelect={setSelectedSlug} disabled={submitting} />
+        {!created ? (
+          <Card padding="lg">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 bg-forest/10 rounded-2xl flex items-center justify-center">
+                <Leaf className="h-7 w-7 text-forest" aria-hidden="true" />
+              </div>
+            </div>
 
-      {error && <p className="error">{error}</p>}
+            <h1 className="text-2xl font-bold text-forest text-center mb-2">
+              Set up your family bank
+            </h1>
+            <p className="text-bark-light text-center mb-6">
+              Choose a unique URL for your family. Your kids will use this to log in.
+            </p>
 
-      {selectedSlug && (
-        <button
-          className="btn-primary"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? "Creating..." : "Create Family Bank"}
-        </button>
-      )}
+            <SlugPicker onSelect={setSelectedSlug} disabled={submitting} />
+
+            {error && (
+              <div className="mt-4 bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
+                <p className="text-sm text-terracotta font-medium">{error}</p>
+              </div>
+            )}
+
+            {selectedSlug && (
+              <div className="mt-6">
+                <Button
+                  onClick={handleSubmit}
+                  loading={submitting}
+                  className="w-full"
+                >
+                  {submitting ? "Creating..." : "Create Family Bank"}
+                </Button>
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card padding="lg">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-amber/15 rounded-full flex items-center justify-center">
+                  <PartyPopper className="h-8 w-8 text-amber" aria-hidden="true" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-forest mb-2">You're all set!</h2>
+              <p className="text-bark-light mb-6">
+                Your family bank is ready. Start adding your kids!
+              </p>
+              <Button onClick={() => navigate("/dashboard", { replace: true })} className="w-full">
+                Go to Dashboard
+              </Button>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
