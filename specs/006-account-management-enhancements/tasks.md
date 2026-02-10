@@ -19,9 +19,9 @@
 
 **Purpose**: Database migrations and shared data layer changes
 
-- [ ] T001 Add `interest_schedules` table migration in `backend/internal/store/sqlite.go`
-- [ ] T002 Add UNIQUE constraint migration for `allowance_schedules.child_id` (with deduplication of existing data) in `backend/internal/store/sqlite.go`
-- [ ] T003 Add `GetByChildID(childID)` method to `ScheduleStore` in `backend/internal/store/schedule.go`
+- [x] T001 Add `interest_schedules` table migration in `backend/internal/store/sqlite.go`
+- [x] T002 Add UNIQUE constraint migration for `allowance_schedules.child_id` (with deduplication of existing data) in `backend/internal/store/sqlite.go`
+- [x] T003 Add `GetByChildID(childID)` method to `ScheduleStore` in `backend/internal/store/schedule.go`
 
 ---
 
@@ -35,16 +35,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T004 [P] Write store tests for `InterestScheduleStore` CRUD (Create, GetByChildID, Update, Delete) in `backend/internal/store/interest_schedule_test.go`
-- [ ] T005 [P] Write store tests for `InterestScheduleStore.ListDue` and `UpdateNextRunAt` in `backend/internal/store/interest_schedule_test.go`
-- [ ] T006 [P] Write store tests for `ApplyInterest` with `periodsPerYear` param (weekly=52, biweekly=26, monthly=12 proration) in `backend/internal/store/interest_test.go`
-- [ ] T007 [P] Write store test for `ScheduleStore.GetByChildID` in `backend/internal/store/schedule_test.go`
+- [x] T004 [P] Write store tests for `InterestScheduleStore` CRUD (Create, GetByChildID, Update, Delete) in `backend/internal/store/interest_schedule_test.go`
+- [x] T005 [P] Write store tests for `InterestScheduleStore.ListDue` and `UpdateNextRunAt` in `backend/internal/store/interest_schedule_test.go`
+- [x] T006 [P] Write store tests for `ApplyInterest` with `periodsPerYear` param (weekly=52, biweekly=26, monthly=12 proration) in `backend/internal/store/interest_test.go`
+- [x] T007 [P] Write store test for `ScheduleStore.GetByChildID` in `backend/internal/store/schedule_test.go`
 
 ### Implementation
 
-- [ ] T008 Implement `InterestScheduleStore` with Create, GetByChildID, Update, Delete, ListDue, UpdateNextRunAt, UpdateStatus in `backend/internal/store/interest_schedule.go`
-- [ ] T009 Modify `ApplyInterest` to accept `periodsPerYear int` parameter (replace hardcoded `/12`) in `backend/internal/store/interest.go`
-- [ ] T010 Run foundational tests: `cd backend && go test ./internal/store/... -v`
+- [x] T008 Implement `InterestScheduleStore` with Create, GetByChildID, Update, Delete, ListDue, UpdateNextRunAt, UpdateStatus in `backend/internal/store/interest_schedule.go`
+- [x] T009 Modify `ApplyInterest` to accept `periodsPerYear int` parameter (replace hardcoded `/12`) in `backend/internal/store/interest.go`
+- [x] T010 Run foundational tests: `cd backend && go test ./internal/store/... -v`
 
 **Checkpoint**: Store layer complete — all interest schedule and modified interest operations work correctly
 
@@ -58,8 +58,8 @@
 
 ### Implementation
 
-- [ ] T011 [US1] Fetch and display transaction history in ManageChild: call `getTransactions(childId)` and render `TransactionHistory` component in `frontend/src/components/ManageChild.tsx`
-- [ ] T012 [US1] Verify transaction history displays correctly for parent view (manual test or visual check)
+- [x] T011 [US1] Fetch and display transaction history in ManageChild: call `getTransactions(childId)` and render `TransactionHistory` component in `frontend/src/components/ManageChild.tsx`
+- [x] T012 [US1] Verify transaction history displays correctly for parent view (manual test or visual check)
 
 **Checkpoint**: Parents see transaction history when managing a child
 
@@ -73,8 +73,8 @@
 
 ### Implementation
 
-- [ ] T013 [US2] Fix `InterestRateForm` to re-initialize when `currentRateBps` prop changes asynchronously (use `key` prop or `useEffect` sync) in `frontend/src/components/InterestRateForm.tsx`
-- [ ] T014 [US2] Verify pre-population works: set rate, close manage child, reopen, confirm form shows saved rate
+- [x] T013 [US2] Fix `InterestRateForm` to re-initialize when `currentRateBps` prop changes asynchronously (use `key` prop or `useEffect` sync) in `frontend/src/components/InterestRateForm.tsx`
+- [x] T014 [US2] Verify pre-population works: set rate, close manage child, reopen, confirm form shows saved rate
 
 **Checkpoint**: Interest rate is always pre-populated correctly
 
@@ -90,17 +90,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [P] [US3] Write handler tests for child-scoped allowance endpoints: `GET /api/children/{childId}/allowance`, `PUT /api/children/{childId}/allowance`, `DELETE /api/children/{childId}/allowance`, pause, resume in `backend/internal/allowance/handler_test.go`
+- [x] T015 [P] [US3] Write handler tests for child-scoped allowance endpoints: `GET /api/children/{childId}/allowance`, `PUT /api/children/{childId}/allowance`, `DELETE /api/children/{childId}/allowance`, pause, resume in `backend/internal/allowance/handler_test.go`
 
 ### Implementation
 
-- [ ] T016 [US3] Implement child-scoped allowance handlers: HandleGetChildAllowance, HandleSetChildAllowance (create-or-update), HandleDeleteChildAllowance, HandlePauseChildAllowance, HandleResumeChildAllowance in `backend/internal/allowance/handler.go`
-- [ ] T017 [US3] Wire child-scoped allowance routes in `backend/main.go`
-- [ ] T018 [US3] Run allowance handler tests: `cd backend && go test ./internal/allowance/... -v`
-- [ ] T019 [US3] Add `InterestSchedule` type and child-scoped allowance API functions to `frontend/src/types.ts` and `frontend/src/api.ts`
-- [ ] T020 [US3] Create `ChildAllowanceForm` component (create/edit/pause/resume/remove allowance, pre-populated when exists) in `frontend/src/components/ChildAllowanceForm.tsx`
-- [ ] T021 [US3] Integrate `ChildAllowanceForm` into `ManageChild.tsx` — fetch child's allowance on mount, pass to form
-- [ ] T022 [US3] Remove standalone allowance section (`ScheduleForm`, `ScheduleList`, related state) from `frontend/src/pages/ParentDashboard.tsx`
+- [x] T016 [US3] Implement child-scoped allowance handlers: HandleGetChildAllowance, HandleSetChildAllowance (create-or-update), HandleDeleteChildAllowance, HandlePauseChildAllowance, HandleResumeChildAllowance in `backend/internal/allowance/handler.go`
+- [x] T017 [US3] Wire child-scoped allowance routes in `backend/main.go`
+- [x] T018 [US3] Run allowance handler tests: `cd backend && go test ./internal/allowance/... -v`
+- [x] T019 [US3] Add `InterestSchedule` type and child-scoped allowance API functions to `frontend/src/types.ts` and `frontend/src/api.ts`
+- [x] T020 [US3] Create `ChildAllowanceForm` component (create/edit/pause/resume/remove allowance, pre-populated when exists) in `frontend/src/components/ChildAllowanceForm.tsx`
+- [x] T021 [US3] Integrate `ChildAllowanceForm` into `ManageChild.tsx` — fetch child's allowance on mount, pass to form
+- [x] T022 [US3] Remove standalone allowance section (`ScheduleForm`, `ScheduleList`, related state) from `frontend/src/pages/ParentDashboard.tsx`
 
 **Checkpoint**: Allowance managed per-child inline; standalone section removed
 
