@@ -27,9 +27,9 @@ npm test && npm run lint
 Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend): Follow standard conventions
 
 ## Recent Changes
+- 006-account-management-enhancements: Added Go 1.24.0 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `modernc.org/sqlite`, `testify`, react-router-dom, Vite
 - 005-interest-accrual: Added Go 1.24.0 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `modernc.org/sqlite`, `testify`, react-router-dom, Vite
 - 004-ci-github-actions: Added Go 1.24.0 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + golangci-lint (new, backend CI only), ESLint + typescript-eslint (new, frontend CI only), GitHub Actions runners
-- 003-allowance-scheduling: Added Go 1.24.0 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `modernc.org/sqlite`, `testify`, react-router-dom, Vite (existing - no new deps)
 
 
 <!-- MANUAL ADDITIONS START -->
