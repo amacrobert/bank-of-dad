@@ -647,3 +647,304 @@ func TestHandleGetUpcomingAllowances_NoSchedules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, resp.Allowances, 0)
 }
+
+// =====================================================
+// T015 (006): Child-scoped allowance endpoint tests
+// =====================================================
+
+func TestHandleGetChildAllowance_Exists(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	// Create allowance first
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleGetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var sched store.AllowanceSchedule
+	err := json.Unmarshal(rr.Body.Bytes(), &sched)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1000), sched.AmountCents)
+	assert.Equal(t, store.FrequencyWeekly, sched.Frequency)
+}
+
+func TestHandleGetChildAllowance_None(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleGetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "null\n", rr.Body.String())
+}
+
+func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "child", child.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleGetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child1 := createTestChild(t, db, family.ID, "Emma")
+	child2 := createTestChild(t, db, family.ID, "Jack")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child1.ID, "weekly", &dow, nil)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child1.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child1.ID))
+	req = setRequestContext(req, "child", child2.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleGetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+}
+
+func TestHandleSetChildAllowance_Create(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	body := `{"amount_cents":1500,"frequency":"weekly","day_of_week":3,"note":"Wednesday allowance"}`
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleSetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var sched store.AllowanceSchedule
+	err := json.Unmarshal(rr.Body.Bytes(), &sched)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1500), sched.AmountCents)
+	assert.Equal(t, store.FrequencyWeekly, sched.Frequency)
+	assert.Equal(t, 3, *sched.DayOfWeek)
+	assert.Equal(t, "Wednesday allowance", *sched.Note)
+	assert.Equal(t, store.ScheduleStatusActive, sched.Status)
+	assert.NotNil(t, sched.NextRunAt)
+}
+
+func TestHandleSetChildAllowance_Update(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	// Create first
+	body1 := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
+	req1 := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body1))
+	req1.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req1 = setRequestContext(req1, "parent", parent.ID, family.ID)
+	rr1 := httptest.NewRecorder()
+	handler.HandleSetChildAllowance(rr1, req1)
+	require.Equal(t, http.StatusOK, rr1.Code)
+
+	// Update
+	body2 := `{"amount_cents":2000,"frequency":"monthly","day_of_month":15,"note":"Monthly update"}`
+	req2 := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body2))
+	req2.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req2 = setRequestContext(req2, "parent", parent.ID, family.ID)
+	rr2 := httptest.NewRecorder()
+	handler.HandleSetChildAllowance(rr2, req2)
+
+	assert.Equal(t, http.StatusOK, rr2.Code)
+	var updated store.AllowanceSchedule
+	err := json.Unmarshal(rr2.Body.Bytes(), &updated)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2000), updated.AmountCents)
+	assert.Equal(t, store.FrequencyMonthly, updated.Frequency)
+	assert.Equal(t, 15, *updated.DayOfMonth)
+}
+
+func TestHandleSetChildAllowance_ChildForbidden(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	body := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "child", child.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleSetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+}
+
+func TestHandleSetChildAllowance_InvalidAmount(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	body := `{"amount_cents":0,"frequency":"weekly","day_of_week":5}`
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleSetChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestHandleDeleteChildAllowance_Success(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
+
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleDeleteChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+
+	// Verify it's gone
+	getReq := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	getReq.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	getReq = setRequestContext(getReq, "parent", parent.ID, family.ID)
+	getRR := httptest.NewRecorder()
+	handler.HandleGetChildAllowance(getRR, getReq)
+	assert.Equal(t, http.StatusOK, getRR.Code)
+	assert.Equal(t, "null\n", getRR.Body.String())
+}
+
+func TestHandleDeleteChildAllowance_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleDeleteChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestHandlePauseChildAllowance_Success(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandlePauseChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var sched store.AllowanceSchedule
+	err := json.Unmarshal(rr.Body.Bytes(), &sched)
+	require.NoError(t, err)
+	assert.Equal(t, store.ScheduleStatusPaused, sched.Status)
+}
+
+func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandlePauseChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestHandleResumeChildAllowance_Success(t *testing.T) {
+	db := setupTestDB(t)
+	family := createTestFamily(t, db)
+	parent := createTestParent(t, db, family.ID)
+	child := createTestChild(t, db, family.ID, "Emma")
+
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	dow := 5
+	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
+
+	// Pause first
+	pauseReq := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
+	pauseReq.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	pauseReq = setRequestContext(pauseReq, "parent", parent.ID, family.ID)
+	pauseRR := httptest.NewRecorder()
+	handler.HandlePauseChildAllowance(pauseRR, pauseReq)
+	require.Equal(t, http.StatusOK, pauseRR.Code)
+
+	// Resume
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/resume", child.ID), nil)
+	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
+	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	rr := httptest.NewRecorder()
+	handler.HandleResumeChildAllowance(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var sched store.AllowanceSchedule
+	err := json.Unmarshal(rr.Body.Bytes(), &sched)
+	require.NoError(t, err)
+	assert.Equal(t, store.ScheduleStatusActive, sched.Status)
+	assert.NotNil(t, sched.NextRunAt)
+}

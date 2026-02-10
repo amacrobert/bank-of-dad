@@ -93,6 +93,7 @@ export function setInterestRate(childId: number, data: InterestRateRequest): Pro
 // Allowance Scheduling API functions (003-allowance-scheduling)
 import {
   AllowanceSchedule,
+  Frequency,
   CreateScheduleRequest,
   UpdateScheduleRequest,
   ScheduleListResponse,
@@ -129,4 +130,55 @@ export function resumeSchedule(id: number): Promise<AllowanceSchedule> {
 
 export function getUpcomingAllowances(childId: number): Promise<UpcomingAllowancesResponse> {
   return get<UpcomingAllowancesResponse>(`/children/${childId}/upcoming-allowances`);
+}
+
+// Child-scoped allowance API functions (006-account-management-enhancements)
+
+export function getChildAllowance(childId: number): Promise<AllowanceSchedule | null> {
+  return get<AllowanceSchedule | null>(`/children/${childId}/allowance`);
+}
+
+export interface SetChildAllowanceRequest {
+  amount_cents: number;
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+  note?: string;
+}
+
+export function setChildAllowance(childId: number, data: SetChildAllowanceRequest): Promise<AllowanceSchedule> {
+  return put<AllowanceSchedule>(`/children/${childId}/allowance`, data);
+}
+
+export function deleteChildAllowance(childId: number): Promise<void> {
+  return request<void>(`/children/${childId}/allowance`, { method: "DELETE" });
+}
+
+export function pauseChildAllowance(childId: number): Promise<AllowanceSchedule> {
+  return post<AllowanceSchedule>(`/children/${childId}/allowance/pause`);
+}
+
+export function resumeChildAllowance(childId: number): Promise<AllowanceSchedule> {
+  return post<AllowanceSchedule>(`/children/${childId}/allowance/resume`);
+}
+
+// Interest schedule API functions (006-account-management-enhancements)
+import { InterestSchedule } from "./types";
+
+export interface SetInterestScheduleRequest {
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+}
+
+export function getInterestSchedule(childId: number): Promise<InterestSchedule | null> {
+  return get<InterestSchedule | null>(`/children/${childId}/interest-schedule`);
+}
+
+export function setInterestSchedule(childId: number, data: SetInterestScheduleRequest): Promise<InterestSchedule> {
+  return put<InterestSchedule>(`/children/${childId}/interest-schedule`, data);
+}
+
+export function deleteInterestSchedule(childId: number): Promise<void> {
+  return request<void>(`/children/${childId}/interest-schedule`, { method: "DELETE" });
 }

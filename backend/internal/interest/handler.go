@@ -5,22 +5,26 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
 )
 
 // Handler handles interest-related HTTP requests.
 type Handler struct {
-	interestStore *store.InterestStore
-	childStore    *store.ChildStore
+	interestStore         *store.InterestStore
+	interestScheduleStore *store.InterestScheduleStore
+	childStore            *store.ChildStore
 }
 
 // NewHandler creates a new interest handler.
-func NewHandler(interestStore *store.InterestStore, childStore *store.ChildStore) *Handler {
+func NewHandler(interestStore *store.InterestStore, childStore *store.ChildStore, interestScheduleStore *store.InterestScheduleStore) *Handler {
 	return &Handler{
-		interestStore: interestStore,
-		childStore:    childStore,
+		interestStore:         interestStore,
+		interestScheduleStore: interestScheduleStore,
+		childStore:            childStore,
 	}
 }
 
@@ -124,6 +128,183 @@ func (h *Handler) HandleSetInterestRate(w http.ResponseWriter, r *http.Request) 
 		InterestRateBps:     req.InterestRateBps,
 		InterestRateDisplay: FormatRateDisplay(req.InterestRateBps),
 	})
+}
+
+// SetInterestScheduleRequest represents the request body for setting an interest schedule.
+type SetInterestScheduleRequest struct {
+	Frequency  store.Frequency `json:"frequency"`
+	DayOfWeek  *int            `json:"day_of_week,omitempty"`
+	DayOfMonth *int            `json:"day_of_month,omitempty"`
+}
+
+// HandleSetInterestSchedule handles PUT /api/children/{childId}/interest-schedule
+func (h *Handler) HandleSetInterestSchedule(w http.ResponseWriter, r *http.Request) {
+	userType := middleware.GetUserType(r)
+	if userType != "parent" {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{Error: "forbidden", Message: "Only parents can manage interest schedules."})
+		return
+	}
+
+	childID, err := strconv.ParseInt(r.PathValue("childId"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	child, err := h.childStore.GetByID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
+		return
+	}
+	if child == nil || child.FamilyID != middleware.GetFamilyID(r) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Child not found."})
+		return
+	}
+
+	var req SetInterestScheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_request", Message: "Invalid request body."})
+		return
+	}
+
+	if errMsg := allowance.ValidateFrequencyAndDay(req.Frequency, req.DayOfWeek, req.DayOfMonth); errMsg != "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_frequency", Message: errMsg})
+		return
+	}
+
+	parentID := middleware.GetUserID(r)
+
+	existing, err := h.interestScheduleStore.GetByChildID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to check existing schedule."})
+		return
+	}
+
+	if existing != nil {
+		existing.Frequency = req.Frequency
+		existing.DayOfWeek = req.DayOfWeek
+		existing.DayOfMonth = req.DayOfMonth
+		nextRun := calculateInterestNextRun(existing, time.Now().UTC())
+		existing.NextRunAt = &nextRun
+
+		updated, err := h.interestScheduleStore.Update(existing)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update schedule."})
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+	} else {
+		sched := &store.InterestSchedule{
+			ChildID:   childID,
+			ParentID:  parentID,
+			Frequency: req.Frequency,
+			DayOfWeek: req.DayOfWeek,
+			DayOfMonth: req.DayOfMonth,
+			Status:    store.ScheduleStatusActive,
+		}
+		nextRun := calculateInterestNextRun(sched, time.Now().UTC())
+		sched.NextRunAt = &nextRun
+
+		created, err := h.interestScheduleStore.Create(sched)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to create schedule."})
+			return
+		}
+		writeJSON(w, http.StatusOK, created)
+	}
+}
+
+// HandleGetInterestSchedule handles GET /api/children/{childId}/interest-schedule
+func (h *Handler) HandleGetInterestSchedule(w http.ResponseWriter, r *http.Request) {
+	childID, err := strconv.ParseInt(r.PathValue("childId"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	child, err := h.childStore.GetByID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
+		return
+	}
+	if child == nil {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Child not found."})
+		return
+	}
+
+	familyID := middleware.GetFamilyID(r)
+	if child.FamilyID != familyID {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{Error: "forbidden", Message: "You do not have permission."})
+		return
+	}
+
+	userType := middleware.GetUserType(r)
+	userID := middleware.GetUserID(r)
+	if userType == "child" && userID != childID {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{Error: "forbidden", Message: "You can only view your own interest schedule."})
+		return
+	}
+
+	sched, err := h.interestScheduleStore.GetByChildID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get schedule."})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, sched)
+}
+
+// HandleDeleteInterestSchedule handles DELETE /api/children/{childId}/interest-schedule
+func (h *Handler) HandleDeleteInterestSchedule(w http.ResponseWriter, r *http.Request) {
+	userType := middleware.GetUserType(r)
+	if userType != "parent" {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{Error: "forbidden", Message: "Only parents can delete interest schedules."})
+		return
+	}
+
+	childID, err := strconv.ParseInt(r.PathValue("childId"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	child, err := h.childStore.GetByID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
+		return
+	}
+	if child == nil || child.FamilyID != middleware.GetFamilyID(r) {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Child not found."})
+		return
+	}
+
+	sched, err := h.interestScheduleStore.GetByChildID(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get schedule."})
+		return
+	}
+	if sched == nil {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "No interest schedule found for this child."})
+		return
+	}
+
+	if err := h.interestScheduleStore.Delete(sched.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to delete schedule."})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// calculateInterestNextRun reuses the allowance schedule calculation logic for interest schedules.
+func calculateInterestNextRun(sched *store.InterestSchedule, now time.Time) time.Time {
+	// Create a temporary AllowanceSchedule to reuse CalculateNextRun
+	tmpSched := &store.AllowanceSchedule{
+		Frequency:  sched.Frequency,
+		DayOfWeek:  sched.DayOfWeek,
+		DayOfMonth: sched.DayOfMonth,
+	}
+	return allowance.CalculateNextRun(tmpSched, now)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

@@ -140,6 +140,51 @@ func (s *ScheduleStore) GetByID(id int64) (*AllowanceSchedule, error) {
 	return &sched, nil
 }
 
+// GetByChildID returns the single allowance schedule for a child (any status), or nil if none exists.
+func (s *ScheduleStore) GetByChildID(childID int64) (*AllowanceSchedule, error) {
+	var sched AllowanceSchedule
+	var dayOfWeek, dayOfMonth sql.NullInt64
+	var note sql.NullString
+	var nextRunAt sql.NullString
+	var createdAt, updatedAt string
+
+	err := s.db.Read.QueryRow(
+		`SELECT id, child_id, parent_id, amount_cents, frequency,
+		        day_of_week, day_of_month, note, status, next_run_at,
+		        created_at, updated_at
+		 FROM allowance_schedules WHERE child_id = ?`, childID,
+	).Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
+		&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
+		&createdAt, &updatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get schedule by child id: %w", err)
+	}
+
+	if dayOfWeek.Valid {
+		v := int(dayOfWeek.Int64)
+		sched.DayOfWeek = &v
+	}
+	if dayOfMonth.Valid {
+		v := int(dayOfMonth.Int64)
+		sched.DayOfMonth = &v
+	}
+	if note.Valid {
+		sched.Note = &note.String
+	}
+	if nextRunAt.Valid {
+		t, _ := parseTime(nextRunAt.String)
+		sched.NextRunAt = &t
+	}
+	sched.CreatedAt, _ = parseTime(createdAt)
+	sched.UpdatedAt, _ = parseTime(updatedAt)
+
+	return &sched, nil
+}
+
 // ListByParentFamily returns all schedules for a family, with child names joined.
 func (s *ScheduleStore) ListByParentFamily(familyID int64) ([]ScheduleWithChild, error) {
 	rows, err := s.db.Read.Query(

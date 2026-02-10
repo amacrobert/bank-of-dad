@@ -119,19 +119,22 @@ func TestScheduleStore_GetByID_NotFound(t *testing.T) {
 func TestScheduleStore_ListByParentFamily(t *testing.T) {
 	db := testDB(t)
 	ss := NewScheduleStore(db)
+	cs := NewChildStore(db)
 
 	fam := createTestFamily(t, db)
 	parent := createTestParent(t, db, fam.ID)
-	child := createTestChild(t, db, fam.ID)
+	child1 := createTestChild(t, db, fam.ID)
+	child2, err := cs.Create(fam.ID, "Child2", "pass123")
+	require.NoError(t, err)
 
-	createTestSchedule(t, db, child.ID, parent.ID)
-	createTestSchedule(t, db, child.ID, parent.ID)
+	createTestSchedule(t, db, child1.ID, parent.ID)
+	createTestSchedule(t, db, child2.ID, parent.ID)
 
 	schedules, err := ss.ListByParentFamily(fam.ID)
 	require.NoError(t, err)
 	assert.Len(t, schedules, 2)
 	// Should have child name joined
-	assert.Equal(t, child.FirstName, schedules[0].ChildFirstName)
+	assert.NotEmpty(t, schedules[0].ChildFirstName)
 }
 
 func TestScheduleStore_Update(t *testing.T) {
@@ -234,15 +237,18 @@ func TestScheduleStore_UpdateStatus_Resume(t *testing.T) {
 func TestScheduleStore_ListDue(t *testing.T) {
 	db := testDB(t)
 	ss := NewScheduleStore(db)
+	cs := NewChildStore(db)
 
 	fam := createTestFamily(t, db)
 	parent := createTestParent(t, db, fam.ID)
-	child := createTestChild(t, db, fam.ID)
+	child1 := createTestChild(t, db, fam.ID)
+	child2, err := cs.Create(fam.ID, "Child2", "pass123")
+	require.NoError(t, err)
 
-	// Create schedule due in the past
+	// Create schedule due in the past (child1)
 	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
 	s := &AllowanceSchedule{
-		ChildID:     child.ID,
+		ChildID:     child1.ID,
 		ParentID:    parent.ID,
 		AmountCents: 1000,
 		Frequency:   FrequencyWeekly,
@@ -250,13 +256,13 @@ func TestScheduleStore_ListDue(t *testing.T) {
 		Status:      ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	_, err := ss.Create(s)
+	_, err = ss.Create(s)
 	require.NoError(t, err)
 
-	// Create schedule due in the future
+	// Create schedule due in the future (child2)
 	futureTime := time.Date(2026, time.December, 31, 0, 0, 0, 0, time.UTC)
 	s2 := &AllowanceSchedule{
-		ChildID:     child.ID,
+		ChildID:     child2.ID,
 		ParentID:    parent.ID,
 		AmountCents: 2000,
 		Frequency:   FrequencyWeekly,
@@ -313,28 +319,70 @@ func TestScheduleStore_ListActiveByChild(t *testing.T) {
 	parent := createTestParent(t, db, fam.ID)
 	child := createTestChild(t, db, fam.ID)
 
-	createTestSchedule(t, db, child.ID, parent.ID)
+	created := createTestSchedule(t, db, child.ID, parent.ID)
 
-	// Create a paused schedule
-	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
-	s2 := &AllowanceSchedule{
-		ChildID:     child.ID,
-		ParentID:    parent.ID,
-		AmountCents: 2000,
-		Frequency:   FrequencyWeekly,
-		DayOfWeek:   intP(1),
-		Status:      ScheduleStatusActive,
-		NextRunAt:   &pastTime,
-	}
-	created2, err := ss.Create(s2)
-	require.NoError(t, err)
-	err = ss.UpdateStatus(created2.ID, ScheduleStatusPaused)
-	require.NoError(t, err)
-
+	// Active schedule should be returned
 	active, err := ss.ListActiveByChild(child.ID)
 	require.NoError(t, err)
 	assert.Len(t, active, 1)
 	assert.Equal(t, int64(1000), active[0].AmountCents)
+
+	// Pause the schedule — should no longer appear in active list
+	err = ss.UpdateStatus(created.ID, ScheduleStatusPaused)
+	require.NoError(t, err)
+
+	active, err = ss.ListActiveByChild(child.ID)
+	require.NoError(t, err)
+	assert.Len(t, active, 0)
+}
+
+// T007 (006): Test for ScheduleStore.GetByChildID
+
+func TestScheduleStore_GetByChildID(t *testing.T) {
+	db := testDB(t)
+	ss := NewScheduleStore(db)
+
+	fam := createTestFamily(t, db)
+	parent := createTestParent(t, db, fam.ID)
+	child := createTestChild(t, db, fam.ID)
+
+	// No schedule yet — should return nil
+	fetched, err := ss.GetByChildID(child.ID)
+	require.NoError(t, err)
+	assert.Nil(t, fetched)
+
+	// Create a schedule
+	created := createTestSchedule(t, db, child.ID, parent.ID)
+
+	// Should return the schedule
+	fetched, err = ss.GetByChildID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, fetched)
+	assert.Equal(t, created.ID, fetched.ID)
+	assert.Equal(t, child.ID, fetched.ChildID)
+	assert.Equal(t, int64(1000), fetched.AmountCents)
+	assert.Equal(t, FrequencyWeekly, fetched.Frequency)
+}
+
+func TestScheduleStore_GetByChildID_ReturnsPausedToo(t *testing.T) {
+	db := testDB(t)
+	ss := NewScheduleStore(db)
+
+	fam := createTestFamily(t, db)
+	parent := createTestParent(t, db, fam.ID)
+	child := createTestChild(t, db, fam.ID)
+
+	created := createTestSchedule(t, db, child.ID, parent.ID)
+
+	// Pause it
+	err := ss.UpdateStatus(created.ID, ScheduleStatusPaused)
+	require.NoError(t, err)
+
+	// GetByChildID should still return it (any status)
+	fetched, err := ss.GetByChildID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, fetched)
+	assert.Equal(t, ScheduleStatusPaused, fetched.Status)
 }
 
 // T040: Verify ON DELETE CASCADE removes schedules when child is deleted
