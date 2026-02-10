@@ -116,19 +116,19 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [P] [US4] Write handler tests for interest schedule endpoints: `PUT /api/children/{childId}/interest-schedule`, `GET`, `DELETE` in `backend/internal/interest/handler_test.go`
-- [ ] T024 [P] [US4] Write scheduler tests: ProcessDue uses interest_schedules table, applies correct proration, updates next_run_at in `backend/internal/interest/scheduler_test.go`
+- [x] T023 [P] [US4] Write handler tests for interest schedule endpoints: `PUT /api/children/{childId}/interest-schedule`, `GET`, `DELETE` in `backend/internal/interest/handler_test.go`
+- [x] T024 [P] [US4] Write scheduler tests: ProcessDue uses interest_schedules table, applies correct proration, updates next_run_at in `backend/internal/interest/scheduler_test.go`
 
 ### Implementation
 
-- [ ] T025 [US4] Implement interest schedule handlers: HandleSetInterestSchedule (create-or-update), HandleGetInterestSchedule, HandleDeleteInterestSchedule in `backend/internal/interest/handler.go`
-- [ ] T026 [US4] Wire interest schedule routes in `backend/main.go`
-- [ ] T027 [US4] Modify interest scheduler to use `InterestScheduleStore.ListDue()` instead of `InterestStore.ListDueForInterest()`, apply correct periodsPerYear, update next_run_at after accrual in `backend/internal/interest/scheduler.go`
-- [ ] T028 [US4] Enhance balance handler to include `next_interest_at` field from interest schedule's `next_run_at` in `backend/internal/balance/handler.go`
-- [ ] T029 [US4] Run interest handler and scheduler tests: `cd backend && go test ./internal/interest/... ./internal/balance/... -v`
-- [ ] T030 [US4] Add interest schedule API functions to `frontend/src/api.ts`
-- [ ] T031 [US4] Create `InterestScheduleForm` component (create/edit/delete schedule with frequency/day selection) in `frontend/src/components/InterestScheduleForm.tsx`
-- [ ] T032 [US4] Integrate `InterestScheduleForm` into `ManageChild.tsx` — fetch interest schedule on mount, pass to form
+- [x] T025 [US4] Implement interest schedule handlers: HandleSetInterestSchedule (create-or-update), HandleGetInterestSchedule, HandleDeleteInterestSchedule in `backend/internal/interest/handler.go`
+- [x] T026 [US4] Wire interest schedule routes in `backend/main.go`
+- [x] T027 [US4] Modify interest scheduler to use `InterestScheduleStore.ListDue()` instead of `InterestStore.ListDueForInterest()`, apply correct periodsPerYear, update next_run_at after accrual in `backend/internal/interest/scheduler.go`
+- [x] T028 [US4] Enhance balance handler to include `next_interest_at` field from interest schedule's `next_run_at` in `backend/internal/balance/handler.go`
+- [x] T029 [US4] Run interest handler and scheduler tests: `cd backend && go test ./internal/interest/... ./internal/balance/... -v`
+- [x] T030 [US4] Add interest schedule API functions to `frontend/src/api.ts`
+- [x] T031 [US4] Create `InterestScheduleForm` component (create/edit/delete schedule with frequency/day selection) in `frontend/src/components/InterestScheduleForm.tsx`
+- [x] T032 [US4] Integrate `InterestScheduleForm` into `ManageChild.tsx` — fetch interest schedule on mount, pass to form
 
 **Checkpoint**: Interest accrues on parent-configured schedule
 
@@ -142,8 +142,8 @@
 
 ### Implementation
 
-- [ ] T033 [US5] Update `BalanceResponse` type in `frontend/src/types.ts` to include `next_interest_at` field
-- [ ] T034 [US5] Display interest rate and next payment date on child dashboard in `frontend/src/pages/ChildDashboard.tsx`
+- [x] T033 [US5] Update `BalanceResponse` type in `frontend/src/types.ts` to include `next_interest_at` field
+- [x] T034 [US5] Display interest rate and next payment date on child dashboard in `frontend/src/pages/ChildDashboard.tsx`
 
 **Checkpoint**: Children see interest info on their dashboard
 
@@ -153,9 +153,9 @@
 
 **Purpose**: Validation, cleanup, and final verification
 
-- [ ] T035 Run full backend test suite: `cd backend && go test ./... -v`
-- [ ] T036 Run frontend checks: `cd frontend && npx tsc --noEmit && npx vite build`
-- [ ] T037 Run quickstart.md manual verification steps
+- [x] T035 Run full backend test suite: `cd backend && go test ./... -v`
+- [x] T036 Run frontend checks: `cd frontend && npx tsc --noEmit && npx vite build`
+- [x] T037 Run quickstart.md manual verification steps
 
 ---
 

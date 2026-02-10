@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { put, getBalance, getTransactions, getChildAllowance, ApiRequestError } from "../api";
-import { Child, Transaction, AllowanceSchedule } from "../types";
+import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
+import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
 import InterestRateForm from "./InterestRateForm";
+import InterestScheduleForm from "./InterestScheduleForm";
 import TransactionHistory from "./TransactionHistory";
 import ChildAllowanceForm from "./ChildAllowanceForm";
 
@@ -26,6 +27,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [interestRateBps, setInterestRateBps] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
+  const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
 
   const loadTransactions = () => {
     getTransactions(child.id).then((data) => {
@@ -39,6 +41,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
     }).catch(() => {});
     loadTransactions();
     getChildAllowance(child.id).then(setAllowance).catch(() => {});
+    getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
   }, [child.id]);
 
   const handleDepositSuccess = (newBalance: number) => {
@@ -153,6 +156,13 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         childName={child.first_name}
         currentRateBps={interestRateBps}
         onSuccess={(newRate) => setInterestRateBps(newRate)}
+      />
+
+      <InterestScheduleForm
+        childId={child.id}
+        childName={child.first_name}
+        schedule={interestSchedule}
+        onUpdated={setInterestSchedule}
       />
 
       <div className="transaction-history-section">

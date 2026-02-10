@@ -161,3 +161,24 @@ export function pauseChildAllowance(childId: number): Promise<AllowanceSchedule>
 export function resumeChildAllowance(childId: number): Promise<AllowanceSchedule> {
   return post<AllowanceSchedule>(`/children/${childId}/allowance/resume`);
 }
+
+// Interest schedule API functions (006-account-management-enhancements)
+import { InterestSchedule } from "./types";
+
+export interface SetInterestScheduleRequest {
+  frequency: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+}
+
+export function getInterestSchedule(childId: number): Promise<InterestSchedule | null> {
+  return get<InterestSchedule | null>(`/children/${childId}/interest-schedule`);
+}
+
+export function setInterestSchedule(childId: number, data: SetInterestScheduleRequest): Promise<InterestSchedule> {
+  return put<InterestSchedule>(`/children/${childId}/interest-schedule`, data);
+}
+
+export function deleteInterestSchedule(childId: number): Promise<void> {
+  return request<void>(`/children/${childId}/interest-schedule`, { method: "DELETE" });
+}
