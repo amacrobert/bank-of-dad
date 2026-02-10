@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
@@ -18,17 +19,19 @@ const (
 
 // Handler handles balance-related HTTP requests.
 type Handler struct {
-	txStore       *store.TransactionStore
-	childStore    *store.ChildStore
-	interestStore *store.InterestStore
+	txStore               *store.TransactionStore
+	childStore            *store.ChildStore
+	interestStore         *store.InterestStore
+	interestScheduleStore *store.InterestScheduleStore
 }
 
 // NewHandler creates a new balance handler.
-func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore) *Handler {
+func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore) *Handler {
 	return &Handler{
-		txStore:       txStore,
-		childStore:    childStore,
-		interestStore: interestStore,
+		txStore:               txStore,
+		childStore:            childStore,
+		interestStore:         interestStore,
+		interestScheduleStore: interestScheduleStore,
 	}
 }
 
@@ -267,11 +270,12 @@ func formatMoney(amount float64) string {
 
 // BalanceResponse represents a balance query response.
 type BalanceResponse struct {
-	ChildID             int64  `json:"child_id"`
-	FirstName           string `json:"first_name"`
-	BalanceCents        int64  `json:"balance_cents"`
-	InterestRateBps     int    `json:"interest_rate_bps"`
-	InterestRateDisplay string `json:"interest_rate_display"`
+	ChildID             int64   `json:"child_id"`
+	FirstName           string  `json:"first_name"`
+	BalanceCents        int64   `json:"balance_cents"`
+	InterestRateBps     int     `json:"interest_rate_bps"`
+	InterestRateDisplay string  `json:"interest_rate_display"`
+	NextInterestAt      *string `json:"next_interest_at,omitempty"`
 }
 
 // TransactionListResponse represents a list of transactions.
@@ -338,12 +342,23 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 		rateBps, _ = h.interestStore.GetInterestRate(childID)
 	}
 
+	// Get next interest payment date
+	var nextInterestAt *string
+	if h.interestScheduleStore != nil {
+		sched, err := h.interestScheduleStore.GetByChildID(childID)
+		if err == nil && sched != nil && sched.NextRunAt != nil && sched.Status == store.ScheduleStatusActive {
+			s := sched.NextRunAt.Format(time.RFC3339)
+			nextInterestAt = &s
+		}
+	}
+
 	writeJSON(w, http.StatusOK, BalanceResponse{
 		ChildID:             child.ID,
 		FirstName:           child.FirstName,
 		BalanceCents:        child.BalanceCents,
 		InterestRateBps:     rateBps,
 		InterestRateDisplay: fmt.Sprintf("%.2f%%", float64(rateBps)/100.0),
+		NextInterestAt:      nextInterestAt,
 	})
 }
 

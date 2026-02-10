@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { setInterestRate, ApiRequestError } from "../api";
 
 interface InterestRateFormProps {
@@ -17,6 +17,10 @@ export default function InterestRateForm({
   const [ratePercent, setRatePercent] = useState(
     (currentRateBps / 100).toFixed(2)
   );
+
+  useEffect(() => {
+    setRatePercent((currentRateBps / 100).toFixed(2));
+  }, [currentRateBps]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

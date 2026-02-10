@@ -5,8 +5,6 @@ import { ParentUser, Child } from "../types";
 import AddChildForm from "../components/AddChildForm";
 import ChildList from "../components/ChildList";
 import ManageChild from "../components/ManageChild";
-import ScheduleForm from "../components/ScheduleForm";
-import ScheduleList from "../components/ScheduleList";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -14,8 +12,6 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
   useEffect(() => {
     get<ParentUser>("/auth/me")
@@ -87,23 +83,6 @@ export default function ParentDashboard() {
               child={selectedChild}
               onUpdated={handleChildUpdated}
               onClose={() => setSelectedChild(null)}
-            />
-          )}
-        </section>
-
-        <section className="schedules-section">
-          <ScheduleList refreshKey={scheduleRefreshKey} />
-          {!showScheduleForm ? (
-            <button onClick={() => setShowScheduleForm(true)} className="btn-primary">
-              Set Up Allowance
-            </button>
-          ) : (
-            <ScheduleForm
-              onCreated={() => {
-                setShowScheduleForm(false);
-                setScheduleRefreshKey((k) => k + 1);
-              }}
-              onCancel={() => setShowScheduleForm(false)}
             />
           )}
         </section>

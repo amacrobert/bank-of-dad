@@ -132,7 +132,8 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 	db := setupTestDB(t)
 	family := createTestFamily(t, db)
 	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	child1 := createTestChild(t, db, family.ID, "Emma")
+	child2 := createTestChild(t, db, family.ID, "Liam")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -140,12 +141,18 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 
 	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
 
-	// Create two due schedules
-	for _, amount := range []int64{1000, 2000} {
+	// Create due schedules for two different children (one per child)
+	for _, tc := range []struct {
+		childID int64
+		amount  int64
+	}{
+		{child1.ID, 1000},
+		{child2.ID, 2000},
+	} {
 		sched := &store.AllowanceSchedule{
-			ChildID:     child.ID,
+			ChildID:     tc.childID,
 			ParentID:    parent.ID,
-			AmountCents: amount,
+			AmountCents: tc.amount,
 			Frequency:   store.FrequencyWeekly,
 			DayOfWeek:   intPtr(5),
 			Status:      store.ScheduleStatusActive,
@@ -158,14 +165,23 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 	scheduler := NewScheduler(schedStore, txStore, childStore)
 	scheduler.ProcessDueSchedules()
 
-	txns, err := txStore.ListByChild(child.ID)
+	// Each child should have one transaction
+	txns1, err := txStore.ListByChild(child1.ID)
 	require.NoError(t, err)
-	assert.Len(t, txns, 2)
+	assert.Len(t, txns1, 1)
 
-	// Balance should be 3000
-	balance, err := childStore.GetBalance(child.ID)
+	txns2, err := txStore.ListByChild(child2.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3000), balance)
+	assert.Len(t, txns2, 1)
+
+	// Balances should match their allowance amounts
+	balance1, err := childStore.GetBalance(child1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1000), balance1)
+
+	balance2, err := childStore.GetBalance(child2.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2000), balance2)
 }
 
 func TestScheduler_ProcessDueSchedules_HandlesMissed(t *testing.T) {
