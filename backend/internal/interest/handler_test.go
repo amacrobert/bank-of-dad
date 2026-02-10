@@ -232,8 +232,6 @@ func newTestHandler(t *testing.T, db *store.DB) *Handler {
 	return NewHandler(store.NewInterestStore(db), store.NewChildStore(db), store.NewInterestScheduleStore(db))
 }
 
-func intPtr(v int) *int { return &v }
-
 // PUT /api/children/{childId}/interest-schedule
 
 func TestHandleSetInterestSchedule_CreateWeekly(t *testing.T) {
