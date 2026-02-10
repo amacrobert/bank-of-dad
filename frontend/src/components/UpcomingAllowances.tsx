@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { getUpcomingAllowances } from "../api";
 import { UpcomingAllowance } from "../types";
-import BalanceDisplay from "./BalanceDisplay";
+import { Calendar } from "lucide-react";
+import Card from "./ui/Card";
+import LoadingSpinner from "./ui/LoadingSpinner";
 
 interface UpcomingAllowancesProps {
   childId: number;
@@ -25,7 +27,7 @@ export default function UpcomingAllowances({ childId }: UpcomingAllowancesProps)
   }, [childId]);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return <LoadingSpinner variant="inline" message="Loading allowances..." />;
   }
 
   if (allowances.length === 0) {
@@ -33,19 +35,31 @@ export default function UpcomingAllowances({ childId }: UpcomingAllowancesProps)
   }
 
   return (
-    <div className="upcoming-allowances">
-      <h3>Upcoming Allowances</h3>
-      <ul>
+    <Card padding="md">
+      <div className="flex items-center gap-2 mb-4">
+        <Calendar className="h-5 w-5 text-forest" aria-hidden="true" />
+        <h3 className="text-base font-bold text-bark">Upcoming Allowances</h3>
+      </div>
+      <div className="space-y-3">
         {allowances.map((a, i) => (
-          <li key={i} className="upcoming-item">
-            <BalanceDisplay balanceCents={a.amount_cents} />
-            <span className="upcoming-date">
-              {new Date(a.next_date).toLocaleDateString()}
+          <div key={i} className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-bark">
+                ${(a.amount_cents / 100).toFixed(2)}
+              </span>
+              {a.note && (
+                <span className="text-xs text-bark-light ml-2">{a.note}</span>
+              )}
+            </div>
+            <span className="text-xs text-bark-light">
+              {new Date(a.next_date).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
             </span>
-            {a.note && <span className="upcoming-note">{a.note}</span>}
-          </li>
+          </div>
         ))}
-      </ul>
-    </div>
+      </div>
+    </Card>
   );
 }
