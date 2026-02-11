@@ -9,17 +9,20 @@ interface ChildListProps {
   refreshKey: number;
   onSelectChild?: (child: Child) => void;
   selectedChildId?: number | null;
+  onLoaded?: (count: number) => void;
 }
 
-export default function ChildList({ refreshKey, onSelectChild, selectedChildId }: ChildListProps) {
+export default function ChildList({ refreshKey, onSelectChild, selectedChildId, onLoaded }: ChildListProps) {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     get<ChildListResponse>("/children")
       .then((data) => {
-        setChildren(data.children || []);
+        const list = data.children || [];
+        setChildren(list);
         setLoading(false);
+        onLoaded?.(list.length);
       })
       .catch(() => {
         setLoading(false);
@@ -34,7 +37,7 @@ export default function ChildList({ refreshKey, onSelectChild, selectedChildId }
     return (
       <div className="py-8 text-center">
         <p className="text-bark-light mb-1">No children added yet.</p>
-        <p className="text-sm text-bark-light/70">Add your first child above!</p>
+        <p className="text-sm text-bark-light/70">Add your first child below!</p>
       </div>
     );
   }

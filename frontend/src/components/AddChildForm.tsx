@@ -4,7 +4,7 @@ import { ChildCreateResponse } from "../types";
 import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
-import { UserPlus, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
 interface AddChildFormProps {
   onChildAdded: () => void;
@@ -45,11 +45,6 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
 
   return (
     <Card padding="md">
-      <div className="flex items-center gap-2 mb-4">
-        <UserPlus className="h-5 w-5 text-forest" aria-hidden="true" />
-        <h3 className="text-base font-bold text-bark">Add a Child</h3>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="First Name"
