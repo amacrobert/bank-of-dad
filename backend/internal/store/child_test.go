@@ -2,6 +2,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -244,4 +245,117 @@ func TestGetBalance_NotFound(t *testing.T) {
 	_, err := cs.GetBalance(99999) // Non-existent ID
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestDeleteChild(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	require.NoError(t, err)
+
+	err = cs.Delete(child.ID)
+	require.NoError(t, err)
+
+	// Child should no longer exist
+	found, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.Nil(t, found)
+}
+
+func TestDeleteChild_CascadesTransactions(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+	ps := NewParentStore(db)
+	parent, err := ps.Create("g-123", "p@test.com", "Parent")
+	require.NoError(t, err)
+	require.NoError(t, ps.SetFamilyID(parent.ID, fam.ID))
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	require.NoError(t, err)
+
+	ts := NewTransactionStore(db)
+	_, _, err = ts.Deposit(child.ID, parent.ID, 1000, "test deposit")
+	require.NoError(t, err)
+
+	err = cs.Delete(child.ID)
+	require.NoError(t, err)
+
+	// Transactions should be gone (cascade)
+	var count int
+	err = db.Read.QueryRow(`SELECT COUNT(*) FROM transactions WHERE child_id = ?`, child.ID).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestDeleteChild_CleansUpSessions(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	ss := NewSessionStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	require.NoError(t, err)
+
+	token, err := ss.Create("child", child.ID, fam.ID, time.Hour)
+	require.NoError(t, err)
+
+	err = cs.Delete(child.ID)
+	require.NoError(t, err)
+
+	// Session should be gone
+	sess, err := ss.GetByToken(token)
+	require.NoError(t, err)
+	assert.Nil(t, sess)
+}
+
+func TestDeleteChild_CleansUpAuthEvents(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	es := NewAuthEventStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	require.NoError(t, err)
+
+	err = es.LogEvent(AuthEvent{
+		EventType: "login_success",
+		UserType:  "child",
+		UserID:    child.ID,
+		FamilyID:  fam.ID,
+		IPAddress: "127.0.0.1",
+		CreatedAt: time.Now().UTC(),
+	})
+	require.NoError(t, err)
+
+	err = cs.Delete(child.ID)
+	require.NoError(t, err)
+
+	// Auth events for this child should be gone
+	var count int
+	err = db.Read.QueryRow(`SELECT COUNT(*) FROM auth_events WHERE user_type = 'child' AND user_id = ?`, child.ID).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestDeleteChild_DoesNotAffectOtherChildren(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child1, err := cs.Create(fam.ID, "Alice", "secret123")
+	require.NoError(t, err)
+	child2, err := cs.Create(fam.ID, "Bob", "secret123")
+	require.NoError(t, err)
+
+	err = cs.Delete(child1.ID)
+	require.NoError(t, err)
+
+	// Other child should still exist
+	found, err := cs.GetByID(child2.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, found)
+	assert.Equal(t, "Bob", found.FirstName)
 }

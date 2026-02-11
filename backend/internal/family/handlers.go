@@ -344,6 +344,44 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
+	familyID := middleware.GetFamilyID(r)
+	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid child ID"})
+		return
+	}
+
+	child, err := h.childStore.GetByID(childID)
+	if err != nil || child == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Child not found"})
+		return
+	}
+
+	if child.FamilyID != familyID {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Forbidden"})
+		return
+	}
+
+	// FR-010: Log audit event BEFORE removing child data
+	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+		EventType: "account_deleted",
+		UserType:  "parent",
+		UserID:    middleware.GetUserID(r),
+		FamilyID:  familyID,
+		IPAddress: r.RemoteAddr,
+		Details:   fmt.Sprintf("deleted child account %d (%s)", childID, child.FirstName),
+		CreatedAt: time.Now().UTC(),
+	})
+
+	if err := h.childStore.Delete(childID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete child"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
