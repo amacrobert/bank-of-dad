@@ -41,7 +41,10 @@
       "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad status)",
       "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad diff --cached --stat)",
       "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad diff --stat)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(for type in \"FamilyCheck\" \"SlugCheck\" \"ChildCreateResponse\" \"CreateScheduleRequest\" \"UpdateScheduleRequest\" \"ScheduleWithChild\" \"SetInterestRequest\")",
+      "Bash(do)",
+      "Bash(done)"
     ]
   }
 }
