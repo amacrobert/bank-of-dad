@@ -98,43 +98,11 @@ export function setInterest(childId: number, data: SetInterestRequest): Promise<
   return put<SetInterestResponse>(`/children/${childId}/interest`, data);
 }
 
-// Allowance Scheduling API functions (003-allowance-scheduling)
 import {
   AllowanceSchedule,
   Frequency,
-  CreateScheduleRequest,
-  UpdateScheduleRequest,
-  ScheduleListResponse,
   UpcomingAllowancesResponse,
 } from "./types";
-
-export function createSchedule(data: CreateScheduleRequest): Promise<AllowanceSchedule> {
-  return post<AllowanceSchedule>("/schedules", data);
-}
-
-export function listSchedules(): Promise<ScheduleListResponse> {
-  return get<ScheduleListResponse>("/schedules");
-}
-
-export function getSchedule(id: number): Promise<AllowanceSchedule> {
-  return get<AllowanceSchedule>(`/schedules/${id}`);
-}
-
-export function updateSchedule(id: number, data: UpdateScheduleRequest): Promise<AllowanceSchedule> {
-  return put<AllowanceSchedule>(`/schedules/${id}`, data);
-}
-
-export function deleteSchedule(id: number): Promise<void> {
-  return request<void>(`/schedules/${id}`, { method: "DELETE" });
-}
-
-export function pauseSchedule(id: number): Promise<AllowanceSchedule> {
-  return post<AllowanceSchedule>(`/schedules/${id}/pause`);
-}
-
-export function resumeSchedule(id: number): Promise<AllowanceSchedule> {
-  return post<AllowanceSchedule>(`/schedules/${id}/resume`);
-}
 
 export function getUpcomingAllowances(childId: number): Promise<UpcomingAllowancesResponse> {
   return get<UpcomingAllowancesResponse>(`/children/${childId}/upcoming-allowances`);

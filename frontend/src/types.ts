@@ -129,31 +129,6 @@ export interface AllowanceSchedule {
   updated_at: string;
 }
 
-export interface ScheduleWithChild extends AllowanceSchedule {
-  child_first_name: string;
-}
-
-export interface ScheduleListResponse {
-  schedules: ScheduleWithChild[];
-}
-
-export interface CreateScheduleRequest {
-  child_id: number;
-  amount_cents: number;
-  frequency: Frequency;
-  day_of_week?: number;
-  day_of_month?: number;
-  note?: string;
-}
-
-export interface UpdateScheduleRequest {
-  amount_cents?: number;
-  frequency?: Frequency;
-  day_of_week?: number;
-  day_of_month?: number;
-  note?: string;
-}
-
 export interface UpcomingAllowance {
   amount_cents: number;
   next_date: string;
