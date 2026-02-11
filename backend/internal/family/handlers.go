@@ -13,10 +13,11 @@ import (
 )
 
 type Handlers struct {
-	familyStore *store.FamilyStore
-	parentStore *store.ParentStore
-	childStore  *store.ChildStore
-	eventStore  *store.AuthEventStore
+	familyStore  *store.FamilyStore
+	parentStore  *store.ParentStore
+	childStore   *store.ChildStore
+	eventStore   *store.AuthEventStore
+	sessionStore *store.SessionStore
 }
 
 func NewHandlers(
@@ -24,12 +25,14 @@ func NewHandlers(
 	parentStore *store.ParentStore,
 	childStore *store.ChildStore,
 	eventStore *store.AuthEventStore,
+	sessionStore *store.SessionStore,
 ) *Handlers {
 	return &Handlers{
-		familyStore: familyStore,
-		parentStore: parentStore,
-		childStore:  childStore,
-		eventStore:  eventStore,
+		familyStore:  familyStore,
+		parentStore:  parentStore,
+		childStore:   childStore,
+		eventStore:   eventStore,
+		sessionStore: sessionStore,
 	}
 }
 
@@ -75,6 +78,11 @@ func (h *Handlers) HandleCreateFamily(w http.ResponseWriter, r *http.Request) {
 	if err := h.parentStore.SetFamilyID(parentID, fam.ID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to link family"})
 		return
+	}
+
+	// Update the session's familyID so subsequent requests use the correct value
+	if cookie, err := r.Cookie("session"); err == nil {
+		h.sessionStore.UpdateFamilyID(cookie.Value, fam.ID) //nolint:errcheck // best-effort session update
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{

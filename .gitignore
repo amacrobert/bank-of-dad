@@ -25,7 +25,6 @@ frontend/build/
 !.env.example
 
 # Database
-/data/
 *.db
 *.db-wal
 *.db-shm

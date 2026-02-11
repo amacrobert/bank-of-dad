@@ -90,6 +90,37 @@ func TestDeleteByToken(t *testing.T) {
 	assert.Nil(t, sess, "session should be gone after delete")
 }
 
+func TestUpdateFamilyID(t *testing.T) {
+	db := testDB(t)
+	ss := NewSessionStore(db)
+
+	// Create a session with familyID=0 (simulating new parent with no family)
+	token, err := ss.Create("parent", 1, 0, time.Hour)
+	require.NoError(t, err)
+
+	// Verify initial familyID is 0
+	sess, err := ss.GetByToken(token)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), sess.FamilyID)
+
+	// Update familyID to 42
+	err = ss.UpdateFamilyID(token, 42)
+	require.NoError(t, err)
+
+	// Verify the session now has the updated familyID
+	sess, err = ss.GetByToken(token)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, int64(42), sess.FamilyID)
+
+	// Verify via ValidateSession too
+	userType, userID, familyID, err := ss.ValidateSession(token)
+	require.NoError(t, err)
+	assert.Equal(t, "parent", userType)
+	assert.Equal(t, int64(1), userID)
+	assert.Equal(t, int64(42), familyID)
+}
+
 func TestDeleteExpired(t *testing.T) {
 	db := testDB(t)
 	ss := NewSessionStore(db)
