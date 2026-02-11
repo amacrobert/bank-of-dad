@@ -83,12 +83,8 @@ export function getTransactions(childId: number): Promise<TransactionListRespons
   return get<TransactionListResponse>(`/children/${childId}/transactions`);
 }
 
-// Interest Accrual API functions (005-interest-accrual)
-import { InterestRateRequest, InterestRateResponse, SetInterestResponse } from "./types";
-
-export function setInterestRate(childId: number, data: InterestRateRequest): Promise<InterestRateResponse> {
-  return put<InterestRateResponse>(`/children/${childId}/interest-rate`, data);
-}
+// Interest API functions
+import { SetInterestResponse } from "./types";
 
 // Combined interest (rate + schedule) API function
 export interface SetInterestRequest {
@@ -177,20 +173,7 @@ export function resumeChildAllowance(childId: number): Promise<AllowanceSchedule
 // Interest schedule API functions (006-account-management-enhancements)
 import { InterestSchedule } from "./types";
 
-export interface SetInterestScheduleRequest {
-  frequency: Frequency;
-  day_of_week?: number;
-  day_of_month?: number;
-}
-
 export function getInterestSchedule(childId: number): Promise<InterestSchedule | null> {
   return get<InterestSchedule | null>(`/children/${childId}/interest-schedule`);
 }
 
-export function setInterestSchedule(childId: number, data: SetInterestScheduleRequest): Promise<InterestSchedule> {
-  return put<InterestSchedule>(`/children/${childId}/interest-schedule`, data);
-}
-
-export function deleteInterestSchedule(childId: number): Promise<void> {
-  return request<void>(`/children/${childId}/interest-schedule`, { method: "DELETE" });
-}
