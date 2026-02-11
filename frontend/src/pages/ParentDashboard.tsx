@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { get, post } from "../api";
+import { get } from "../api";
 import { ParentUser, Child } from "../types";
+import Layout from "../components/Layout";
+import Card from "../components/ui/Card";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AddChildForm from "../components/AddChildForm";
 import ChildList from "../components/ChildList";
 import ManageChild from "../components/ManageChild";
+import { Link as LinkIcon } from "lucide-react";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -32,15 +36,6 @@ export default function ParentDashboard() {
       });
   }, [navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await post("/auth/logout");
-    } catch {
-      // proceed regardless
-    }
-    navigate("/");
-  };
-
   const handleChildAdded = () => {
     setChildRefreshKey((k) => k + 1);
   };
@@ -50,43 +45,60 @@ export default function ParentDashboard() {
   };
 
   if (loading || !user) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <LoadingSpinner message="Loading..." />
+      </div>
+    );
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>Bank of Dad</h1>
-        <div className="user-info">
-          <span>{user.display_name}</span>
-          <button onClick={handleLogout}>Log out</button>
+    <Layout user={user} maxWidth="wide">
+      <div className="animate-fade-in-up">
+        {/* Family info header */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-forest mb-2">Your Family Bank</h2>
+          <div className="flex items-center gap-2 text-sm text-bark-light">
+            <LinkIcon className="h-4 w-4" aria-hidden="true" />
+            <span>Family URL: <strong className="text-bark">/{user.family_slug}</strong></span>
+          </div>
+          <p className="text-sm text-bark-light mt-1">Share this link with your kids so they can log in.</p>
         </div>
-      </header>
 
-      <main>
-        <section className="family-info">
-          <h2>Your Family Bank</h2>
-          <p>
-            Family URL: <strong>/{user.family_slug}</strong>
-          </p>
-          <p>Share this link with your kids so they can log in.</p>
-        </section>
+        {/* Two-column layout on desktop */}
+        <div className="md:grid md:grid-cols-[340px_1fr] md:gap-6">
+          {/* Left column: child list + add child */}
+          <div className="space-y-4 mb-6 md:mb-0">
+            <AddChildForm onChildAdded={handleChildAdded} />
 
-        <section className="children-section">
-          <AddChildForm onChildAdded={handleChildAdded} />
-          <ChildList
-            refreshKey={childRefreshKey}
-            onSelectChild={setSelectedChild}
-          />
-          {selectedChild && (
-            <ManageChild
-              child={selectedChild}
-              onUpdated={handleChildUpdated}
-              onClose={() => setSelectedChild(null)}
-            />
-          )}
-        </section>
-      </main>
-    </div>
+            <Card padding="md">
+              <ChildList
+                refreshKey={childRefreshKey}
+                onSelectChild={setSelectedChild}
+                selectedChildId={selectedChild?.id}
+              />
+            </Card>
+          </div>
+
+          {/* Right column: manage child or empty state */}
+          <div>
+            {selectedChild ? (
+              <ManageChild
+                key={selectedChild.id}
+                child={selectedChild}
+                onUpdated={handleChildUpdated}
+                onClose={() => setSelectedChild(null)}
+              />
+            ) : (
+              <Card padding="lg" className="hidden md:flex items-center justify-center min-h-[300px]">
+                <p className="text-bark-light text-center">
+                  Select a child to manage their account.
+                </p>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </Layout>
   );
 }

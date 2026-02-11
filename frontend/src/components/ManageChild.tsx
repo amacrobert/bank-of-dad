@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
 import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
+import Card from "./ui/Card";
+import Input from "./ui/Input";
+import Button from "./ui/Button";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
@@ -8,6 +11,7 @@ import InterestRateForm from "./InterestRateForm";
 import InterestScheduleForm from "./InterestScheduleForm";
 import TransactionHistory from "./TransactionHistory";
 import ChildAllowanceForm from "./ChildAllowanceForm";
+import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
@@ -58,7 +62,6 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
     onUpdated();
   };
 
-  // Update local child reference with current balance for withdrawal form
   const childWithCurrentBalance = { ...child, balance_cents: currentBalance };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -109,24 +112,52 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   };
 
   return (
-    <div className="manage-child">
-      <h3>Manage {child.first_name}</h3>
+    <div className="space-y-4">
+      {/* Header with close */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold text-forest">Manage {child.first_name}</h3>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-xl text-bark-light hover:text-bark hover:bg-cream-dark transition-colors cursor-pointer"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
       {child.is_locked && (
-        <p className="warning">This account is locked. Reset the password to unlock it.</p>
+        <div className="flex items-center gap-2 p-3 bg-terracotta/10 border border-terracotta/20 rounded-xl">
+          <AlertTriangle className="h-5 w-5 text-terracotta flex-shrink-0" aria-hidden="true" />
+          <p className="text-sm text-terracotta font-medium">This account is locked. Reset the password to unlock it.</p>
+        </div>
       )}
 
-      <div className="balance-section">
-        <h4>Balance</h4>
-        <BalanceDisplay balanceCents={currentBalance} size="large" />
-        <div className="balance-actions">
-          <button onClick={() => { setShowDeposit(true); setShowWithdraw(false); }} className="btn-primary">
-            Deposit
-          </button>
-          <button onClick={() => { setShowWithdraw(true); setShowDeposit(false); }} className="btn-secondary" disabled={currentBalance === 0}>
-            Withdraw
-          </button>
+      {/* Balance + actions */}
+      <Card padding="md">
+        <div className="text-center mb-4">
+          <p className="text-sm font-semibold text-bark-light uppercase tracking-wide mb-1">Balance</p>
+          <BalanceDisplay balanceCents={currentBalance} size="large" />
         </div>
-      </div>
+        <div className="flex gap-3">
+          <Button
+            variant="primary"
+            onClick={() => { setShowDeposit(true); setShowWithdraw(false); }}
+            className="flex-1"
+          >
+            <ArrowDownCircle className="h-4 w-4" aria-hidden="true" />
+            Deposit
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => { setShowWithdraw(true); setShowDeposit(false); }}
+            disabled={currentBalance === 0}
+            className="flex-1"
+          >
+            <ArrowUpCircle className="h-4 w-4" aria-hidden="true" />
+            Withdraw
+          </Button>
+        </div>
+      </Card>
 
       {showDeposit && (
         <DepositForm
@@ -165,16 +196,18 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         onUpdated={setInterestSchedule}
       />
 
-      <div className="transaction-history-section">
-        <h4>Transaction History</h4>
+      {/* Transaction history */}
+      <Card padding="md">
+        <h4 className="text-base font-bold text-bark mb-3">Transaction History</h4>
         <TransactionHistory transactions={transactions} />
-      </div>
+      </Card>
 
-      <form onSubmit={handleResetPassword}>
-        <h4>Reset Password</h4>
-        <div className="form-field">
-          <label htmlFor="new-password">New Password (min 6 characters)</label>
-          <input
+      {/* Reset password */}
+      <Card padding="md">
+        <h4 className="text-base font-bold text-bark mb-4">Reset Password</h4>
+        <form onSubmit={handleResetPassword} className="space-y-4">
+          <Input
+            label="New Password (min 6 characters)"
             id="new-password"
             type="text"
             value={newPassword}
@@ -182,32 +215,41 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
             minLength={6}
             required
           />
-        </div>
-        <button type="submit">Reset Password</button>
-        {passwordMsg && <p className="success">{passwordMsg}</p>}
-      </form>
+          <Button type="submit" className="w-full">Reset Password</Button>
+          {passwordMsg && (
+            <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
+              <p className="text-sm text-forest font-medium">{passwordMsg}</p>
+            </div>
+          )}
+        </form>
+      </Card>
 
-      <form onSubmit={handleUpdateName}>
-        <h4>Update Name</h4>
-        <div className="form-field">
-          <label htmlFor="new-name">First Name</label>
-          <input
+      {/* Update name */}
+      <Card padding="md">
+        <h4 className="text-base font-bold text-bark mb-4">Update Name</h4>
+        <form onSubmit={handleUpdateName} className="space-y-4">
+          <Input
+            label="First Name"
             id="new-name"
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             required
           />
+          <Button type="submit" className="w-full">Update Name</Button>
+          {nameMsg && (
+            <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
+              <p className="text-sm text-forest font-medium">{nameMsg}</p>
+            </div>
+          )}
+        </form>
+      </Card>
+
+      {error && (
+        <div className="bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
+          <p className="text-sm text-terracotta font-medium">{error}</p>
         </div>
-        <button type="submit">Update Name</button>
-        {nameMsg && <p className="success">{nameMsg}</p>}
-      </form>
-
-      {error && <p className="error">{error}</p>}
-
-      <button onClick={onClose} className="btn-secondary">
-        Close
-      </button>
+      )}
     </div>
   );
 }

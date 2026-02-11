@@ -1,14 +1,22 @@
 import { Transaction } from "../types";
+import { ArrowDownCircle, ArrowUpCircle, Calendar, TrendingUp } from "lucide-react";
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
 }
 
+const typeConfig: Record<string, { icon: typeof ArrowDownCircle; color: string; amountColor: string }> = {
+  deposit: { icon: ArrowDownCircle, color: "text-forest", amountColor: "text-forest" },
+  withdrawal: { icon: ArrowUpCircle, color: "text-terracotta", amountColor: "text-terracotta" },
+  allowance: { icon: Calendar, color: "text-forest", amountColor: "text-forest" },
+  interest: { icon: TrendingUp, color: "text-amber", amountColor: "text-forest" },
+};
+
 export default function TransactionHistory({ transactions }: TransactionHistoryProps) {
   if (transactions.length === 0) {
     return (
-      <div className="transaction-history-empty">
-        <p>No transactions yet.</p>
+      <div className="py-8 text-center">
+        <p className="text-bark-light">No transactions yet.</p>
       </div>
     );
   }
@@ -24,7 +32,6 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
 
   const formatAmount = (cents: number, type: string) => {
     const dollars = (cents / 100).toFixed(2);
-    // Deposits, allowances, and interest are positive; withdrawals are negative
     return type === "withdrawal" ? `-$${dollars}` : `+$${dollars}`;
   };
 
@@ -39,21 +46,39 @@ export default function TransactionHistory({ transactions }: TransactionHistoryP
   };
 
   return (
-    <div className="transaction-history">
-      <ul className="transaction-list">
-        {transactions.map((tx) => (
-          <li key={tx.id} className={`transaction-item ${tx.type}`}>
-            <div className="transaction-date">{formatDate(tx.created_at)}</div>
-            <div className="transaction-details">
-              <span className={`transaction-amount ${tx.type}`}>
-                {formatAmount(tx.amount_cents, tx.type)}
-              </span>
-              <span className="transaction-type">{getTypeLabel(tx.type)}</span>
-              {tx.note && <span className="transaction-note">{tx.note}</span>}
+    <div className="space-y-0">
+      {transactions.map((tx) => {
+        const config = typeConfig[tx.type] || typeConfig.deposit;
+        const Icon = config.icon;
+        return (
+          <div
+            key={tx.id}
+            className="flex items-center gap-3 py-3 border-b border-sand/60 last:border-b-0"
+          >
+            <div className={`flex-shrink-0 ${config.color}`}>
+              <Icon className="h-5 w-5" aria-hidden="true" />
             </div>
-          </li>
-        ))}
-      </ul>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-bark truncate">
+                  {getTypeLabel(tx.type)}
+                </span>
+                <span className={`text-sm font-bold tabular-nums ${config.amountColor}`}>
+                  {formatAmount(tx.amount_cents, tx.type)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 mt-0.5">
+                <span className="text-xs text-bark-light truncate">
+                  {tx.note || "\u00A0"}
+                </span>
+                <span className="text-xs text-bark-light/70 whitespace-nowrap">
+                  {formatDate(tx.created_at)}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

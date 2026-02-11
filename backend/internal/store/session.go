@@ -113,6 +113,18 @@ func (s *SessionStore) ValidateSession(token string) (string, int64, int64, erro
 	return sess.UserType, sess.UserID, sess.FamilyID, nil
 }
 
+// UpdateFamilyID updates the family_id for a session identified by token.
+func (s *SessionStore) UpdateFamilyID(token string, familyID int64) error {
+	_, err := s.db.Write.Exec(
+		`UPDATE sessions SET family_id = ? WHERE token = ?`,
+		familyID, token,
+	)
+	if err != nil {
+		return fmt.Errorf("update session family_id: %w", err)
+	}
+	return nil
+}
+
 // DeleteByToken removes a single session row by token.
 func (s *SessionStore) DeleteByToken(token string) error {
 	_, err := s.db.Write.Exec(`DELETE FROM sessions WHERE token = ?`, token)

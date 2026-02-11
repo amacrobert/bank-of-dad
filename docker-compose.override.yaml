@@ -5,7 +5,6 @@ services:
   backend:
     volumes:
       - ./backend:/app
-      - ./data:/data
     environment:
       - COOKIE_SECURE=false
 

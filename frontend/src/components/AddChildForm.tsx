@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { post, ApiRequestError } from "../api";
 import { ChildCreateResponse } from "../types";
+import Card from "./ui/Card";
+import Input from "./ui/Input";
+import Button from "./ui/Button";
+import { UserPlus, CheckCircle } from "lucide-react";
 
 interface AddChildFormProps {
   onChildAdded: () => void;
@@ -40,47 +44,58 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
   };
 
   return (
-    <div className="add-child-form">
-      <h3>Add a Child</h3>
-      <form onSubmit={handleSubmit}>
-        <div className="form-field">
-          <label htmlFor="child-name">First Name</label>
-          <input
-            id="child-name"
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-            disabled={submitting}
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="child-password">Password (min 6 characters)</label>
-          <input
-            id="child-password"
-            type="text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-            disabled={submitting}
-          />
-        </div>
-        {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={submitting}>
+    <Card padding="md">
+      <div className="flex items-center gap-2 mb-4">
+        <UserPlus className="h-5 w-5 text-forest" aria-hidden="true" />
+        <h3 className="text-base font-bold text-bark">Add a Child</h3>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="First Name"
+          id="child-name"
+          type="text"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          required
+          disabled={submitting}
+        />
+        <Input
+          label="Password (min 6 characters)"
+          id="child-password"
+          type="text"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          minLength={6}
+          required
+          disabled={submitting}
+        />
+
+        {error && (
+          <div className="bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
+            <p className="text-sm text-terracotta font-medium">{error}</p>
+          </div>
+        )}
+
+        <Button type="submit" loading={submitting} className="w-full">
           {submitting ? "Creating..." : "Add Child"}
-        </button>
+        </Button>
       </form>
 
       {created && (
-        <div className="child-created-info">
-          <h4>Account created for {created.first_name}!</h4>
-          <p>Login URL: <strong>{created.login_url}</strong></p>
-          <p>Name: <strong>{created.first_name}</strong></p>
-          <p>Password: <strong>{password || "(the password you just set)"}</strong></p>
-          <p className="note">Share these credentials with your child.</p>
+        <div className="mt-4 bg-forest/5 border border-forest/15 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-forest" aria-hidden="true" />
+            <span className="font-bold text-forest">Account created for {created.first_name}!</span>
+          </div>
+          <div className="space-y-1 text-sm text-bark-light">
+            <p>Login URL: <strong className="text-bark">{created.login_url}</strong></p>
+            <p>Name: <strong className="text-bark">{created.first_name}</strong></p>
+            <p>Password: <strong className="text-bark">{password || "(the password you just set)"}</strong></p>
+          </div>
+          <p className="mt-2 text-xs text-bark-light">Share these credentials with your child.</p>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
