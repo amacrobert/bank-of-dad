@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { get } from "../api";
 import { ParentUser, Child } from "../types";
@@ -8,7 +8,7 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AddChildForm from "../components/AddChildForm";
 import ChildList from "../components/ChildList";
 import ManageChild from "../components/ManageChild";
-import { Link as LinkIcon, Copy, Check } from "lucide-react";
+import { Link as LinkIcon, Copy, Check, ChevronDown, UserPlus } from "lucide-react";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -17,6 +17,8 @@ export default function ParentDashboard() {
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const addChildInitialized = useRef(false);
 
   const handleCopyFamilyUrl = () => {
     const fullUrl = `${window.location.origin}/${user?.family_slug}`;
@@ -96,10 +98,31 @@ export default function ParentDashboard() {
                 refreshKey={childRefreshKey}
                 onSelectChild={setSelectedChild}
                 selectedChildId={selectedChild?.id}
+                onLoaded={(count) => {
+                  if (!addChildInitialized.current) {
+                    addChildInitialized.current = true;
+                    if (count === 0) setShowAddChild(true);
+                  }
+                }}
               />
             </Card>
 
-            <AddChildForm onChildAdded={handleChildAdded} />
+            <button
+              onClick={() => setShowAddChild((v) => !v)}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-cream hover:bg-cream-dark transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-forest" aria-hidden="true" />
+                <span className="text-base font-bold text-bark">Add a Child</span>
+              </div>
+              <ChevronDown
+                className="h-5 w-5 text-bark-light transition-transform"
+                style={{ transform: showAddChild ? "rotate(180deg)" : undefined }}
+                aria-hidden="true"
+              />
+            </button>
+
+            {showAddChild && <AddChildForm onChildAdded={handleChildAdded} />}
           </div>
 
           {/* Right column: manage child or empty state */}
