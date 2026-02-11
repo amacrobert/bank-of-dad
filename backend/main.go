@@ -116,7 +116,8 @@ func main() {
 	mux.Handle("GET /api/children/{id}/balance", requireAuth(http.HandlerFunc(balanceHandler.HandleGetBalance)))
 	mux.Handle("GET /api/children/{id}/transactions", requireAuth(http.HandlerFunc(balanceHandler.HandleGetTransactions)))
 
-	// Interest Accrual (005-interest-accrual)
+	// Interest (combined rate + schedule)
+	mux.Handle("PUT /api/children/{id}/interest", requireParent(http.HandlerFunc(interestHandler.HandleSetInterest)))
 	mux.Handle("PUT /api/children/{id}/interest-rate", requireParent(http.HandlerFunc(interestHandler.HandleSetInterestRate)))
 
 	// Allowance Scheduling (003-allowance-scheduling)
