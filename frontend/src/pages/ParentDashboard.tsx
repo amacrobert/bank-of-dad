@@ -8,7 +8,7 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AddChildForm from "../components/AddChildForm";
 import ChildList from "../components/ChildList";
 import ManageChild from "../components/ManageChild";
-import { Link as LinkIcon } from "lucide-react";
+import { Link as LinkIcon, Copy, Check } from "lucide-react";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -16,6 +16,15 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyFamilyUrl = () => {
+    const fullUrl = `${window.location.origin}/${user?.family_slug}`;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   useEffect(() => {
     get<ParentUser>("/auth/me")
@@ -59,8 +68,21 @@ export default function ParentDashboard() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-forest mb-2">Your Family Bank</h2>
           <div className="flex items-center gap-2 text-sm text-bark-light">
-            <LinkIcon className="h-4 w-4" aria-hidden="true" />
-            <span>Family URL: <strong className="text-bark">/{user.family_slug}</strong></span>
+            <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Family URL:</span>
+            <button
+              onClick={handleCopyFamilyUrl}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-cream-dark/50 hover:bg-cream-dark rounded-md transition-colors font-mono text-bark text-xs"
+              title="Click to copy"
+            >
+              <span>{window.location.origin}/{user.family_slug}</span>
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-forest" aria-label="Copied" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 text-bark-light" aria-label="Copy URL" />
+              )}
+            </button>
+            {copied && <span className="text-xs text-forest font-medium">Copied!</span>}
           </div>
           <p className="text-sm text-bark-light mt-1">Share this link with your kids so they can log in.</p>
         </div>
