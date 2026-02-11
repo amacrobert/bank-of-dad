@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { get } from "../api";
 import { SlugCheck } from "../types";
+import { CheckCircle, XCircle } from "lucide-react";
+import LoadingSpinner from "./ui/LoadingSpinner";
 
 interface SlugPickerProps {
   onSelect: (slug: string) => void;
@@ -53,10 +55,14 @@ export default function SlugPicker({ onSelect, disabled }: SlugPickerProps) {
   };
 
   return (
-    <div className="slug-picker">
-      <label htmlFor="slug-input">Choose your family bank URL</label>
-      <div className="slug-input-row">
-        <span className="slug-prefix">bankofdad.com/</span>
+    <div className="space-y-3">
+      <label htmlFor="slug-input" className="block text-sm font-semibold text-bark-light">
+        Choose your family bank URL
+      </label>
+      <div className="flex items-center rounded-xl border border-sand bg-white overflow-hidden focus-within:ring-2 focus-within:ring-forest/30 focus-within:border-forest transition-all">
+        <span className="px-3 py-3 bg-cream-dark text-bark-light text-sm font-medium border-r border-sand whitespace-nowrap">
+          bankofdad.com/
+        </span>
         <input
           id="slug-input"
           type="text"
@@ -65,36 +71,57 @@ export default function SlugPicker({ onSelect, disabled }: SlugPickerProps) {
           placeholder="smith-family"
           maxLength={30}
           disabled={disabled}
+          className="flex-1 min-h-[48px] px-3 py-3 bg-transparent text-bark text-base placeholder:text-bark-light/50 focus:outline-none disabled:cursor-not-allowed"
         />
       </div>
 
-      {checking && <p className="slug-status">Checking availability...</p>}
+      {checking && <LoadingSpinner variant="inline" message="Checking availability..." />}
 
       {!checking && check && (
-        <div className="slug-feedback">
+        <div>
           {check.available ? (
-            <p className="slug-available">
-              {check.slug} is available!
-              <button onClick={() => selectSlug(check.slug)} disabled={disabled}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-sm text-forest font-medium">
+                <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                {check.slug} is available!
+              </span>
+              <button
+                onClick={() => selectSlug(check.slug)}
+                disabled={disabled}
+                className="text-sm font-semibold text-forest hover:text-forest-light transition-colors cursor-pointer disabled:opacity-50"
+              >
                 Use this name
               </button>
-            </p>
+            </div>
           ) : (
-            <div>
-              {!check.valid && <p className="slug-invalid">Invalid format. Use 3-30 lowercase letters, numbers, and hyphens.</p>}
-              {check.valid && !check.available && <p className="slug-taken">{check.slug} is already taken.</p>}
+            <div className="space-y-2">
+              {!check.valid && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-terracotta font-medium">
+                  <XCircle className="h-4 w-4" aria-hidden="true" />
+                  Invalid format. Use 3-30 lowercase letters, numbers, and hyphens.
+                </span>
+              )}
+              {check.valid && !check.available && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-terracotta font-medium">
+                  <XCircle className="h-4 w-4" aria-hidden="true" />
+                  {check.slug} is already taken.
+                </span>
+              )}
               {check.suggestions && check.suggestions.length > 0 && (
-                <div className="slug-suggestions">
-                  <p>Try one of these:</p>
-                  <ul>
+                <div>
+                  <p className="text-sm text-bark-light mb-2">Try one of these:</p>
+                  <div className="flex flex-wrap gap-2">
                     {check.suggestions.map((s) => (
-                      <li key={s}>
-                        <button onClick={() => selectSlug(s)} disabled={disabled}>
-                          {s}
-                        </button>
-                      </li>
+                      <button
+                        key={s}
+                        onClick={() => selectSlug(s)}
+                        disabled={disabled}
+                        className="px-3 py-1.5 rounded-full bg-sage-light/30 text-sm font-medium text-forest hover:bg-sage-light/50 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>

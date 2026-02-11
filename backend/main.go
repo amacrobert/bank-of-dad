@@ -52,7 +52,7 @@ func main() {
 		cfg.CookieSecure,
 	)
 
-	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore)
+	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore, sessionStore)
 	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
 	txStore := store.NewTransactionStore(db)
