@@ -11,7 +11,7 @@ import InterestForm from "./InterestForm";
 import TransactionHistory from "./TransactionHistory";
 import UpcomingPayments from "./UpcomingPayments";
 import ChildAllowanceForm from "./ChildAllowanceForm";
-import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle, ChevronDown } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
@@ -25,6 +25,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
@@ -201,48 +202,65 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         }}
       />
 
-      {/* Reset password */}
-      <Card padding="md">
-        <h4 className="text-base font-bold text-bark mb-4">Reset Password</h4>
-        <form onSubmit={handleResetPassword} className="space-y-4">
-          <Input
-            label="New Password (min 6 characters)"
-            id="new-password"
-            type="text"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-          <Button type="submit" className="w-full">Reset Password</Button>
-          {passwordMsg && (
-            <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
-              <p className="text-sm text-forest font-medium">{passwordMsg}</p>
-            </div>
-          )}
-        </form>
-      </Card>
+      {/* Account Settings (collapsible) */}
+      <button
+        onClick={() => setShowSettings(!showSettings)}
+        className="w-full flex items-center justify-between p-3 rounded-xl bg-cream hover:bg-cream-dark transition-colors cursor-pointer"
+      >
+        <span className="text-base font-bold text-bark">Account Settings</span>
+        <ChevronDown
+          className="h-5 w-5 text-bark-light transition-transform"
+          style={{ transform: showSettings ? "rotate(180deg)" : undefined }}
+          aria-hidden="true"
+        />
+      </button>
 
-      {/* Update name */}
-      <Card padding="md">
-        <h4 className="text-base font-bold text-bark mb-4">Update Name</h4>
-        <form onSubmit={handleUpdateName} className="space-y-4">
-          <Input
-            label="First Name"
-            id="new-name"
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-          />
-          <Button type="submit" className="w-full">Update Name</Button>
-          {nameMsg && (
-            <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
-              <p className="text-sm text-forest font-medium">{nameMsg}</p>
-            </div>
-          )}
-        </form>
-      </Card>
+      {showSettings && (
+        <>
+          {/* Reset password */}
+          <Card padding="md">
+            <h4 className="text-base font-bold text-bark mb-4">Reset Password</h4>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <Input
+                label="New Password (min 6 characters)"
+                id="new-password"
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+              <Button type="submit" className="w-full">Reset Password</Button>
+              {passwordMsg && (
+                <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
+                  <p className="text-sm text-forest font-medium">{passwordMsg}</p>
+                </div>
+              )}
+            </form>
+          </Card>
+
+          {/* Update name */}
+          <Card padding="md">
+            <h4 className="text-base font-bold text-bark mb-4">Update Name</h4>
+            <form onSubmit={handleUpdateName} className="space-y-4">
+              <Input
+                label="First Name"
+                id="new-name"
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                required
+              />
+              <Button type="submit" className="w-full">Update Name</Button>
+              {nameMsg && (
+                <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
+                  <p className="text-sm text-forest font-medium">{nameMsg}</p>
+                </div>
+              )}
+            </form>
+          </Card>
+        </>
+      )}
 
       {error && (
         <div className="bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
