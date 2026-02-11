@@ -84,10 +84,22 @@ export function getTransactions(childId: number): Promise<TransactionListRespons
 }
 
 // Interest Accrual API functions (005-interest-accrual)
-import { InterestRateRequest, InterestRateResponse } from "./types";
+import { InterestRateRequest, InterestRateResponse, SetInterestResponse } from "./types";
 
 export function setInterestRate(childId: number, data: InterestRateRequest): Promise<InterestRateResponse> {
   return put<InterestRateResponse>(`/children/${childId}/interest-rate`, data);
+}
+
+// Combined interest (rate + schedule) API function
+export interface SetInterestRequest {
+  interest_rate_bps: number;
+  frequency?: Frequency;
+  day_of_week?: number;
+  day_of_month?: number;
+}
+
+export function setInterest(childId: number, data: SetInterestRequest): Promise<SetInterestResponse> {
+  return put<SetInterestResponse>(`/children/${childId}/interest`, data);
 }
 
 // Allowance Scheduling API functions (003-allowance-scheduling)

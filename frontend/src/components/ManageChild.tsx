@@ -7,8 +7,7 @@ import Button from "./ui/Button";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
-import InterestRateForm from "./InterestRateForm";
-import InterestScheduleForm from "./InterestScheduleForm";
+import InterestForm from "./InterestForm";
 import TransactionHistory from "./TransactionHistory";
 import ChildAllowanceForm from "./ChildAllowanceForm";
 import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
@@ -175,6 +174,12 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         />
       )}
 
+      {/* Transaction history */}
+      <Card padding="md">
+        <h4 className="text-base font-bold text-bark mb-3">Transaction History</h4>
+        <TransactionHistory transactions={transactions} />
+      </Card>
+
       <ChildAllowanceForm
         childId={child.id}
         childName={child.first_name}
@@ -182,25 +187,16 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         onUpdated={setAllowance}
       />
 
-      <InterestRateForm
+      <InterestForm
         childId={child.id}
         childName={child.first_name}
         currentRateBps={interestRateBps}
-        onSuccess={(newRate) => setInterestRateBps(newRate)}
-      />
-
-      <InterestScheduleForm
-        childId={child.id}
-        childName={child.first_name}
         schedule={interestSchedule}
-        onUpdated={setInterestSchedule}
+        onUpdated={(rateBps, schedule) => {
+          setInterestRateBps(rateBps);
+          setInterestSchedule(schedule);
+        }}
       />
-
-      {/* Transaction history */}
-      <Card padding="md">
-        <h4 className="text-base font-bold text-bark mb-3">Transaction History</h4>
-        <TransactionHistory transactions={transactions} />
-      </Card>
 
       {/* Reset password */}
       <Card padding="md">

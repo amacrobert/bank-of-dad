@@ -176,6 +176,14 @@ export interface UpcomingAllowancesResponse {
   allowances: UpcomingAllowance[];
 }
 
+// Combined Interest (rate + schedule) Feature
+
+export interface SetInterestResponse {
+  interest_rate_bps: number;
+  interest_rate_display: string;
+  schedule: InterestSchedule | null;
+}
+
 // Interest Schedule Feature (006-account-management-enhancements)
 
 export interface InterestSchedule {
