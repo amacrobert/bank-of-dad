@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
 import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
 import Card from "./ui/Card";
@@ -32,11 +32,11 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
 
-  const loadTransactions = () => {
+  const loadTransactions = useCallback(() => {
     getTransactions(child.id).then((data) => {
       setTransactions(data.transactions || []);
     }).catch(() => {});
-  };
+  }, [child.id]);
 
   useEffect(() => {
     getBalance(child.id).then((data) => {
@@ -45,7 +45,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
     loadTransactions();
     getChildAllowance(child.id).then(setAllowance).catch(() => {});
     getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
-  }, [child.id]);
+  }, [child.id, loadTransactions]);
 
   const handleDepositSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
