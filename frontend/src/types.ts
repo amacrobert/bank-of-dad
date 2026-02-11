@@ -109,18 +109,6 @@ export interface WithdrawRequest {
   note?: string;
 }
 
-// Interest Accrual Feature (005-interest-accrual)
-
-export interface InterestRateRequest {
-  interest_rate_bps: number;
-}
-
-export interface InterestRateResponse {
-  child_id: number;
-  interest_rate_bps: number;
-  interest_rate_display: string;
-}
-
 // Allowance Scheduling Feature (003-allowance-scheduling)
 
 export type Frequency = 'weekly' | 'biweekly' | 'monthly';
