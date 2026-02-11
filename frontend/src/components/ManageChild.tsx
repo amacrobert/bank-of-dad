@@ -9,6 +9,7 @@ import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
 import InterestForm from "./InterestForm";
 import TransactionHistory from "./TransactionHistory";
+import UpcomingPayments from "./UpcomingPayments";
 import ChildAllowanceForm from "./ChildAllowanceForm";
 import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
@@ -173,6 +174,8 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
           onCancel={() => setShowWithdraw(false)}
         />
       )}
+
+      <UpcomingPayments childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} />
 
       {/* Transaction history */}
       <Card padding="md">
