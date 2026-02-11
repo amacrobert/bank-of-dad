@@ -91,8 +91,6 @@ export default function ParentDashboard() {
         <div className="md:grid md:grid-cols-[340px_1fr] md:gap-6">
           {/* Left column: child list + add child */}
           <div className="space-y-4 mb-6 md:mb-0">
-            <AddChildForm onChildAdded={handleChildAdded} />
-
             <Card padding="md">
               <ChildList
                 refreshKey={childRefreshKey}
@@ -100,6 +98,8 @@ export default function ParentDashboard() {
                 selectedChildId={selectedChild?.id}
               />
             </Card>
+
+            <AddChildForm onChildAdded={handleChildAdded} />
           </div>
 
           {/* Right column: manage child or empty state */}
