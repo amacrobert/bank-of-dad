@@ -145,3 +145,7 @@ export function getInterestSchedule(childId: number): Promise<InterestSchedule |
   return get<InterestSchedule | null>(`/children/${childId}/interest-schedule`);
 }
 
+export function deleteChild(childId: number): Promise<void> {
+  return request<void>(`/children/${childId}`, { method: "DELETE" });
+}
+

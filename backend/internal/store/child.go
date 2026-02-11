@@ -184,6 +184,32 @@ func (s *ChildStore) UpdateName(id, familyID int64, newName string) error {
 	return nil
 }
 
+// Delete permanently removes a child and all associated data in a single
+// atomic transaction. Cascading foreign keys handle transactions, allowance
+// schedules, and interest schedules. Sessions and auth events are deleted
+// explicitly since they reference user_id without a foreign key.
+func (s *ChildStore) Delete(id int64) error {
+	tx, err := s.db.Write.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_type = 'child' AND user_id = ?`, id); err != nil {
+		return fmt.Errorf("delete child sessions: %w", err)
+	}
+
+	if _, err := tx.Exec(`DELETE FROM auth_events WHERE user_type = 'child' AND user_id = ?`, id); err != nil {
+		return fmt.Errorf("delete child auth events: %w", err)
+	}
+
+	if _, err := tx.Exec(`DELETE FROM children WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete child: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // GetBalance returns the current balance in cents for a child.
 func (s *ChildStore) GetBalance(id int64) (int64, error) {
 	var balance int64
