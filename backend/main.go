@@ -116,8 +116,8 @@ func main() {
 	mux.Handle("GET /api/children/{id}/balance", requireAuth(http.HandlerFunc(balanceHandler.HandleGetBalance)))
 	mux.Handle("GET /api/children/{id}/transactions", requireAuth(http.HandlerFunc(balanceHandler.HandleGetTransactions)))
 
-	// Interest Accrual (005-interest-accrual)
-	mux.Handle("PUT /api/children/{id}/interest-rate", requireParent(http.HandlerFunc(interestHandler.HandleSetInterestRate)))
+	// Interest (combined rate + schedule)
+	mux.Handle("PUT /api/children/{id}/interest", requireParent(http.HandlerFunc(interestHandler.HandleSetInterest)))
 
 	// Allowance Scheduling (003-allowance-scheduling)
 	mux.Handle("POST /api/schedules", requireParent(http.HandlerFunc(allowanceHandler.HandleCreateSchedule)))
@@ -130,9 +130,7 @@ func main() {
 	mux.Handle("GET /api/children/{childId}/upcoming-allowances", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetUpcomingAllowances)))
 
 	// Interest schedule endpoints (006-account-management-enhancements)
-	mux.Handle("PUT /api/children/{childId}/interest-schedule", requireParent(http.HandlerFunc(interestHandler.HandleSetInterestSchedule)))
 	mux.Handle("GET /api/children/{childId}/interest-schedule", requireAuth(http.HandlerFunc(interestHandler.HandleGetInterestSchedule)))
-	mux.Handle("DELETE /api/children/{childId}/interest-schedule", requireParent(http.HandlerFunc(interestHandler.HandleDeleteInterestSchedule)))
 
 	// Child-scoped allowance endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/allowance", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetChildAllowance)))
