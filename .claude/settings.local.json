@@ -40,7 +40,8 @@
       "WebFetch(domain:golangci-lint.run)",
       "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad status)",
       "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad diff --cached --stat)",
-      "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad diff --stat)"
+      "Bash(git -C /Users/andrewmacrobert/projects/bank-of-dad diff --stat)",
+      "Bash(grep:*)"
     ]
   }
 }
