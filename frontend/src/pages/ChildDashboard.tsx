@@ -7,7 +7,7 @@ import Card from "../components/ui/Card";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import BalanceDisplay from "../components/BalanceDisplay";
 import TransactionHistory from "../components/TransactionHistory";
-import UpcomingAllowances from "../components/UpcomingAllowances";
+import UpcomingPayments from "../components/UpcomingPayments";
 import { TrendingUp } from "lucide-react";
 
 export default function ChildDashboard() {
@@ -17,7 +17,6 @@ export default function ChildDashboard() {
   const [balance, setBalance] = useState<number>(0);
   const [interestRateBps, setInterestRateBps] = useState<number>(0);
   const [interestRateDisplay, setInterestRateDisplay] = useState<string>("");
-  const [nextInterestAt, setNextInterestAt] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -39,7 +38,6 @@ export default function ChildDashboard() {
           setBalance(balanceRes.balance_cents);
           setInterestRateBps(balanceRes.interest_rate_bps);
           setInterestRateDisplay(balanceRes.interest_rate_display);
-          setNextInterestAt(balanceRes.next_interest_at || null);
           setTransactions(txRes.transactions || []);
         }).catch(() => {
           // Silently fail
@@ -80,23 +78,22 @@ export default function ChildDashboard() {
           ) : (
             <BalanceDisplay balanceCents={balance} size="large" />
           )}
-
           {interestRateBps > 0 && !loadingData && (
-            <div className="mt-4 inline-flex items-center gap-1.5 bg-sage-light/30 text-forest text-sm font-medium px-3 py-1.5 rounded-full">
+            <div className="mt-4 flex justify-center items-center gap-1.5 bg-sage-light/30 text-forest text-sm font-medium px-3 py-1.5 rounded-full">
               <TrendingUp className="h-4 w-4" aria-hidden="true" />
               {interestRateDisplay} annual interest
             </div>
           )}
-
-          {interestRateBps > 0 && nextInterestAt && !loadingData && (
-            <p className="text-xs text-bark-light mt-2">
-              Next interest: {new Date(nextInterestAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}
-            </p>
-          )}
         </Card>
 
-        {/* Upcoming allowances */}
-        <UpcomingAllowances childId={user.user_id} />
+        {/* Upcoming payments */}
+        {!loadingData && (
+          <UpcomingPayments
+            childId={user.user_id}
+            balanceCents={balance}
+            interestRateBps={interestRateBps}
+          />
+        )}
 
         {/* Transaction history */}
         <Card padding="md">
