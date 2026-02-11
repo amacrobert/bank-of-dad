@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
 import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
 import Card from "./ui/Card";
@@ -26,6 +26,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLButtonElement>(null);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
@@ -204,7 +205,14 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
 
       {/* Account Settings (collapsible) */}
       <button
-        onClick={() => setShowSettings(!showSettings)}
+        ref={settingsRef}
+        onClick={() => {
+          const expanding = !showSettings;
+          setShowSettings(expanding);
+          if (expanding) {
+            setTimeout(() => settingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+          }
+        }}
         className="w-full flex items-center justify-between p-3 rounded-xl bg-cream hover:bg-cream-dark transition-colors cursor-pointer"
       >
         <span className="text-base font-bold text-bark">Account Settings</span>
