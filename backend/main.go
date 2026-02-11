@@ -104,6 +104,7 @@ func main() {
 	// US5: Child credential management (parent auth required)
 	mux.Handle("PUT /api/children/{id}/password", requireParent(http.HandlerFunc(familyHandlers.HandleResetPassword)))
 	mux.Handle("PUT /api/children/{id}/name", requireParent(http.HandlerFunc(familyHandlers.HandleUpdateName)))
+	mux.Handle("DELETE /api/children/{id}", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteChild)))
 
 	// US4: Child login and family lookup (public)
 	childLoginRateLimit := middleware.RateLimit(10, 1*time.Minute)

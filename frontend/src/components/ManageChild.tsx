@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { put, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
+import { put, deleteChild, getBalance, getTransactions, getChildAllowance, getInterestSchedule, ApiRequestError } from "../api";
 import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
 import Card from "./ui/Card";
 import Input from "./ui/Input";
@@ -11,7 +11,7 @@ import InterestForm from "./InterestForm";
 import TransactionHistory from "./TransactionHistory";
 import UpcomingPayments from "./UpcomingPayments";
 import ChildAllowanceForm from "./ChildAllowanceForm";
-import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle, ChevronDown } from "lucide-react";
+import { AlertTriangle, Trash2, X, ArrowDownCircle, ArrowUpCircle, ChevronDown } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
@@ -34,6 +34,8 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const loadTransactions = useCallback(() => {
     getTransactions(child.id).then((data) => {
@@ -62,6 +64,26 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
     setShowWithdraw(false);
     loadTransactions();
     onUpdated();
+  };
+
+  const nameMatches = deleteConfirmName.toLowerCase() === child.first_name.toLowerCase();
+
+  const handleDeleteChild = async () => {
+    if (!nameMatches) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteChild(child.id);
+      onClose();
+      onUpdated();
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setError(err.body.message || err.body.error);
+      } else {
+        setError("Failed to delete account.");
+      }
+      setDeleting(false);
+    }
   };
 
   const childWithCurrentBalance = { ...child, balance_cents: currentBalance };
@@ -266,6 +288,32 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
                 </div>
               )}
             </form>
+          </Card>
+
+          {/* Delete account */}
+          <Card padding="md">
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 className="h-5 w-5 text-terracotta" aria-hidden="true" />
+              <h4 className="text-base font-bold text-terracotta">Delete Account</h4>
+            </div>
+            <p className="text-sm text-bark-light mb-4">
+              This action is permanent and cannot be undone. All of {child.first_name}&apos;s transactions, schedules, and account data will be permanently deleted.
+            </p>
+            <Input
+              label={`Type "${child.first_name}" to confirm`}
+              id="delete-confirm"
+              type="text"
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+            />
+            <Button
+              variant="secondary"
+              onClick={handleDeleteChild}
+              disabled={!nameMatches || deleting}
+              className="w-full mt-4 !bg-terracotta/10 !text-terracotta !border-terracotta/20 hover:!bg-terracotta/20 disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Permanently Delete Account"}
+            </Button>
           </Card>
         </>
       )}
