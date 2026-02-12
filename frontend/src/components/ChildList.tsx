@@ -65,7 +65,7 @@ export default function ChildList({ refreshKey, onSelectChild, selectedChildId, 
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
                 ${child.avatar
-                  ? "text-xl"
+                  ? "text-2xl"
                   : `text-base font-bold ${isSelected ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
                 }
                 ${child.avatar && !isSelected ? "bg-cream" : ""}
