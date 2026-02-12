@@ -122,9 +122,9 @@ func TestProcessDue_MultipleChildren(t *testing.T) {
 	parent := createTestParent(t, db, family.ID)
 
 	cs := store.NewChildStore(db)
-	child1, err := cs.Create(family.ID, "Child1", "pass123")
+	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
 	require.NoError(t, err)
-	child2, err := cs.Create(family.ID, "Child2", "pass123")
+	child2, err := cs.Create(family.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
 	interestStore := store.NewInterestStore(db)
@@ -162,9 +162,9 @@ func TestProcessDue_PartialFailure(t *testing.T) {
 	parent := createTestParent(t, db, family.ID)
 
 	cs := store.NewChildStore(db)
-	child1, err := cs.Create(family.ID, "Child1", "pass123")
+	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
 	require.NoError(t, err)
-	child2, err := cs.Create(family.ID, "Child2", "pass123")
+	child2, err := cs.Create(family.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
 	interestStore := store.NewInterestStore(db)

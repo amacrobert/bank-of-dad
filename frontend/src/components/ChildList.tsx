@@ -63,10 +63,15 @@ export default function ChildList({ refreshKey, onSelectChild, selectedChildId, 
             >
               {/* Avatar circle */}
               <div className={`
-                w-10 h-10 rounded-full flex items-center justify-center text-base font-bold flex-shrink-0
-                ${isSelected ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}
+                w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                ${child.avatar
+                  ? "text-xl"
+                  : `text-base font-bold ${isSelected ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
+                }
+                ${child.avatar && !isSelected ? "bg-cream" : ""}
+                ${child.avatar && isSelected ? "bg-forest/10" : ""}
               `}>
-                {child.first_name.charAt(0).toUpperCase()}
+                {child.avatar || child.first_name.charAt(0).toUpperCase()}
               </div>
 
               <div className="flex-1 min-w-0">

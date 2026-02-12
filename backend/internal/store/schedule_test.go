@@ -124,7 +124,7 @@ func TestScheduleStore_ListByParentFamily(t *testing.T) {
 	fam := createTestFamily(t, db)
 	parent := createTestParent(t, db, fam.ID)
 	child1 := createTestChild(t, db, fam.ID)
-	child2, err := cs.Create(fam.ID, "Child2", "pass123")
+	child2, err := cs.Create(fam.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
 	createTestSchedule(t, db, child1.ID, parent.ID)
@@ -242,7 +242,7 @@ func TestScheduleStore_ListDue(t *testing.T) {
 	fam := createTestFamily(t, db)
 	parent := createTestParent(t, db, fam.ID)
 	child1 := createTestChild(t, db, fam.ID)
-	child2, err := cs.Create(fam.ID, "Child2", "pass123")
+	child2, err := cs.Create(fam.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
 	// Create schedule due in the past (child1)

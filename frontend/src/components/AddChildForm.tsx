@@ -4,6 +4,7 @@ import { ChildCreateResponse } from "../types";
 import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
+import AvatarPicker from "./AvatarPicker";
 import { CheckCircle } from "lucide-react";
 
 interface AddChildFormProps {
@@ -13,6 +14,7 @@ interface AddChildFormProps {
 export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
   const [firstName, setFirstName] = useState("");
   const [password, setPassword] = useState("");
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<ChildCreateResponse | null>(null);
@@ -27,10 +29,12 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
       const result = await post<ChildCreateResponse>("/children", {
         first_name: firstName,
         password,
+        avatar: avatar || undefined,
       });
       setCreated(result);
       setFirstName("");
       setPassword("");
+      setAvatar(null);
       onChildAdded();
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -65,6 +69,8 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
           required
           disabled={submitting}
         />
+
+        <AvatarPicker selected={avatar} onSelect={setAvatar} />
 
         {error && (
           <div className="bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">

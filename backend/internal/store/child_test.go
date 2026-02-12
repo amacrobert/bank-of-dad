@@ -22,7 +22,7 @@ func TestCreateChild(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 	assert.NotZero(t, child.ID)
 	assert.Equal(t, fam.ID, child.FamilyID)
@@ -36,7 +36,7 @@ func TestCreateChild_PasswordHashed(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	// Password hash should not be plaintext
@@ -50,10 +50,10 @@ func TestCreateChild_DuplicateName(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	_, err := cs.Create(fam.ID, "Tommy", "secret123")
+	_, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
-	_, err = cs.Create(fam.ID, "Tommy", "different456")
+	_, err = cs.Create(fam.ID, "Tommy", "different456", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
 }
@@ -63,7 +63,7 @@ func TestGetByFamilyAndName(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	created, err := cs.Create(fam.ID, "Sarah", "pass123456")
+	created, err := cs.Create(fam.ID, "Sarah", "pass123456", nil)
 	require.NoError(t, err)
 
 	found, err := cs.GetByFamilyAndName(fam.ID, "Sarah")
@@ -88,9 +88,9 @@ func TestListByFamily(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	_, err := cs.Create(fam.ID, "Alice", "pass123456")
+	_, err := cs.Create(fam.ID, "Alice", "pass123456", nil)
 	require.NoError(t, err)
-	_, err = cs.Create(fam.ID, "Bob", "pass123456")
+	_, err = cs.Create(fam.ID, "Bob", "pass123456", nil)
 	require.NoError(t, err)
 
 	children, err := cs.ListByFamily(fam.ID)
@@ -106,7 +106,7 @@ func TestCheckPassword(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	assert.True(t, cs.CheckPassword(child, "secret123"))
@@ -118,7 +118,7 @@ func TestIncrementFailedAttempts(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	attempts, err := cs.IncrementFailedAttempts(child.ID)
@@ -135,7 +135,7 @@ func TestLockAccount(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 	assert.False(t, child.IsLocked)
 
@@ -152,7 +152,7 @@ func TestResetFailedAttempts(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	cs.IncrementFailedAttempts(child.ID)
@@ -171,7 +171,7 @@ func TestUpdatePassword(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "oldpass123")
+	child, err := cs.Create(fam.ID, "Tommy", "oldpass123", nil)
 	require.NoError(t, err)
 
 	// Lock the account first
@@ -197,10 +197,10 @@ func TestUpdateName(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
-	err = cs.UpdateName(child.ID, fam.ID, "Thomas")
+	err = cs.UpdateNameAndAvatar(child.ID, fam.ID, "Thomas", nil, false)
 	require.NoError(t, err)
 
 	updated, err := cs.GetByID(child.ID)
@@ -213,12 +213,12 @@ func TestUpdateName_DuplicateRejected(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	_, err := cs.Create(fam.ID, "Tommy", "secret123")
+	_, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
-	child2, err := cs.Create(fam.ID, "Sarah", "secret123")
+	child2, err := cs.Create(fam.ID, "Sarah", "secret123", nil)
 	require.NoError(t, err)
 
-	err = cs.UpdateName(child2.ID, fam.ID, "Tommy")
+	err = cs.UpdateNameAndAvatar(child2.ID, fam.ID, "Tommy", nil, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
 }
@@ -229,7 +229,7 @@ func TestGetBalance(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	// Initial balance should be 0
@@ -252,7 +252,7 @@ func TestDeleteChild(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	err = cs.Delete(child.ID)
@@ -273,7 +273,7 @@ func TestDeleteChild_CascadesTransactions(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ps.SetFamilyID(parent.ID, fam.ID))
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	ts := NewTransactionStore(db)
@@ -296,7 +296,7 @@ func TestDeleteChild_CleansUpSessions(t *testing.T) {
 	ss := NewSessionStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	token, err := ss.Create("child", child.ID, fam.ID, time.Hour)
@@ -317,7 +317,7 @@ func TestDeleteChild_CleansUpAuthEvents(t *testing.T) {
 	es := NewAuthEventStore(db)
 	fam := createTestFamily(t, db)
 
-	child, err := cs.Create(fam.ID, "Tommy", "secret123")
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
 	err = es.LogEvent(AuthEvent{
@@ -345,9 +345,9 @@ func TestDeleteChild_DoesNotAffectOtherChildren(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	child1, err := cs.Create(fam.ID, "Alice", "secret123")
+	child1, err := cs.Create(fam.ID, "Alice", "secret123", nil)
 	require.NoError(t, err)
-	child2, err := cs.Create(fam.ID, "Bob", "secret123")
+	child2, err := cs.Create(fam.ID, "Bob", "secret123", nil)
 	require.NoError(t, err)
 
 	err = cs.Delete(child1.ID)
@@ -358,4 +358,113 @@ func TestDeleteChild_DoesNotAffectOtherChildren(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, found)
 	assert.Equal(t, "Bob", found.FirstName)
+}
+
+// T005: Avatar tests for Create
+func TestCreateChild_WithAvatar(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	avatar := "🌻"
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", &avatar)
+	require.NoError(t, err)
+	assert.NotNil(t, child.Avatar)
+	assert.Equal(t, "🌻", *child.Avatar)
+
+	// Verify via GetByID
+	fetched, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, fetched.Avatar)
+	assert.Equal(t, "🌻", *fetched.Avatar)
+}
+
+func TestCreateChild_WithoutAvatar(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
+	require.NoError(t, err)
+	assert.Nil(t, child.Avatar)
+}
+
+func TestListByFamily_ReturnsAvatar(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	avatar := "🦋"
+	_, err := cs.Create(fam.ID, "Alice", "pass123456", &avatar)
+	require.NoError(t, err)
+	_, err = cs.Create(fam.ID, "Bob", "pass123456", nil)
+	require.NoError(t, err)
+
+	children, err := cs.ListByFamily(fam.ID)
+	require.NoError(t, err)
+	assert.Len(t, children, 2)
+	// Alice has avatar
+	assert.NotNil(t, children[0].Avatar)
+	assert.Equal(t, "🦋", *children[0].Avatar)
+	// Bob has no avatar
+	assert.Nil(t, children[1].Avatar)
+}
+
+// T011: Avatar tests for UpdateNameAndAvatar
+func TestUpdateNameAndAvatar_SetAvatar(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
+	require.NoError(t, err)
+	assert.Nil(t, child.Avatar)
+
+	avatar := "🐸"
+	err = cs.UpdateNameAndAvatar(child.ID, fam.ID, "Tommy", &avatar, true)
+	require.NoError(t, err)
+
+	updated, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, updated.Avatar)
+	assert.Equal(t, "🐸", *updated.Avatar)
+	assert.Equal(t, "Tommy", updated.FirstName)
+}
+
+func TestUpdateNameAndAvatar_ClearAvatar(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	avatar := "🐸"
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", &avatar)
+	require.NoError(t, err)
+	assert.NotNil(t, child.Avatar)
+
+	err = cs.UpdateNameAndAvatar(child.ID, fam.ID, "Tommy", nil, true)
+	require.NoError(t, err)
+
+	updated, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.Nil(t, updated.Avatar)
+}
+
+func TestUpdateNameAndAvatar_PreservesAvatarWhenNotSet(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	avatar := "🐸"
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", &avatar)
+	require.NoError(t, err)
+
+	// Update name only, avatarSet=false should preserve avatar
+	err = cs.UpdateNameAndAvatar(child.ID, fam.ID, "Thomas", nil, false)
+	require.NoError(t, err)
+
+	updated, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Thomas", updated.FirstName)
+	assert.NotNil(t, updated.Avatar)
+	assert.Equal(t, "🐸", *updated.Avatar)
 }
