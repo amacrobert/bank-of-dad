@@ -17,6 +17,7 @@ type Child struct {
 	IsLocked            bool
 	FailedLoginAttempts int
 	BalanceCents        int64
+	Avatar              *string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -29,15 +30,15 @@ func NewChildStore(db *DB) *ChildStore {
 	return &ChildStore{db: db}
 }
 
-func (s *ChildStore) Create(familyID int64, firstName, password string) (*Child, error) {
+func (s *ChildStore) Create(familyID int64, firstName, password string, avatar *string) (*Child, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
 	res, err := s.db.Write.Exec(
-		`INSERT INTO children (family_id, first_name, password_hash) VALUES (?, ?, ?)`,
-		familyID, firstName, string(hash),
+		`INSERT INTO children (family_id, first_name, password_hash, avatar) VALUES (?, ?, ?, ?)`,
+		familyID, firstName, string(hash), avatar,
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
@@ -53,11 +54,12 @@ func (s *ChildStore) Create(familyID int64, firstName, password string) (*Child,
 func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	var c Child
 	var isLocked int
+	var avatar sql.NullString
 	var createdAt, updatedAt string
 	err := s.db.Read.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
 		 FROM children WHERE id = ?`, id,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -65,6 +67,9 @@ func (s *ChildStore) GetByID(id int64) (*Child, error) {
 		return nil, fmt.Errorf("get child by id: %w", err)
 	}
 	c.IsLocked = isLocked != 0
+	if avatar.Valid {
+		c.Avatar = &avatar.String
+	}
 	c.CreatedAt, _ = parseTime(createdAt)
 	c.UpdatedAt, _ = parseTime(updatedAt)
 	return &c, nil
@@ -73,11 +78,12 @@ func (s *ChildStore) GetByID(id int64) (*Child, error) {
 func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Child, error) {
 	var c Child
 	var isLocked int
+	var avatar sql.NullString
 	var createdAt, updatedAt string
 	err := s.db.Read.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
 		 FROM children WHERE family_id = ? AND first_name = ?`, familyID, firstName,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -85,6 +91,9 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 		return nil, fmt.Errorf("get child by family and name: %w", err)
 	}
 	c.IsLocked = isLocked != 0
+	if avatar.Valid {
+		c.Avatar = &avatar.String
+	}
 	c.CreatedAt, _ = parseTime(createdAt)
 	c.UpdatedAt, _ = parseTime(updatedAt)
 	return &c, nil
@@ -92,7 +101,7 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	rows, err := s.db.Read.Query(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
 		 FROM children WHERE family_id = ? ORDER BY first_name`, familyID,
 	)
 	if err != nil {
@@ -104,11 +113,15 @@ func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	for rows.Next() {
 		var c Child
 		var isLocked int
+		var avatar sql.NullString
 		var createdAt, updatedAt string
-		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
 		c.IsLocked = isLocked != 0
+		if avatar.Valid {
+			c.Avatar = &avatar.String
+		}
 		c.CreatedAt, _ = parseTime(createdAt)
 		c.UpdatedAt, _ = parseTime(updatedAt)
 		children = append(children, c)
@@ -170,11 +183,23 @@ func (s *ChildStore) UpdatePassword(id int64, password string) error {
 	return nil
 }
 
-func (s *ChildStore) UpdateName(id, familyID int64, newName string) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE children SET first_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND family_id = ?`,
-		newName, id, familyID,
-	)
+// UpdateNameAndAvatar updates the child's name and optionally their avatar.
+// avatarSet indicates whether the avatar field was provided in the request.
+// When avatarSet is true, avatar is applied (nil clears, non-nil sets).
+// When avatarSet is false, the avatar is left unchanged.
+func (s *ChildStore) UpdateNameAndAvatar(id, familyID int64, newName string, avatar *string, avatarSet bool) error {
+	var err error
+	if avatarSet {
+		_, err = s.db.Write.Exec(
+			`UPDATE children SET first_name = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND family_id = ?`,
+			newName, avatar, id, familyID,
+		)
+	} else {
+		_, err = s.db.Write.Exec(
+			`UPDATE children SET first_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND family_id = ?`,
+			newName, id, familyID,
+		)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			return fmt.Errorf("child named %q already exists in this family", newName)

@@ -59,7 +59,7 @@ func createTestParent(t *testing.T, db *store.DB, familyID int64) *store.Parent 
 
 func createTestChild(t *testing.T, db *store.DB, familyID int64, name string) *store.Child {
 	childStore := store.NewChildStore(db)
-	child, err := childStore.Create(familyID, name, "password123")
+	child, err := childStore.Create(familyID, name, "password123", nil)
 	require.NoError(t, err)
 	return child
 }

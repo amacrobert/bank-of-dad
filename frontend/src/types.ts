@@ -13,6 +13,7 @@ export interface ChildUser {
   family_id: number;
   first_name: string;
   family_slug: string;
+  avatar?: string | null;
 }
 
 export type AuthUser = ParentUser | ChildUser;
@@ -23,6 +24,7 @@ export interface Child {
   is_locked: boolean;
   balance_cents: number;
   created_at: string;
+  avatar?: string | null;
 }
 
 export interface Family {
@@ -53,6 +55,7 @@ export interface ChildCreateResponse {
   first_name: string;
   family_slug: string;
   login_url: string;
+  avatar?: string | null;
 }
 
 export interface ChildListResponse {

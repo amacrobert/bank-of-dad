@@ -22,7 +22,7 @@ func createTestParent(t *testing.T, db *DB, familyID int64) *Parent {
 func createTestChild(t *testing.T, db *DB, familyID int64) *Child {
 	t.Helper()
 	cs := NewChildStore(db)
-	c, err := cs.Create(familyID, "TestChild", "password123")
+	c, err := cs.Create(familyID, "TestChild", "password123", nil)
 	require.NoError(t, err)
 	return c
 }
@@ -263,8 +263,8 @@ func TestListByChild_OnlyOwnTransactions(t *testing.T) {
 
 	// Create two children
 	cs := NewChildStore(db)
-	child1, _ := cs.Create(fam.ID, "Child1", "pass123")
-	child2, _ := cs.Create(fam.ID, "Child2", "pass123")
+	child1, _ := cs.Create(fam.ID, "Child1", "pass123", nil)
+	child2, _ := cs.Create(fam.ID, "Child2", "pass123", nil)
 
 	// Deposit to both
 	ts.Deposit(child1.ID, parent.ID, 1000, "For Child1")

@@ -64,7 +64,7 @@ export default function ChildDashboard() {
         {/* Welcome */}
         <div>
           <h2 className="text-2xl font-bold text-forest">
-            Welcome, {user.first_name}!
+            Welcome, {user.first_name}!{user.avatar ? ` ${user.avatar}` : ''}
           </h2>
         </div>
 
