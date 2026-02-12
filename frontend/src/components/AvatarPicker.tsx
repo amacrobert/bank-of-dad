@@ -23,7 +23,7 @@ export default function AvatarPicker({ selected, onSelect }: AvatarPickerProps) 
               type="button"
               onClick={() => onSelect(isSelected ? null : emoji)}
               className={`
-                w-9 h-9 flex items-center justify-center text-lg rounded-lg
+                w-9 h-9 flex items-center justify-center text-xl rounded-lg
                 transition-all duration-150 cursor-pointer
                 ${isSelected
                   ? "bg-forest/15 ring-2 ring-forest scale-110"
