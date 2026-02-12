@@ -21,10 +21,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Add `avatar TEXT` column migration using `addColumnIfNotExists` in `backend/internal/store/sqlite.go`
-- [ ] T002 Add `Avatar *string` field to `Child` struct and update `GetByID`, `GetByFamilyAndName`, `ListByFamily` to SELECT and Scan avatar (using `sql.NullString`) in `backend/internal/store/child.go`
-- [ ] T003 Add `avatar` field to `HandleListChildren` response struct (`childResponse`) in `backend/internal/family/handlers.go`
-- [ ] T004 [P] Add `avatar?: string` to `Child` and `ChildCreateResponse` interfaces in `frontend/src/types.ts`
+- [X] T001 Add `avatar TEXT` column migration using `addColumnIfNotExists` in `backend/internal/store/sqlite.go`
+- [X] T002 Add `Avatar *string` field to `Child` struct and update `GetByID`, `GetByFamilyAndName`, `ListByFamily` to SELECT and Scan avatar (using `sql.NullString`) in `backend/internal/store/child.go`
+- [X] T003 Add `avatar` field to `HandleListChildren` response struct (`childResponse`) in `backend/internal/family/handlers.go`
+- [X] T004 [P] Add `avatar?: string` to `Child` and `ChildCreateResponse` interfaces in `frontend/src/types.ts`
 
 **Checkpoint**: Avatar column exists, backend reads/returns avatar, frontend types accept avatar
 
@@ -38,14 +38,14 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [US1] Test `ChildStore.Create` with avatar: create child with avatar, verify avatar returned by `GetByID`; create child without avatar, verify `Avatar` is nil — in `backend/internal/store/child_test.go`
+- [X] T005 [US1] Test `ChildStore.Create` with avatar: create child with avatar, verify avatar returned by `GetByID`; create child without avatar, verify `Avatar` is nil — in `backend/internal/store/child_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Update `ChildStore.Create` to accept optional avatar parameter and include in INSERT statement in `backend/internal/store/child.go`
-- [ ] T007 [US1] Parse optional `avatar` field in `HandleCreateChild` request struct and pass to `Create`; include avatar in create response in `backend/internal/family/handlers.go`
-- [ ] T008 [US1] Create `AvatarPicker` component with emoji grid (16 emojis), tap-to-select, tap-again-to-deselect, selected highlight in `frontend/src/components/AvatarPicker.tsx`
-- [ ] T009 [US1] Integrate `AvatarPicker` into `AddChildForm` below the name input; send `avatar` field in POST request; reset avatar on form clear in `frontend/src/components/AddChildForm.tsx`
+- [X] T006 [US1] Update `ChildStore.Create` to accept optional avatar parameter and include in INSERT statement in `backend/internal/store/child.go`
+- [X] T007 [US1] Parse optional `avatar` field in `HandleCreateChild` request struct and pass to `Create`; include avatar in create response in `backend/internal/family/handlers.go`
+- [X] T008 [US1] Create `AvatarPicker` component with emoji grid (16 emojis), tap-to-select, tap-again-to-deselect, selected highlight in `frontend/src/components/AvatarPicker.tsx`
+- [X] T009 [US1] Integrate `AvatarPicker` into `AddChildForm` below the name input; send `avatar` field in POST request; reset avatar on form clear in `frontend/src/components/AddChildForm.tsx`
 
 **Checkpoint**: Parent can create a child with an emoji avatar. Avatar is stored and returned by the API.
 
@@ -59,7 +59,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Update avatar circle in `ChildList` to conditionally show `child.avatar` emoji (if set) or `child.first_name.charAt(0)` fallback in `frontend/src/components/ChildList.tsx`
+- [X] T010 [US2] Update avatar circle in `ChildList` to conditionally show `child.avatar` emoji (if set) or `child.first_name.charAt(0)` fallback in `frontend/src/components/ChildList.tsx`
 
 **Checkpoint**: Child list shows emoji avatars for children that have them, first-letter initials for those that don't.
 
@@ -73,13 +73,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] Test avatar update in store: update avatar only (name unchanged), update name only (avatar preserved), clear avatar (set to nil) — in `backend/internal/store/child_test.go`
+- [X] T011 [US3] Test avatar update in store: update avatar only (name unchanged), update name only (avatar preserved), clear avatar (set to nil) — in `backend/internal/store/child_test.go`
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Extend `ChildStore.UpdateName` to accept optional avatar parameter and update avatar column (nil = leave unchanged, empty string = clear, value = set) in `backend/internal/store/child.go`
-- [ ] T013 [US3] Parse optional `avatar` field in `HandleUpdateName` request struct; pass to store; include avatar in update response; update audit log details in `backend/internal/family/handlers.go`
-- [ ] T014 [US3] Rename "Update Name" to "Update Name and Avatar" in ManageChild; add `AvatarPicker` pre-selecting current avatar; send avatar in PUT request in `frontend/src/components/ManageChild.tsx`
+- [X] T012 [US3] Extend `ChildStore.UpdateName` to accept optional avatar parameter and update avatar column (nil = leave unchanged, empty string = clear, value = set) in `backend/internal/store/child.go`
+- [X] T013 [US3] Parse optional `avatar` field in `HandleUpdateName` request struct; pass to store; include avatar in update response; update audit log details in `backend/internal/family/handlers.go`
+- [X] T014 [US3] Rename "Update Name" to "Update Name and Avatar" in ManageChild; add `AvatarPicker` pre-selecting current avatar; send avatar in PUT request in `frontend/src/components/ManageChild.tsx`
 
 **Checkpoint**: Parent can change or clear a child's avatar from account settings. All changes persist and display correctly.
 
@@ -89,8 +89,8 @@
 
 **Purpose**: Final validation across all stories
 
-- [ ] T015 Run full backend test suite (`go test ./...`) and verify all pass
-- [ ] T016 [P] Verify frontend TypeScript compilation (`npx tsc --noEmit`) passes with no errors
+- [X] T015 Run full backend test suite (`go test ./...`) and verify all pass
+- [X] T016 [P] Verify frontend TypeScript compilation (`npx tsc --noEmit`) passes with no errors
 
 ---
 

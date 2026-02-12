@@ -143,8 +143,9 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		FirstName string `json:"first_name"`
-		Password  string `json:"password"`
+		FirstName string  `json:"first_name"`
+		Password  string  `json:"password"`
+		Avatar    *string `json:"avatar"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
@@ -167,7 +168,13 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.Create(familyID, req.FirstName, req.Password)
+	// Treat empty string avatar as nil (no avatar)
+	avatar := req.Avatar
+	if avatar != nil && *avatar == "" {
+		avatar = nil
+	}
+
+	child, err := h.childStore.Create(familyID, req.FirstName, req.Password, avatar)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			writeJSON(w, http.StatusConflict, map[string]interface{}{
@@ -192,6 +199,7 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		"first_name":  child.FirstName,
 		"family_slug": familySlug,
 		"login_url":   "/" + familySlug,
+		"avatar":      child.Avatar,
 	})
 }
 
@@ -209,11 +217,12 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type childResponse struct {
-		ID           int64  `json:"id"`
-		FirstName    string `json:"first_name"`
-		IsLocked     bool   `json:"is_locked"`
-		BalanceCents int64  `json:"balance_cents"`
-		CreatedAt    string `json:"created_at"`
+		ID           int64   `json:"id"`
+		FirstName    string  `json:"first_name"`
+		IsLocked     bool    `json:"is_locked"`
+		BalanceCents int64   `json:"balance_cents"`
+		CreatedAt    string  `json:"created_at"`
+		Avatar       *string `json:"avatar"`
 	}
 
 	result := make([]childResponse, len(children))
@@ -224,6 +233,7 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 			IsLocked:     c.IsLocked,
 			BalanceCents: c.BalanceCents,
 			CreatedAt:    c.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			Avatar:       c.Avatar,
 		}
 	}
 
@@ -303,10 +313,18 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		FirstName string `json:"first_name"`
+	// Use raw JSON to distinguish "avatar not sent" from "avatar set to null"
+	var raw json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+	var req struct {
+		FirstName string  `json:"first_name"`
+		Avatar    *string `json:"avatar"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 		return
 	}
@@ -319,7 +337,18 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.childStore.UpdateName(childID, familyID, req.FirstName); err != nil {
+	// Determine whether the avatar field was included in the request
+	var fields map[string]json.RawMessage
+	json.Unmarshal(raw, &fields) //nolint:errcheck // already validated above
+	_, avatarSet := fields["avatar"]
+
+	// Treat empty string avatar as clearing (nil)
+	avatar := req.Avatar
+	if avatar != nil && *avatar == "" {
+		avatar = nil
+	}
+
+	if err := h.childStore.UpdateNameAndAvatar(childID, familyID, req.FirstName, avatar, avatarSet); err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "Name taken"})
 			return
@@ -327,6 +356,9 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update name"})
 		return
 	}
+
+	// Re-fetch child to get current avatar value
+	updated, _ := h.childStore.GetByID(childID)
 
 	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "name_updated",
@@ -338,9 +370,15 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now().UTC(),
 	})
 
+	var avatarVal *string
+	if updated != nil {
+		avatarVal = updated.Avatar
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":    "Name updated",
 		"first_name": req.FirstName,
+		"avatar":     avatarVal,
 	})
 }
 

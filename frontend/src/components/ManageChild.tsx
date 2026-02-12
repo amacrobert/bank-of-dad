@@ -11,6 +11,7 @@ import InterestForm from "./InterestForm";
 import TransactionHistory from "./TransactionHistory";
 import UpcomingPayments from "./UpcomingPayments";
 import ChildAllowanceForm from "./ChildAllowanceForm";
+import AvatarPicker from "./AvatarPicker";
 import { AlertTriangle, Trash2, X, ArrowDownCircle, ArrowUpCircle, ChevronDown } from "lucide-react";
 
 interface ManageChildProps {
@@ -22,6 +23,7 @@ interface ManageChildProps {
 export default function ManageChild({ child, onUpdated, onClose }: ManageChildProps) {
   const [newPassword, setNewPassword] = useState("");
   const [newName, setNewName] = useState(child.first_name);
+  const [newAvatar, setNewAvatar] = useState<string | null>(child.avatar ?? null);
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [nameMsg, setNameMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,11 +122,12 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
     setNameMsg(null);
 
     try {
-      const result = await put<{ message: string; first_name: string }>(
+      const result = await put<{ message: string; first_name: string; avatar: string | null }>(
         `/children/${child.id}/name`,
-        { first_name: newName }
+        { first_name: newName, avatar: newAvatar }
       );
-      setNameMsg(`Name updated to ${result.first_name}.`);
+      setNameMsg(`Updated successfully.`);
+      setNewAvatar(result.avatar ?? null);
       onUpdated();
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -269,9 +272,9 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
             </form>
           </Card>
 
-          {/* Update name */}
+          {/* Update name and avatar */}
           <Card padding="md">
-            <h4 className="text-base font-bold text-bark mb-4">Update Name</h4>
+            <h4 className="text-base font-bold text-bark mb-4">Update Name and Avatar</h4>
             <form onSubmit={handleUpdateName} className="space-y-4">
               <Input
                 label="First Name"
@@ -281,7 +284,8 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
                 onChange={(e) => setNewName(e.target.value)}
                 required
               />
-              <Button type="submit" className="w-full">Update Name</Button>
+              <AvatarPicker selected={newAvatar} onSelect={setNewAvatar} />
+              <Button type="submit" className="w-full">Update</Button>
               {nameMsg && (
                 <div className="bg-forest/5 border border-forest/15 rounded-xl p-3">
                   <p className="text-sm text-forest font-medium">{nameMsg}</p>

@@ -326,11 +326,11 @@ func TestListDueForInterest(t *testing.T) {
 	parent := createTestParent(t, db, fam.ID)
 
 	cs := NewChildStore(db)
-	child1, err := cs.Create(fam.ID, "Child1", "pass123")
+	child1, err := cs.Create(fam.ID, "Child1", "pass123", nil)
 	require.NoError(t, err)
-	child2, err := cs.Create(fam.ID, "Child2", "pass123")
+	child2, err := cs.Create(fam.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
-	child3, err := cs.Create(fam.ID, "Child3", "pass123")
+	child3, err := cs.Create(fam.ID, "Child3", "pass123", nil)
 	require.NoError(t, err)
 
 	// Child1: has rate and balance → should be due
