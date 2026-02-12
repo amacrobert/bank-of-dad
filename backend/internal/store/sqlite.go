@@ -241,6 +241,11 @@ func (db *DB) migrate() error {
 		return fmt.Errorf("migrate allowance unique child: %w", err)
 	}
 
+	// Child avatars (010-child-avatars)
+	if err := db.addColumnIfNotExists("children", "avatar", "TEXT"); err != nil {
+		return fmt.Errorf("add avatar column: %w", err)
+	}
+
 	return nil
 }
 
