@@ -1,10 +1,12 @@
 package interest
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
 	"bank-of-dad/internal/store"
+	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,10 +15,10 @@ import (
 // T017: Tests for ProcessDue
 
 func TestProcessDue_AppliesInterest(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -44,10 +46,10 @@ func TestProcessDue_AppliesInterest(t *testing.T) {
 }
 
 func TestProcessDue_SkipsAlreadyAccruedThisMonth(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -74,10 +76,10 @@ func TestProcessDue_SkipsAlreadyAccruedThisMonth(t *testing.T) {
 }
 
 func TestProcessDue_SkipsZeroBalance(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	cs := store.NewChildStore(db)
@@ -95,10 +97,10 @@ func TestProcessDue_SkipsZeroBalance(t *testing.T) {
 }
 
 func TestProcessDue_SkipsZeroRate(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -117,9 +119,9 @@ func TestProcessDue_SkipsZeroRate(t *testing.T) {
 }
 
 func TestProcessDue_MultipleChildren(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
 
 	cs := store.NewChildStore(db)
 	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
@@ -157,9 +159,9 @@ func TestProcessDue_MultipleChildren(t *testing.T) {
 // T018: Test for partial failure
 
 func TestProcessDue_PartialFailure(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
 
 	cs := store.NewChildStore(db)
 	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
@@ -197,7 +199,7 @@ func TestProcessDue_PartialFailure(t *testing.T) {
 }
 
 func TestScheduler_StartAndStop(t *testing.T) {
-	db := setupTestDB(t)
+	db := testutil.SetupTestDB(t)
 	interestStore := store.NewInterestStore(db)
 
 	scheduler := NewScheduler(interestStore)
@@ -215,7 +217,7 @@ func TestScheduler_StartAndStop(t *testing.T) {
 
 // T024: Tests for schedule-based ProcessDueSchedules
 
-func createTestInterestSchedule(t *testing.T, db *store.DB, childID, parentID int64, freq store.Frequency, dayOfWeek, dayOfMonth *int, nextRunAt time.Time) *store.InterestSchedule {
+func createTestInterestSchedule(t *testing.T, db *sql.DB, childID, parentID int64, freq store.Frequency, dayOfWeek, dayOfMonth *int, nextRunAt time.Time) *store.InterestSchedule {
 	t.Helper()
 	iss := store.NewInterestScheduleStore(db)
 	sched := &store.InterestSchedule{
@@ -233,10 +235,10 @@ func createTestInterestSchedule(t *testing.T, db *store.DB, childID, parentID in
 }
 
 func TestProcessDueSchedules_WeeklyProration(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)
@@ -265,10 +267,10 @@ func TestProcessDueSchedules_WeeklyProration(t *testing.T) {
 }
 
 func TestProcessDueSchedules_BiweeklyProration(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)
@@ -295,10 +297,10 @@ func TestProcessDueSchedules_BiweeklyProration(t *testing.T) {
 }
 
 func TestProcessDueSchedules_MonthlyProration(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)
@@ -325,10 +327,10 @@ func TestProcessDueSchedules_MonthlyProration(t *testing.T) {
 }
 
 func TestProcessDueSchedules_UpdatesNextRunAt(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)
@@ -355,10 +357,10 @@ func TestProcessDueSchedules_UpdatesNextRunAt(t *testing.T) {
 }
 
 func TestProcessDueSchedules_SkipsPaused(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)
@@ -388,10 +390,10 @@ func TestProcessDueSchedules_SkipsPaused(t *testing.T) {
 }
 
 func TestProcessDueSchedules_SkipsZeroRate(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	interestStore := store.NewInterestStore(db)
 	iss := store.NewInterestScheduleStore(db)

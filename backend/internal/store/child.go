@@ -23,10 +23,10 @@ type Child struct {
 }
 
 type ChildStore struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewChildStore(db *DB) *ChildStore {
+func NewChildStore(db *sql.DB) *ChildStore {
 	return &ChildStore{db: db}
 }
 
@@ -36,73 +36,63 @@ func (s *ChildStore) Create(familyID int64, firstName, password string, avatar *
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	res, err := s.db.Write.Exec(
-		`INSERT INTO children (family_id, first_name, password_hash, avatar) VALUES (?, ?, ?, ?)`,
+	var id int64
+	err = s.db.QueryRow(
+		`INSERT INTO children (family_id, first_name, password_hash, avatar) VALUES ($1, $2, $3, $4) RETURNING id`,
 		familyID, firstName, string(hash), avatar,
-	)
+	).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
+		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, fmt.Errorf("child named %q already exists in this family", firstName)
 		}
 		return nil, fmt.Errorf("insert child: %w", err)
 	}
 
-	id, _ := res.LastInsertId()
 	return s.GetByID(id)
 }
 
 func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	var c Child
-	var isLocked int
 	var avatar sql.NullString
-	var createdAt, updatedAt string
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
-		 FROM children WHERE id = ?`, id,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt)
+		 FROM children WHERE id = $1`, id,
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get child by id: %w", err)
 	}
-	c.IsLocked = isLocked != 0
 	if avatar.Valid {
 		c.Avatar = &avatar.String
 	}
-	c.CreatedAt, _ = parseTime(createdAt)
-	c.UpdatedAt, _ = parseTime(updatedAt)
 	return &c, nil
 }
 
 func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Child, error) {
 	var c Child
-	var isLocked int
 	var avatar sql.NullString
-	var createdAt, updatedAt string
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
-		 FROM children WHERE family_id = ? AND first_name = ?`, familyID, firstName,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt)
+		 FROM children WHERE family_id = $1 AND first_name = $2`, familyID, firstName,
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get child by family and name: %w", err)
 	}
-	c.IsLocked = isLocked != 0
 	if avatar.Valid {
 		c.Avatar = &avatar.String
 	}
-	c.CreatedAt, _ = parseTime(createdAt)
-	c.UpdatedAt, _ = parseTime(updatedAt)
 	return &c, nil
 }
 
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
-		 FROM children WHERE family_id = ? ORDER BY first_name`, familyID,
+		 FROM children WHERE family_id = $1 ORDER BY first_name`, familyID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list children: %w", err)
@@ -112,18 +102,13 @@ func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	var children []Child
 	for rows.Next() {
 		var c Child
-		var isLocked int
 		var avatar sql.NullString
-		var createdAt, updatedAt string
-		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &isLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
-		c.IsLocked = isLocked != 0
 		if avatar.Valid {
 			c.Avatar = &avatar.String
 		}
-		c.CreatedAt, _ = parseTime(createdAt)
-		c.UpdatedAt, _ = parseTime(updatedAt)
 		children = append(children, c)
 	}
 	return children, rows.Err()
@@ -134,14 +119,14 @@ func (s *ChildStore) CheckPassword(child *Child, password string) bool {
 }
 
 func (s *ChildStore) IncrementFailedAttempts(id int64) (int, error) {
-	_, err := s.db.Write.Exec(
-		`UPDATE children SET failed_login_attempts = failed_login_attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id,
+	_, err := s.db.Exec(
+		`UPDATE children SET failed_login_attempts = failed_login_attempts + 1, updated_at = NOW() WHERE id = $1`, id,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("increment failed attempts: %w", err)
 	}
 	var attempts int
-	err = s.db.Read.QueryRow(`SELECT failed_login_attempts FROM children WHERE id = ?`, id).Scan(&attempts)
+	err = s.db.QueryRow(`SELECT failed_login_attempts FROM children WHERE id = $1`, id).Scan(&attempts)
 	if err != nil {
 		return 0, fmt.Errorf("read failed attempts: %w", err)
 	}
@@ -149,8 +134,8 @@ func (s *ChildStore) IncrementFailedAttempts(id int64) (int, error) {
 }
 
 func (s *ChildStore) LockAccount(id int64) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE children SET is_locked = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id,
+	_, err := s.db.Exec(
+		`UPDATE children SET is_locked = TRUE, updated_at = NOW() WHERE id = $1`, id,
 	)
 	if err != nil {
 		return fmt.Errorf("lock account: %w", err)
@@ -159,8 +144,8 @@ func (s *ChildStore) LockAccount(id int64) error {
 }
 
 func (s *ChildStore) ResetFailedAttempts(id int64) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE children SET failed_login_attempts = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id,
+	_, err := s.db.Exec(
+		`UPDATE children SET failed_login_attempts = 0, updated_at = NOW() WHERE id = $1`, id,
 	)
 	if err != nil {
 		return fmt.Errorf("reset failed attempts: %w", err)
@@ -173,8 +158,8 @@ func (s *ChildStore) UpdatePassword(id int64, password string) error {
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
-	_, err = s.db.Write.Exec(
-		`UPDATE children SET password_hash = ?, is_locked = 0, failed_login_attempts = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+	_, err = s.db.Exec(
+		`UPDATE children SET password_hash = $1, is_locked = FALSE, failed_login_attempts = 0, updated_at = NOW() WHERE id = $2`,
 		string(hash), id,
 	)
 	if err != nil {
@@ -190,18 +175,18 @@ func (s *ChildStore) UpdatePassword(id int64, password string) error {
 func (s *ChildStore) UpdateNameAndAvatar(id, familyID int64, newName string, avatar *string, avatarSet bool) error {
 	var err error
 	if avatarSet {
-		_, err = s.db.Write.Exec(
-			`UPDATE children SET first_name = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND family_id = ?`,
+		_, err = s.db.Exec(
+			`UPDATE children SET first_name = $1, avatar = $2, updated_at = NOW() WHERE id = $3 AND family_id = $4`,
 			newName, avatar, id, familyID,
 		)
 	} else {
-		_, err = s.db.Write.Exec(
-			`UPDATE children SET first_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND family_id = ?`,
+		_, err = s.db.Exec(
+			`UPDATE children SET first_name = $1, updated_at = NOW() WHERE id = $2 AND family_id = $3`,
 			newName, id, familyID,
 		)
 	}
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
+		if strings.Contains(err.Error(), "duplicate key") {
 			return fmt.Errorf("child named %q already exists in this family", newName)
 		}
 		return fmt.Errorf("update name: %w", err)
@@ -214,21 +199,21 @@ func (s *ChildStore) UpdateNameAndAvatar(id, familyID int64, newName string, ava
 // schedules, and interest schedules. Sessions and auth events are deleted
 // explicitly since they reference user_id without a foreign key.
 func (s *ChildStore) Delete(id int64) error {
-	tx, err := s.db.Write.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
-	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_type = 'child' AND user_id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_type = 'child' AND user_id = $1`, id); err != nil {
 		return fmt.Errorf("delete child sessions: %w", err)
 	}
 
-	if _, err := tx.Exec(`DELETE FROM auth_events WHERE user_type = 'child' AND user_id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM auth_events WHERE user_type = 'child' AND user_id = $1`, id); err != nil {
 		return fmt.Errorf("delete child auth events: %w", err)
 	}
 
-	if _, err := tx.Exec(`DELETE FROM children WHERE id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM children WHERE id = $1`, id); err != nil {
 		return fmt.Errorf("delete child: %w", err)
 	}
 
@@ -238,7 +223,7 @@ func (s *ChildStore) Delete(id int64) error {
 // GetBalance returns the current balance in cents for a child.
 func (s *ChildStore) GetBalance(id int64) (int64, error) {
 	var balance int64
-	err := s.db.Read.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, id).Scan(&balance)
+	err := s.db.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, id).Scan(&balance)
 	if err == sql.ErrNoRows {
 		return 0, fmt.Errorf("child not found")
 	}

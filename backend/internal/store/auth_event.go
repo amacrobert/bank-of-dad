@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -17,17 +18,17 @@ type AuthEvent struct {
 }
 
 type AuthEventStore struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewAuthEventStore(db *DB) *AuthEventStore {
+func NewAuthEventStore(db *sql.DB) *AuthEventStore {
 	return &AuthEventStore{db: db}
 }
 
 func (s *AuthEventStore) LogEvent(event AuthEvent) error {
-	_, err := s.db.Write.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO auth_events (event_type, user_type, user_id, family_id, ip_address, details, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		event.EventType,
 		event.UserType,
 		event.UserID,
@@ -43,10 +44,10 @@ func (s *AuthEventStore) LogEvent(event AuthEvent) error {
 }
 
 func (s *AuthEventStore) GetEventsByFamily(familyID int64) ([]AuthEvent, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, event_type, user_type, user_id, family_id, ip_address, details, created_at
 		 FROM auth_events
-		 WHERE family_id = ?
+		 WHERE family_id = $1
 		 ORDER BY created_at DESC`,
 		familyID,
 	)

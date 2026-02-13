@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestInterestSchedule(t *testing.T, db *DB, childID, parentID int64) *InterestSchedule {
+func createTestInterestSchedule(t *testing.T, db *sql.DB, childID, parentID int64) *InterestSchedule {
 	t.Helper()
 	iss := NewInterestScheduleStore(db)
 	nextRun := time.Date(2025, time.January, 15, 0, 0, 0, 0, time.UTC)
@@ -347,7 +348,7 @@ func TestInterestScheduleStore_CascadeDelete(t *testing.T) {
 	created := createTestInterestSchedule(t, db, child.ID, parent.ID)
 
 	// Delete the child
-	_, err := db.Write.Exec("DELETE FROM children WHERE id = ?", child.ID)
+	_, err := db.Exec("DELETE FROM children WHERE id = $1", child.ID)
 	require.NoError(t, err)
 
 	// Interest schedule should be CASCADE deleted

@@ -54,11 +54,11 @@ type UpcomingAllowance struct {
 
 // ScheduleStore handles database operations for allowance schedules.
 type ScheduleStore struct {
-	db *DB
+	db *sql.DB
 }
 
 // NewScheduleStore creates a new ScheduleStore.
-func NewScheduleStore(db *DB) *ScheduleStore {
+func NewScheduleStore(db *sql.DB) *ScheduleStore {
 	return &ScheduleStore{db: db}
 }
 
@@ -75,23 +75,19 @@ func (s *ScheduleStore) Create(sched *AllowanceSchedule) (*AllowanceSchedule, er
 	if sched.Note != nil {
 		note = *sched.Note
 	}
-	var nextRunAt interface{}
-	if sched.NextRunAt != nil {
-		nextRunAt = sched.NextRunAt.UTC().Format(time.RFC3339)
-	}
 
-	result, err := s.db.Write.Exec(
+	var id int64
+	err := s.db.QueryRow(
 		`INSERT INTO allowance_schedules
 		(child_id, parent_id, amount_cents, frequency, day_of_week, day_of_month, note, status, next_run_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
 		sched.ChildID, sched.ParentID, sched.AmountCents, sched.Frequency,
-		dayOfWeek, dayOfMonth, note, sched.Status, nextRunAt,
-	)
+		dayOfWeek, dayOfMonth, note, sched.Status, sched.NextRunAt,
+	).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("insert schedule: %w", err)
 	}
 
-	id, _ := result.LastInsertId()
 	return s.GetByID(id)
 }
 
@@ -100,17 +96,16 @@ func (s *ScheduleStore) GetByID(id int64) (*AllowanceSchedule, error) {
 	var sched AllowanceSchedule
 	var dayOfWeek, dayOfMonth sql.NullInt64
 	var note sql.NullString
-	var nextRunAt sql.NullString
-	var createdAt, updatedAt string
+	var nextRunAt sql.NullTime
 
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, child_id, parent_id, amount_cents, frequency,
 		        day_of_week, day_of_month, note, status, next_run_at,
 		        created_at, updated_at
-		 FROM allowance_schedules WHERE id = ?`, id,
+		 FROM allowance_schedules WHERE id = $1`, id,
 	).Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
 		&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
-		&createdAt, &updatedAt)
+		&sched.CreatedAt, &sched.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -131,11 +126,8 @@ func (s *ScheduleStore) GetByID(id int64) (*AllowanceSchedule, error) {
 		sched.Note = &note.String
 	}
 	if nextRunAt.Valid {
-		t, _ := parseTime(nextRunAt.String)
-		sched.NextRunAt = &t
+		sched.NextRunAt = &nextRunAt.Time
 	}
-	sched.CreatedAt, _ = parseTime(createdAt)
-	sched.UpdatedAt, _ = parseTime(updatedAt)
 
 	return &sched, nil
 }
@@ -145,17 +137,16 @@ func (s *ScheduleStore) GetByChildID(childID int64) (*AllowanceSchedule, error) 
 	var sched AllowanceSchedule
 	var dayOfWeek, dayOfMonth sql.NullInt64
 	var note sql.NullString
-	var nextRunAt sql.NullString
-	var createdAt, updatedAt string
+	var nextRunAt sql.NullTime
 
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, child_id, parent_id, amount_cents, frequency,
 		        day_of_week, day_of_month, note, status, next_run_at,
 		        created_at, updated_at
-		 FROM allowance_schedules WHERE child_id = ?`, childID,
+		 FROM allowance_schedules WHERE child_id = $1`, childID,
 	).Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
 		&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
-		&createdAt, &updatedAt)
+		&sched.CreatedAt, &sched.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -176,24 +167,21 @@ func (s *ScheduleStore) GetByChildID(childID int64) (*AllowanceSchedule, error) 
 		sched.Note = &note.String
 	}
 	if nextRunAt.Valid {
-		t, _ := parseTime(nextRunAt.String)
-		sched.NextRunAt = &t
+		sched.NextRunAt = &nextRunAt.Time
 	}
-	sched.CreatedAt, _ = parseTime(createdAt)
-	sched.UpdatedAt, _ = parseTime(updatedAt)
 
 	return &sched, nil
 }
 
 // ListByParentFamily returns all schedules for a family, with child names joined.
 func (s *ScheduleStore) ListByParentFamily(familyID int64) ([]ScheduleWithChild, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT s.id, s.child_id, s.parent_id, s.amount_cents, s.frequency,
 		        s.day_of_week, s.day_of_month, s.note, s.status, s.next_run_at,
 		        s.created_at, s.updated_at, c.first_name
 		 FROM allowance_schedules s
 		 JOIN children c ON c.id = s.child_id
-		 WHERE c.family_id = ?
+		 WHERE c.family_id = $1
 		 ORDER BY s.created_at DESC`, familyID,
 	)
 	if err != nil {
@@ -206,12 +194,11 @@ func (s *ScheduleStore) ListByParentFamily(familyID int64) ([]ScheduleWithChild,
 		var sc ScheduleWithChild
 		var dayOfWeek, dayOfMonth sql.NullInt64
 		var note sql.NullString
-		var nextRunAt sql.NullString
-		var createdAt, updatedAt string
+		var nextRunAt sql.NullTime
 
 		if err := rows.Scan(&sc.ID, &sc.ChildID, &sc.ParentID, &sc.AmountCents, &sc.Frequency,
 			&dayOfWeek, &dayOfMonth, &note, &sc.Status, &nextRunAt,
-			&createdAt, &updatedAt, &sc.ChildFirstName); err != nil {
+			&sc.CreatedAt, &sc.UpdatedAt, &sc.ChildFirstName); err != nil {
 			return nil, fmt.Errorf("scan schedule: %w", err)
 		}
 
@@ -227,11 +214,8 @@ func (s *ScheduleStore) ListByParentFamily(familyID int64) ([]ScheduleWithChild,
 			sc.Note = &note.String
 		}
 		if nextRunAt.Valid {
-			t, _ := parseTime(nextRunAt.String)
-			sc.NextRunAt = &t
+			sc.NextRunAt = &nextRunAt.Time
 		}
-		sc.CreatedAt, _ = parseTime(createdAt)
-		sc.UpdatedAt, _ = parseTime(updatedAt)
 
 		schedules = append(schedules, sc)
 	}
@@ -252,18 +236,14 @@ func (s *ScheduleStore) Update(sched *AllowanceSchedule) (*AllowanceSchedule, er
 	if sched.Note != nil {
 		note = *sched.Note
 	}
-	var nextRunAt interface{}
-	if sched.NextRunAt != nil {
-		nextRunAt = sched.NextRunAt.UTC().Format(time.RFC3339)
-	}
 
-	_, err := s.db.Write.Exec(
+	_, err := s.db.Exec(
 		`UPDATE allowance_schedules
-		 SET amount_cents = ?, frequency = ?, day_of_week = ?, day_of_month = ?,
-		     note = ?, next_run_at = ?, updated_at = CURRENT_TIMESTAMP
-		 WHERE id = ?`,
+		 SET amount_cents = $1, frequency = $2, day_of_week = $3, day_of_month = $4,
+		     note = $5, next_run_at = $6, updated_at = NOW()
+		 WHERE id = $7`,
 		sched.AmountCents, sched.Frequency, dayOfWeek, dayOfMonth,
-		note, nextRunAt, sched.ID,
+		note, sched.NextRunAt, sched.ID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update schedule: %w", err)
@@ -274,7 +254,7 @@ func (s *ScheduleStore) Update(sched *AllowanceSchedule) (*AllowanceSchedule, er
 
 // Delete removes a schedule by its ID.
 func (s *ScheduleStore) Delete(id int64) error {
-	_, err := s.db.Write.Exec(`DELETE FROM allowance_schedules WHERE id = ?`, id)
+	_, err := s.db.Exec(`DELETE FROM allowance_schedules WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete schedule: %w", err)
 	}
@@ -283,14 +263,14 @@ func (s *ScheduleStore) Delete(id int64) error {
 
 // ListDue returns all active schedules whose next_run_at is at or before the given time.
 func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, child_id, parent_id, amount_cents, frequency,
 		        day_of_week, day_of_month, note, status, next_run_at,
 		        created_at, updated_at
 		 FROM allowance_schedules
-		 WHERE status = 'active' AND next_run_at <= ?
+		 WHERE status = 'active' AND next_run_at <= $1
 		 ORDER BY next_run_at ASC`,
-		now.UTC().Format(time.RFC3339),
+		now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list due schedules: %w", err)
@@ -302,12 +282,11 @@ func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
 		var sched AllowanceSchedule
 		var dayOfWeek, dayOfMonth sql.NullInt64
 		var note sql.NullString
-		var nextRunAt sql.NullString
-		var createdAt, updatedAt string
+		var nextRunAt sql.NullTime
 
 		if err := rows.Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
 			&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
-			&createdAt, &updatedAt); err != nil {
+			&sched.CreatedAt, &sched.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan due schedule: %w", err)
 		}
 
@@ -323,11 +302,8 @@ func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
 			sched.Note = &note.String
 		}
 		if nextRunAt.Valid {
-			t, _ := parseTime(nextRunAt.String)
-			sched.NextRunAt = &t
+			sched.NextRunAt = &nextRunAt.Time
 		}
-		sched.CreatedAt, _ = parseTime(createdAt)
-		sched.UpdatedAt, _ = parseTime(updatedAt)
 
 		schedules = append(schedules, sched)
 	}
@@ -337,9 +313,9 @@ func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
 
 // UpdateNextRunAt sets the next_run_at for a schedule.
 func (s *ScheduleStore) UpdateNextRunAt(id int64, nextRunAt time.Time) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE allowance_schedules SET next_run_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		nextRunAt.UTC().Format(time.RFC3339), id,
+	_, err := s.db.Exec(
+		`UPDATE allowance_schedules SET next_run_at = $1, updated_at = NOW() WHERE id = $2`,
+		nextRunAt, id,
 	)
 	if err != nil {
 		return fmt.Errorf("update next_run_at: %w", err)
@@ -349,8 +325,8 @@ func (s *ScheduleStore) UpdateNextRunAt(id int64, nextRunAt time.Time) error {
 
 // UpdateStatus sets the status of a schedule.
 func (s *ScheduleStore) UpdateStatus(id int64, status ScheduleStatus) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE allowance_schedules SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+	_, err := s.db.Exec(
+		`UPDATE allowance_schedules SET status = $1, updated_at = NOW() WHERE id = $2`,
 		status, id,
 	)
 	if err != nil {
@@ -361,12 +337,12 @@ func (s *ScheduleStore) UpdateStatus(id int64, status ScheduleStatus) error {
 
 // ListActiveByChild returns all active schedules for a child, sorted by next_run_at.
 func (s *ScheduleStore) ListActiveByChild(childID int64) ([]AllowanceSchedule, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, child_id, parent_id, amount_cents, frequency,
 		        day_of_week, day_of_month, note, status, next_run_at,
 		        created_at, updated_at
 		 FROM allowance_schedules
-		 WHERE child_id = ? AND status = 'active'
+		 WHERE child_id = $1 AND status = 'active'
 		 ORDER BY next_run_at ASC`, childID,
 	)
 	if err != nil {
@@ -379,12 +355,11 @@ func (s *ScheduleStore) ListActiveByChild(childID int64) ([]AllowanceSchedule, e
 		var sched AllowanceSchedule
 		var dayOfWeek, dayOfMonth sql.NullInt64
 		var note sql.NullString
-		var nextRunAt sql.NullString
-		var createdAt, updatedAt string
+		var nextRunAt sql.NullTime
 
 		if err := rows.Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
 			&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
-			&createdAt, &updatedAt); err != nil {
+			&sched.CreatedAt, &sched.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan active schedule: %w", err)
 		}
 
@@ -400,11 +375,8 @@ func (s *ScheduleStore) ListActiveByChild(childID int64) ([]AllowanceSchedule, e
 			sched.Note = &note.String
 		}
 		if nextRunAt.Valid {
-			t, _ := parseTime(nextRunAt.String)
-			sched.NextRunAt = &t
+			sched.NextRunAt = &nextRunAt.Time
 		}
-		sched.CreatedAt, _ = parseTime(createdAt)
-		sched.UpdatedAt, _ = parseTime(updatedAt)
 
 		schedules = append(schedules, sched)
 	}
