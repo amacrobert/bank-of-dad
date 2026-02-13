@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	db, err := store.Open(cfg.DatabasePath)
+	db, err := store.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}

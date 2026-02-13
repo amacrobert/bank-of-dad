@@ -2,86 +2,27 @@ package balance
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
+	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func setupTestDB(t *testing.T) *store.DB {
-	t.Helper()
-
-	tmp, err := os.CreateTemp("", "bank-of-dad-balance-test-*.db")
-	require.NoError(t, err)
-	path := tmp.Name()
-	tmp.Close()
-
-	t.Cleanup(func() {
-		os.Remove(path)
-		os.Remove(path + "-wal")
-		os.Remove(path + "-shm")
-	})
-
-	db, err := store.Open(path)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		db.Close()
-	})
-
-	return db
-}
-
-func createTestFamily(t *testing.T, db *store.DB) *store.Family {
-	familyStore := store.NewFamilyStore(db)
-	family, err := familyStore.Create("test-family")
-	require.NoError(t, err)
-	return family
-}
-
-func createTestParent(t *testing.T, db *store.DB, familyID int64) *store.Parent {
-	parentStore := store.NewParentStore(db)
-	parent, err := parentStore.Create("google-id-123", "parent@test.com", "Test Parent")
-	require.NoError(t, err)
-	err = parentStore.SetFamilyID(parent.ID, familyID)
-	require.NoError(t, err)
-	parent.FamilyID = familyID
-	return parent
-}
-
-func createTestChild(t *testing.T, db *store.DB, familyID int64, name string) *store.Child {
-	childStore := store.NewChildStore(db)
-	child, err := childStore.Create(familyID, name, "password123", nil)
-	require.NoError(t, err)
-	return child
-}
-
-// setRequestContext adds authentication context to a request
-func setRequestContext(r *http.Request, userType string, userID, familyID int64) *http.Request {
-	ctx := r.Context()
-	ctx = context.WithValue(ctx, middleware.ContextKeyUserType, userType)
-	ctx = context.WithValue(ctx, middleware.ContextKeyUserID, userID)
-	ctx = context.WithValue(ctx, middleware.ContextKeyFamilyID, familyID)
-	return r.WithContext(ctx)
-}
 
 // =====================================================
 // T023: Tests for POST /api/children/{id}/deposit
 // =====================================================
 
 func TestHandleDeposit_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -93,7 +34,7 @@ func TestHandleDeposit_Success(t *testing.T) {
 	body := `{"amount_cents": 1000, "note": "Weekly allowance"}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -112,10 +53,10 @@ func TestHandleDeposit_Success(t *testing.T) {
 }
 
 func TestHandleDeposit_MultipleDeposits(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -128,7 +69,7 @@ func TestHandleDeposit_MultipleDeposits(t *testing.T) {
 	body := `{"amount_cents": 1000}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -137,7 +78,7 @@ func TestHandleDeposit_MultipleDeposits(t *testing.T) {
 	body2 := `{"amount_cents": 500}`
 	req2 := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body2))
 	req2.SetPathValue("id", "1")
-	req2 = setRequestContext(req2, "parent", parent.ID, family.ID)
+	req2 = testutil.SetRequestContext(req2, "parent", parent.ID, family.ID)
 	rr2 := httptest.NewRecorder()
 	handler.HandleDeposit(rr2, req2)
 
@@ -151,10 +92,10 @@ func TestHandleDeposit_MultipleDeposits(t *testing.T) {
 }
 
 func TestHandleDeposit_WithoutNote(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -166,7 +107,7 @@ func TestHandleDeposit_WithoutNote(t *testing.T) {
 	body := `{"amount_cents": 500}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -184,10 +125,10 @@ func TestHandleDeposit_WithoutNote(t *testing.T) {
 // =====================================================
 
 func TestHandleDeposit_InvalidAmount_Zero(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -199,7 +140,7 @@ func TestHandleDeposit_InvalidAmount_Zero(t *testing.T) {
 	body := `{"amount_cents": 0}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -213,10 +154,10 @@ func TestHandleDeposit_InvalidAmount_Zero(t *testing.T) {
 }
 
 func TestHandleDeposit_InvalidAmount_Negative(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -228,7 +169,7 @@ func TestHandleDeposit_InvalidAmount_Negative(t *testing.T) {
 	body := `{"amount_cents": -100}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -242,10 +183,10 @@ func TestHandleDeposit_InvalidAmount_Negative(t *testing.T) {
 }
 
 func TestHandleDeposit_InvalidAmount_ExceedsMax(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -258,7 +199,7 @@ func TestHandleDeposit_InvalidAmount_ExceedsMax(t *testing.T) {
 	body := `{"amount_cents": 100000000}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -272,10 +213,10 @@ func TestHandleDeposit_InvalidAmount_ExceedsMax(t *testing.T) {
 }
 
 func TestHandleDeposit_InvalidJSON(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -287,7 +228,7 @@ func TestHandleDeposit_InvalidJSON(t *testing.T) {
 	body := `{invalid json}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -296,10 +237,10 @@ func TestHandleDeposit_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleDeposit_NoteTooLong(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -317,7 +258,7 @@ func TestHandleDeposit_NoteTooLong(t *testing.T) {
 	body := `{"amount_cents": 1000, "note": "` + string(longNote) + `"}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -331,10 +272,10 @@ func TestHandleDeposit_NoteTooLong(t *testing.T) {
 }
 
 func TestHandleDeposit_NoteWhitespaceOnly(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -347,7 +288,7 @@ func TestHandleDeposit_NoteWhitespaceOnly(t *testing.T) {
 	body := `{"amount_cents": 1000, "note": "   "}`
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -366,10 +307,10 @@ func TestHandleDeposit_NoteWhitespaceOnly(t *testing.T) {
 // =====================================================
 
 func TestHandleDeposit_Unauthorized_ChildCannotDeposit(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -382,7 +323,7 @@ func TestHandleDeposit_Unauthorized_ChildCannotDeposit(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
 	// Set context as child instead of parent
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -392,12 +333,12 @@ func TestHandleDeposit_Unauthorized_ChildCannotDeposit(t *testing.T) {
 }
 
 func TestHandleDeposit_Forbidden_WrongFamily(t *testing.T) {
-	db := setupTestDB(t)
-	family1 := createTestFamily(t, db)
+	db := testutil.SetupTestDB(t)
+	family1 := testutil.CreateTestFamily(t, db)
 	family2 := &store.Family{ID: 999} // Different family ID
 
-	parent := createTestParent(t, db, family1.ID)
-	createTestChild(t, db, family1.ID, "Emma")
+	parent := testutil.CreateTestParent(t, db, family1.ID)
+	testutil.CreateTestChild(t, db, family1.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -410,7 +351,7 @@ func TestHandleDeposit_Forbidden_WrongFamily(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/children/1/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
 	// Parent from family2 trying to deposit to child in family1
-	req = setRequestContext(req, "parent", parent.ID, family2.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family2.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -419,9 +360,9 @@ func TestHandleDeposit_Forbidden_WrongFamily(t *testing.T) {
 }
 
 func TestHandleDeposit_NotFound_ChildDoesNotExist(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -433,7 +374,7 @@ func TestHandleDeposit_NotFound_ChildDoesNotExist(t *testing.T) {
 	body := `{"amount_cents": 1000}`
 	req := httptest.NewRequest("POST", "/api/children/999/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "999")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -442,9 +383,9 @@ func TestHandleDeposit_NotFound_ChildDoesNotExist(t *testing.T) {
 }
 
 func TestHandleDeposit_InvalidChildID(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -456,7 +397,7 @@ func TestHandleDeposit_InvalidChildID(t *testing.T) {
 	body := `{"amount_cents": 1000}`
 	req := httptest.NewRequest("POST", "/api/children/abc/deposit", bytes.NewBufferString(body))
 	req.SetPathValue("id", "abc")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleDeposit(rr, req)
@@ -469,10 +410,10 @@ func TestHandleDeposit_InvalidChildID(t *testing.T) {
 // =====================================================
 
 func TestHandleWithdraw_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -485,7 +426,7 @@ func TestHandleWithdraw_Success(t *testing.T) {
 	body := `{"amount_cents": 1500, "note": "Bought a book"}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -506,10 +447,10 @@ func TestHandleWithdraw_Success(t *testing.T) {
 // =====================================================
 
 func TestHandleWithdraw_InsufficientFunds(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -522,7 +463,7 @@ func TestHandleWithdraw_InsufficientFunds(t *testing.T) {
 	body := `{"amount_cents": 2000}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -538,10 +479,10 @@ func TestHandleWithdraw_InsufficientFunds(t *testing.T) {
 }
 
 func TestHandleWithdraw_InsufficientFunds_ZeroBalance(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -554,7 +495,7 @@ func TestHandleWithdraw_InsufficientFunds_ZeroBalance(t *testing.T) {
 	body := `{"amount_cents": 100}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -572,10 +513,10 @@ func TestHandleWithdraw_InsufficientFunds_ZeroBalance(t *testing.T) {
 // =====================================================
 
 func TestHandleWithdraw_ExactBalance(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -588,7 +529,7 @@ func TestHandleWithdraw_ExactBalance(t *testing.T) {
 	body := `{"amount_cents": 2500}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -603,10 +544,10 @@ func TestHandleWithdraw_ExactBalance(t *testing.T) {
 }
 
 func TestHandleWithdraw_ChildCannotWithdraw(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -619,7 +560,7 @@ func TestHandleWithdraw_ChildCannotWithdraw(t *testing.T) {
 	body := `{"amount_cents": 500}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -629,10 +570,10 @@ func TestHandleWithdraw_ChildCannotWithdraw(t *testing.T) {
 }
 
 func TestHandleWithdraw_WrongFamily(t *testing.T) {
-	db := setupTestDB(t)
-	family1 := createTestFamily(t, db)
-	parent := createTestParent(t, db, family1.ID)
-	child := createTestChild(t, db, family1.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family1 := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family1.ID)
+	child := testutil.CreateTestChild(t, db, family1.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -645,7 +586,7 @@ func TestHandleWithdraw_WrongFamily(t *testing.T) {
 	body := `{"amount_cents": 500}`
 	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, 999) // Wrong family ID
+	req = testutil.SetRequestContext(req, "parent", parent.ID, 999) // Wrong family ID
 
 	rr := httptest.NewRecorder()
 	handler.HandleWithdraw(rr, req)
@@ -658,10 +599,10 @@ func TestHandleWithdraw_WrongFamily(t *testing.T) {
 // =====================================================
 
 func TestHandleGetBalance_ChildViewsOwn(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -673,7 +614,7 @@ func TestHandleGetBalance_ChildViewsOwn(t *testing.T) {
 	// Child views own balance
 	req := httptest.NewRequest("GET", "/api/children/1/balance", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetBalance(rr, req)
@@ -688,10 +629,10 @@ func TestHandleGetBalance_ChildViewsOwn(t *testing.T) {
 }
 
 func TestHandleGetBalance_ParentViewsChild(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -703,7 +644,7 @@ func TestHandleGetBalance_ParentViewsChild(t *testing.T) {
 	// Parent views child's balance
 	req := httptest.NewRequest("GET", "/api/children/1/balance", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetBalance(rr, req)
@@ -722,10 +663,10 @@ func TestHandleGetBalance_ParentViewsChild(t *testing.T) {
 // =====================================================
 
 func TestHandleGetTransactions_ChildViewsOwn(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -741,7 +682,7 @@ func TestHandleGetTransactions_ChildViewsOwn(t *testing.T) {
 	// Child views own transactions
 	req := httptest.NewRequest("GET", "/api/children/1/transactions", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetTransactions(rr, req)
@@ -755,10 +696,10 @@ func TestHandleGetTransactions_ChildViewsOwn(t *testing.T) {
 }
 
 func TestHandleGetTransactions_ParentViewsChild(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -770,7 +711,7 @@ func TestHandleGetTransactions_ParentViewsChild(t *testing.T) {
 	// Parent views child's transactions
 	req := httptest.NewRequest("GET", "/api/children/1/transactions", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetTransactions(rr, req)
@@ -788,11 +729,11 @@ func TestHandleGetTransactions_ParentViewsChild(t *testing.T) {
 // =====================================================
 
 func TestHandleGetBalance_ChildCannotViewSibling(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child1 := createTestChild(t, db, family.ID, "Emma")
-	child2 := createTestChild(t, db, family.ID, "Jack")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
+	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -804,7 +745,7 @@ func TestHandleGetBalance_ChildCannotViewSibling(t *testing.T) {
 	// Child1 tries to view child2's balance
 	req := httptest.NewRequest("GET", "/api/children/2/balance", nil)
 	req.SetPathValue("id", "2")
-	req = setRequestContext(req, "child", child1.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child1.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetBalance(rr, req)
@@ -813,11 +754,11 @@ func TestHandleGetBalance_ChildCannotViewSibling(t *testing.T) {
 }
 
 func TestHandleGetTransactions_ChildCannotViewSibling(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child1 := createTestChild(t, db, family.ID, "Emma")
-	child2 := createTestChild(t, db, family.ID, "Jack")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
+	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -829,7 +770,7 @@ func TestHandleGetTransactions_ChildCannotViewSibling(t *testing.T) {
 	// Child1 tries to view child2's transactions
 	req := httptest.NewRequest("GET", "/api/children/2/transactions", nil)
 	req.SetPathValue("id", "2")
-	req = setRequestContext(req, "child", child1.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child1.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetTransactions(rr, req)
@@ -842,10 +783,10 @@ func TestHandleGetTransactions_ChildCannotViewSibling(t *testing.T) {
 // =====================================================
 
 func TestHandleGetTransactions_OrderedNewestFirst(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -861,7 +802,7 @@ func TestHandleGetTransactions_OrderedNewestFirst(t *testing.T) {
 	// Get transactions
 	req := httptest.NewRequest("GET", "/api/children/1/transactions", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetTransactions(rr, req)
@@ -880,10 +821,10 @@ func TestHandleGetTransactions_OrderedNewestFirst(t *testing.T) {
 }
 
 func TestHandleGetTransactions_EmptyHistory(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(
 		store.NewTransactionStore(db),
@@ -895,7 +836,7 @@ func TestHandleGetTransactions_EmptyHistory(t *testing.T) {
 	// No transactions exist
 	req := httptest.NewRequest("GET", "/api/children/1/transactions", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetTransactions(rr, req)
@@ -914,10 +855,10 @@ func TestHandleGetTransactions_EmptyHistory(t *testing.T) {
 // =====================================================
 
 func TestHandleGetBalance_IncludesInterestRate(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	interestStore := store.NewInterestStore(db)
@@ -931,7 +872,7 @@ func TestHandleGetBalance_IncludesInterestRate(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/children/1/balance", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetBalance(rr, req)
@@ -949,10 +890,10 @@ func TestHandleGetBalance_IncludesInterestRate(t *testing.T) {
 }
 
 func TestHandleGetBalance_DefaultInterestRateZero(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
 	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
@@ -962,7 +903,7 @@ func TestHandleGetBalance_DefaultInterestRateZero(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/children/1/balance", nil)
 	req.SetPathValue("id", "1")
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleGetBalance(rr, req)

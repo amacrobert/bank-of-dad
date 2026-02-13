@@ -36,6 +36,7 @@ func CalculateNextRunAfterExecution(sched *store.AllowanceSchedule, executedAt t
 
 // nextWeeklyDate returns the next occurrence of the given weekday strictly after 'after'.
 func nextWeeklyDate(dayOfWeek int, after time.Time) time.Time {
+	after = after.UTC()
 	daysUntil := (dayOfWeek - int(after.Weekday()) + 7) % 7
 	if daysUntil == 0 {
 		daysUntil = 7 // If today is the day, go to next week
@@ -47,6 +48,7 @@ func nextWeeklyDate(dayOfWeek int, after time.Time) time.Time {
 // nextBiweeklyDate returns the next matching weekday. If after is already on that day,
 // it advances 14 days. Otherwise it finds the next occurrence (which will be the first one).
 func nextBiweeklyDate(dayOfWeek int, after time.Time) time.Time {
+	after = after.UTC()
 	daysUntil := (dayOfWeek - int(after.Weekday()) + 7) % 7
 	if daysUntil == 0 {
 		daysUntil = 14 // Same day → 14 days out
@@ -58,6 +60,7 @@ func nextBiweeklyDate(dayOfWeek int, after time.Time) time.Time {
 // nextMonthlyDate returns the next occurrence of the given day-of-month strictly after 'after'.
 // If the target day exceeds the days in a month, it clamps to the last day.
 func nextMonthlyDate(dayOfMonth int, after time.Time) time.Time {
+	after = after.UTC()
 	year, month, day := after.Date()
 
 	// Try this month first

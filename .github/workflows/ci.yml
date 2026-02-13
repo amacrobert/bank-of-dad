@@ -14,6 +14,22 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: bankofdad
+          POSTGRES_PASSWORD: bankofdad
+          POSTGRES_DB: bankofdad_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bankofdad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +47,10 @@ jobs:
           working-directory: backend
 
       - name: Test
-        run: go test ./...
+        env:
+          DATABASE_URL: postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable
+          TEST_DATABASE_URL: postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable
+        run: go test -p 1 ./...
 
   frontend:
     name: Frontend

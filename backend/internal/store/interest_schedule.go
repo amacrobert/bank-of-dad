@@ -22,11 +22,11 @@ type InterestSchedule struct {
 
 // InterestScheduleStore handles database operations for interest accrual schedules.
 type InterestScheduleStore struct {
-	db *DB
+	db *sql.DB
 }
 
 // NewInterestScheduleStore creates a new InterestScheduleStore.
-func NewInterestScheduleStore(db *DB) *InterestScheduleStore {
+func NewInterestScheduleStore(db *sql.DB) *InterestScheduleStore {
 	return &InterestScheduleStore{db: db}
 }
 
@@ -39,23 +39,19 @@ func (s *InterestScheduleStore) Create(sched *InterestSchedule) (*InterestSchedu
 	if sched.DayOfMonth != nil {
 		dayOfMonth = *sched.DayOfMonth
 	}
-	var nextRunAt interface{}
-	if sched.NextRunAt != nil {
-		nextRunAt = sched.NextRunAt.UTC().Format(time.RFC3339)
-	}
 
-	result, err := s.db.Write.Exec(
+	var id int64
+	err := s.db.QueryRow(
 		`INSERT INTO interest_schedules
 		(child_id, parent_id, frequency, day_of_week, day_of_month, status, next_run_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 		sched.ChildID, sched.ParentID, sched.Frequency,
-		dayOfWeek, dayOfMonth, sched.Status, nextRunAt,
-	)
+		dayOfWeek, dayOfMonth, sched.Status, sched.NextRunAt,
+	).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("insert interest schedule: %w", err)
 	}
 
-	id, _ := result.LastInsertId()
 	return s.GetByID(id)
 }
 
@@ -64,7 +60,7 @@ func (s *InterestScheduleStore) GetByID(id int64) (*InterestSchedule, error) {
 	return s.scanOne(
 		`SELECT id, child_id, parent_id, frequency, day_of_week, day_of_month,
 		        status, next_run_at, created_at, updated_at
-		 FROM interest_schedules WHERE id = ?`, id,
+		 FROM interest_schedules WHERE id = $1`, id,
 	)
 }
 
@@ -73,7 +69,7 @@ func (s *InterestScheduleStore) GetByChildID(childID int64) (*InterestSchedule, 
 	return s.scanOne(
 		`SELECT id, child_id, parent_id, frequency, day_of_week, day_of_month,
 		        status, next_run_at, created_at, updated_at
-		 FROM interest_schedules WHERE child_id = ?`, childID,
+		 FROM interest_schedules WHERE child_id = $1`, childID,
 	)
 }
 
@@ -86,17 +82,13 @@ func (s *InterestScheduleStore) Update(sched *InterestSchedule) (*InterestSchedu
 	if sched.DayOfMonth != nil {
 		dayOfMonth = *sched.DayOfMonth
 	}
-	var nextRunAt interface{}
-	if sched.NextRunAt != nil {
-		nextRunAt = sched.NextRunAt.UTC().Format(time.RFC3339)
-	}
 
-	_, err := s.db.Write.Exec(
+	_, err := s.db.Exec(
 		`UPDATE interest_schedules
-		 SET frequency = ?, day_of_week = ?, day_of_month = ?,
-		     next_run_at = ?, updated_at = CURRENT_TIMESTAMP
-		 WHERE id = ?`,
-		sched.Frequency, dayOfWeek, dayOfMonth, nextRunAt, sched.ID,
+		 SET frequency = $1, day_of_week = $2, day_of_month = $3,
+		     next_run_at = $4, updated_at = NOW()
+		 WHERE id = $5`,
+		sched.Frequency, dayOfWeek, dayOfMonth, sched.NextRunAt, sched.ID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update interest schedule: %w", err)
@@ -107,7 +99,7 @@ func (s *InterestScheduleStore) Update(sched *InterestSchedule) (*InterestSchedu
 
 // Delete removes an interest schedule by its ID.
 func (s *InterestScheduleStore) Delete(id int64) error {
-	_, err := s.db.Write.Exec(`DELETE FROM interest_schedules WHERE id = ?`, id)
+	_, err := s.db.Exec(`DELETE FROM interest_schedules WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete interest schedule: %w", err)
 	}
@@ -116,13 +108,13 @@ func (s *InterestScheduleStore) Delete(id int64) error {
 
 // ListDue returns all active interest schedules whose next_run_at is at or before the given time.
 func (s *InterestScheduleStore) ListDue(now time.Time) ([]InterestSchedule, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, child_id, parent_id, frequency, day_of_week, day_of_month,
 		        status, next_run_at, created_at, updated_at
 		 FROM interest_schedules
-		 WHERE status = 'active' AND next_run_at <= ?
+		 WHERE status = 'active' AND next_run_at <= $1
 		 ORDER BY next_run_at ASC`,
-		now.UTC().Format(time.RFC3339),
+		now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list due interest schedules: %w", err)
@@ -143,9 +135,9 @@ func (s *InterestScheduleStore) ListDue(now time.Time) ([]InterestSchedule, erro
 
 // UpdateNextRunAt sets the next_run_at for a schedule.
 func (s *InterestScheduleStore) UpdateNextRunAt(id int64, nextRunAt time.Time) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE interest_schedules SET next_run_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		nextRunAt.UTC().Format(time.RFC3339), id,
+	_, err := s.db.Exec(
+		`UPDATE interest_schedules SET next_run_at = $1, updated_at = NOW() WHERE id = $2`,
+		nextRunAt, id,
 	)
 	if err != nil {
 		return fmt.Errorf("update next_run_at: %w", err)
@@ -155,8 +147,8 @@ func (s *InterestScheduleStore) UpdateNextRunAt(id int64, nextRunAt time.Time) e
 
 // UpdateStatus sets the status of an interest schedule.
 func (s *InterestScheduleStore) UpdateStatus(id int64, status ScheduleStatus) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE interest_schedules SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+	_, err := s.db.Exec(
+		`UPDATE interest_schedules SET status = $1, updated_at = NOW() WHERE id = $2`,
 		status, id,
 	)
 	if err != nil {
@@ -169,13 +161,12 @@ func (s *InterestScheduleStore) UpdateStatus(id int64, status ScheduleStatus) er
 func (s *InterestScheduleStore) scanOne(query string, args ...interface{}) (*InterestSchedule, error) {
 	var sched InterestSchedule
 	var dayOfWeek, dayOfMonth sql.NullInt64
-	var nextRunAt sql.NullString
-	var createdAt, updatedAt string
+	var nextRunAt sql.NullTime
 
-	err := s.db.Read.QueryRow(query, args...).Scan(
+	err := s.db.QueryRow(query, args...).Scan(
 		&sched.ID, &sched.ChildID, &sched.ParentID, &sched.Frequency,
 		&dayOfWeek, &dayOfMonth, &sched.Status, &nextRunAt,
-		&createdAt, &updatedAt,
+		&sched.CreatedAt, &sched.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -193,11 +184,8 @@ func (s *InterestScheduleStore) scanOne(query string, args ...interface{}) (*Int
 		sched.DayOfMonth = &v
 	}
 	if nextRunAt.Valid {
-		t, _ := parseTime(nextRunAt.String)
-		sched.NextRunAt = &t
+		sched.NextRunAt = &nextRunAt.Time
 	}
-	sched.CreatedAt, _ = parseTime(createdAt)
-	sched.UpdatedAt, _ = parseTime(updatedAt)
 
 	return &sched, nil
 }
@@ -206,13 +194,12 @@ func (s *InterestScheduleStore) scanOne(query string, args ...interface{}) (*Int
 func (s *InterestScheduleStore) scanRow(rows *sql.Rows) (*InterestSchedule, error) {
 	var sched InterestSchedule
 	var dayOfWeek, dayOfMonth sql.NullInt64
-	var nextRunAt sql.NullString
-	var createdAt, updatedAt string
+	var nextRunAt sql.NullTime
 
 	if err := rows.Scan(
 		&sched.ID, &sched.ChildID, &sched.ParentID, &sched.Frequency,
 		&dayOfWeek, &dayOfMonth, &sched.Status, &nextRunAt,
-		&createdAt, &updatedAt,
+		&sched.CreatedAt, &sched.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("scan interest schedule row: %w", err)
 	}
@@ -226,11 +213,8 @@ func (s *InterestScheduleStore) scanRow(rows *sql.Rows) (*InterestSchedule, erro
 		sched.DayOfMonth = &v
 	}
 	if nextRunAt.Valid {
-		t, _ := parseTime(nextRunAt.String)
-		sched.NextRunAt = &t
+		sched.NextRunAt = &nextRunAt.Time
 	}
-	sched.CreatedAt, _ = parseTime(createdAt)
-	sched.UpdatedAt, _ = parseTime(updatedAt)
 
 	return &sched, nil
 }

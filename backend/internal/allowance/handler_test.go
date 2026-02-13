@@ -2,88 +2,35 @@ package allowance
 
 import (
 	"bytes"
-	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
+	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func setupTestDB(t *testing.T) *store.DB {
-	t.Helper()
-	tmp, err := os.CreateTemp("", "bank-of-dad-allowance-test-*.db")
-	require.NoError(t, err)
-	path := tmp.Name()
-	tmp.Close()
-	t.Cleanup(func() {
-		os.Remove(path)
-		os.Remove(path + "-wal")
-		os.Remove(path + "-shm")
-	})
-	db, err := store.Open(path)
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-	return db
-}
-
-func createTestFamily(t *testing.T, db *store.DB) *store.Family {
-	t.Helper()
-	fs := store.NewFamilyStore(db)
-	f, err := fs.Create("test-family")
-	require.NoError(t, err)
-	return f
-}
-
-func createTestParent(t *testing.T, db *store.DB, familyID int64) *store.Parent {
-	t.Helper()
-	ps := store.NewParentStore(db)
-	p, err := ps.Create("google-id-123", "parent@test.com", "Test Parent")
-	require.NoError(t, err)
-	err = ps.SetFamilyID(p.ID, familyID)
-	require.NoError(t, err)
-	p.FamilyID = familyID
-	return p
-}
-
-func createTestChild(t *testing.T, db *store.DB, familyID int64, name string) *store.Child {
-	t.Helper()
-	cs := store.NewChildStore(db)
-	c, err := cs.Create(familyID, name, "password123", nil)
-	require.NoError(t, err)
-	return c
-}
-
-func setRequestContext(r *http.Request, userType string, userID, familyID int64) *http.Request {
-	ctx := r.Context()
-	ctx = context.WithValue(ctx, middleware.ContextKeyUserType, userType)
-	ctx = context.WithValue(ctx, middleware.ContextKeyUserID, userID)
-	ctx = context.WithValue(ctx, middleware.ContextKeyFamilyID, familyID)
-	return r.WithContext(ctx)
-}
 
 // =====================================================
 // T010: Tests for POST /api/schedules (create weekly schedule)
 // =====================================================
 
 func TestHandleCreateSchedule_Success_Weekly(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5,"note":"Weekly allowance"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
@@ -102,16 +49,16 @@ func TestHandleCreateSchedule_Success_Weekly(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_InvalidFrequency(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"daily","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
@@ -120,16 +67,16 @@ func TestHandleCreateSchedule_InvalidFrequency(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_MissingDayOfWeek(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
@@ -138,19 +85,19 @@ func TestHandleCreateSchedule_MissingDayOfWeek(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_ChildNotInFamily(t *testing.T) {
-	db := setupTestDB(t)
-	family1 := createTestFamily(t, db)
-	parent := createTestParent(t, db, family1.ID)
+	db := testutil.SetupTestDB(t)
+	family1 := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family1.ID)
 
 	fs := store.NewFamilyStore(db)
 	family2, _ := fs.Create("other-family")
-	child := createTestChild(t, db, family2.ID, "Other")
+	child := testutil.CreateTestChild(t, db, family2.ID, "Other")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family1.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family1.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
@@ -159,16 +106,16 @@ func TestHandleCreateSchedule_ChildNotInFamily(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_ChildRoleForbidden(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
@@ -177,17 +124,17 @@ func TestHandleCreateSchedule_ChildRoleForbidden(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	// Zero amount
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":0,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -195,7 +142,7 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 	// Exceeds max
 	body2 := fmt.Sprintf(`{"child_id":%d,"amount_cents":100000000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req2 := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body2))
-	req2 = setRequestContext(req2, "parent", parent.ID, family.ID)
+	req2 = testutil.SetRequestContext(req2, "parent", parent.ID, family.ID)
 	rr2 := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr2, req2)
 	assert.Equal(t, http.StatusBadRequest, rr2.Code)
@@ -205,7 +152,7 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 // T018: Tests for US2 - Schedule management handlers
 // =====================================================
 
-func createScheduleViaHandler(t *testing.T, db *store.DB, parentID, familyID, childID int64, frequency string, dayOfWeek *int, dayOfMonth *int) store.AllowanceSchedule {
+func createScheduleViaHandler(t *testing.T, db *sql.DB, parentID, familyID, childID int64, frequency string, dayOfWeek *int, dayOfMonth *int) store.AllowanceSchedule {
 	t.Helper()
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
@@ -216,7 +163,7 @@ func createScheduleViaHandler(t *testing.T, db *store.DB, parentID, familyID, ch
 		body = fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"%s","day_of_month":%d}`, childID, frequency, *dayOfMonth)
 	}
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parentID, familyID)
+	req = testutil.SetRequestContext(req, "parent", parentID, familyID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 	require.Equal(t, http.StatusCreated, rr.Code)
@@ -228,17 +175,17 @@ func createScheduleViaHandler(t *testing.T, db *store.DB, parentID, familyID, ch
 }
 
 func TestHandleListSchedules_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
 	req := httptest.NewRequest("GET", "/api/schedules", nil)
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleListSchedules(rr, req)
 
@@ -253,14 +200,14 @@ func TestHandleListSchedules_Success(t *testing.T) {
 }
 
 func TestHandleListSchedules_EmptyList(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	req := httptest.NewRequest("GET", "/api/schedules", nil)
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleListSchedules(rr, req)
 
@@ -272,10 +219,10 @@ func TestHandleListSchedules_EmptyList(t *testing.T) {
 }
 
 func TestHandleGetSchedule_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -283,7 +230,7 @@ func TestHandleGetSchedule_Success(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/schedules/%d", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetSchedule(rr, req)
 
@@ -295,10 +242,10 @@ func TestHandleGetSchedule_Success(t *testing.T) {
 }
 
 func TestHandleGetSchedule_WrongFamily(t *testing.T) {
-	db := setupTestDB(t)
-	family1 := createTestFamily(t, db)
-	parent1 := createTestParent(t, db, family1.ID)
-	child1 := createTestChild(t, db, family1.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family1 := testutil.CreateTestFamily(t, db)
+	parent1 := testutil.CreateTestParent(t, db, family1.ID)
+	child1 := testutil.CreateTestChild(t, db, family1.ID, "Emma")
 
 	fs := store.NewFamilyStore(db)
 	family2, _ := fs.Create("other-family")
@@ -310,7 +257,7 @@ func TestHandleGetSchedule_WrongFamily(t *testing.T) {
 	// Try to access from family2
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/schedules/%d", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent1.ID, family2.ID)
+	req = testutil.SetRequestContext(req, "parent", parent1.ID, family2.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetSchedule(rr, req)
 
@@ -318,10 +265,10 @@ func TestHandleGetSchedule_WrongFamily(t *testing.T) {
 }
 
 func TestHandleUpdateSchedule_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -330,7 +277,7 @@ func TestHandleUpdateSchedule_Success(t *testing.T) {
 	body := `{"amount_cents":2000,"note":"Updated"}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/schedules/%d", created.ID), bytes.NewBufferString(body))
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleUpdateSchedule(rr, req)
 
@@ -343,10 +290,10 @@ func TestHandleUpdateSchedule_Success(t *testing.T) {
 }
 
 func TestHandleDeleteSchedule_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -354,7 +301,7 @@ func TestHandleDeleteSchedule_Success(t *testing.T) {
 
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/schedules/%d", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleDeleteSchedule(rr, req)
 
@@ -363,17 +310,17 @@ func TestHandleDeleteSchedule_Success(t *testing.T) {
 	// Verify it's gone
 	getReq := httptest.NewRequest("GET", fmt.Sprintf("/api/schedules/%d", created.ID), nil)
 	getReq.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	getReq = setRequestContext(getReq, "parent", parent.ID, family.ID)
+	getReq = testutil.SetRequestContext(getReq, "parent", parent.ID, family.ID)
 	getRR := httptest.NewRecorder()
 	handler.HandleGetSchedule(getRR, getReq)
 	assert.Equal(t, http.StatusNotFound, getRR.Code)
 }
 
 func TestHandlePauseSchedule_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -381,7 +328,7 @@ func TestHandlePauseSchedule_Success(t *testing.T) {
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/pause", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandlePauseSchedule(rr, req)
 
@@ -393,10 +340,10 @@ func TestHandlePauseSchedule_Success(t *testing.T) {
 }
 
 func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -405,7 +352,7 @@ func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
 	// Pause first
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/pause", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandlePauseSchedule(rr, req)
 	require.Equal(t, http.StatusOK, rr.Code)
@@ -413,17 +360,17 @@ func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
 	// Try to pause again
 	req2 := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/pause", created.ID), nil)
 	req2.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req2 = setRequestContext(req2, "parent", parent.ID, family.ID)
+	req2 = testutil.SetRequestContext(req2, "parent", parent.ID, family.ID)
 	rr2 := httptest.NewRecorder()
 	handler.HandlePauseSchedule(rr2, req2)
 	assert.Equal(t, http.StatusBadRequest, rr2.Code)
 }
 
 func TestHandleResumeSchedule_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -432,7 +379,7 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 	// Pause first
 	pauseReq := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/pause", created.ID), nil)
 	pauseReq.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	pauseReq = setRequestContext(pauseReq, "parent", parent.ID, family.ID)
+	pauseReq = testutil.SetRequestContext(pauseReq, "parent", parent.ID, family.ID)
 	pauseRR := httptest.NewRecorder()
 	handler.HandlePauseSchedule(pauseRR, pauseReq)
 	require.Equal(t, http.StatusOK, pauseRR.Code)
@@ -440,7 +387,7 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 	// Resume
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/resume", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleResumeSchedule(rr, req)
 
@@ -453,10 +400,10 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 }
 
 func TestHandleResumeSchedule_AlreadyActive(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -464,7 +411,7 @@ func TestHandleResumeSchedule_AlreadyActive(t *testing.T) {
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/schedules/%d/resume", created.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", created.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleResumeSchedule(rr, req)
 
@@ -476,16 +423,16 @@ func TestHandleResumeSchedule_AlreadyActive(t *testing.T) {
 // =====================================================
 
 func TestHandleCreateSchedule_Success_Biweekly(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":2000,"frequency":"biweekly","day_of_week":1}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 
@@ -499,16 +446,16 @@ func TestHandleCreateSchedule_Success_Biweekly(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_Success_Monthly(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":5000,"frequency":"monthly","day_of_month":15}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 
@@ -522,16 +469,16 @@ func TestHandleCreateSchedule_Success_Monthly(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_MonthlyMissingDayOfMonth(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"monthly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 
@@ -539,16 +486,16 @@ func TestHandleCreateSchedule_MonthlyMissingDayOfMonth(t *testing.T) {
 }
 
 func TestHandleCreateSchedule_BiweeklyMissingDayOfWeek(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"biweekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleCreateSchedule(rr, req)
 
@@ -560,10 +507,10 @@ func TestHandleCreateSchedule_BiweeklyMissingDayOfWeek(t *testing.T) {
 // =====================================================
 
 func TestHandleGetUpcomingAllowances_ParentSuccess(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -571,7 +518,7 @@ func TestHandleGetUpcomingAllowances_ParentSuccess(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetUpcomingAllowances(rr, req)
 
@@ -584,10 +531,10 @@ func TestHandleGetUpcomingAllowances_ParentSuccess(t *testing.T) {
 }
 
 func TestHandleGetUpcomingAllowances_ChildSeesOwn(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -595,7 +542,7 @@ func TestHandleGetUpcomingAllowances_ChildSeesOwn(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetUpcomingAllowances(rr, req)
 
@@ -607,11 +554,11 @@ func TestHandleGetUpcomingAllowances_ChildSeesOwn(t *testing.T) {
 }
 
 func TestHandleGetUpcomingAllowances_ChildCannotSeeOther(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child1 := createTestChild(t, db, family.ID, "Emma")
-	child2 := createTestChild(t, db, family.ID, "Jack")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
+	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -620,7 +567,7 @@ func TestHandleGetUpcomingAllowances_ChildCannotSeeOther(t *testing.T) {
 	// child2 tries to see child1's allowances
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child1.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child1.ID))
-	req = setRequestContext(req, "child", child2.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child2.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetUpcomingAllowances(rr, req)
 
@@ -628,16 +575,16 @@ func TestHandleGetUpcomingAllowances_ChildCannotSeeOther(t *testing.T) {
 }
 
 func TestHandleGetUpcomingAllowances_NoSchedules(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetUpcomingAllowances(rr, req)
 
@@ -653,10 +600,10 @@ func TestHandleGetUpcomingAllowances_NoSchedules(t *testing.T) {
 // =====================================================
 
 func TestHandleGetChildAllowance_Exists(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
@@ -666,7 +613,7 @@ func TestHandleGetChildAllowance_Exists(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetChildAllowance(rr, req)
 
@@ -679,16 +626,16 @@ func TestHandleGetChildAllowance_Exists(t *testing.T) {
 }
 
 func TestHandleGetChildAllowance_None(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetChildAllowance(rr, req)
 
@@ -697,10 +644,10 @@ func TestHandleGetChildAllowance_None(t *testing.T) {
 }
 
 func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -708,7 +655,7 @@ func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetChildAllowance(rr, req)
 
@@ -716,11 +663,11 @@ func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
 }
 
 func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child1 := createTestChild(t, db, family.ID, "Emma")
-	child2 := createTestChild(t, db, family.ID, "Jack")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
+	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -728,7 +675,7 @@ func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child1.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child1.ID))
-	req = setRequestContext(req, "child", child2.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child2.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleGetChildAllowance(rr, req)
 
@@ -736,17 +683,17 @@ func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
 }
 
 func TestHandleSetChildAllowance_Create(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := `{"amount_cents":1500,"frequency":"weekly","day_of_week":3,"note":"Wednesday allowance"}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleSetChildAllowance(rr, req)
 
@@ -763,10 +710,10 @@ func TestHandleSetChildAllowance_Create(t *testing.T) {
 }
 
 func TestHandleSetChildAllowance_Update(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
@@ -774,7 +721,7 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 	body1 := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
 	req1 := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body1))
 	req1.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req1 = setRequestContext(req1, "parent", parent.ID, family.ID)
+	req1 = testutil.SetRequestContext(req1, "parent", parent.ID, family.ID)
 	rr1 := httptest.NewRecorder()
 	handler.HandleSetChildAllowance(rr1, req1)
 	require.Equal(t, http.StatusOK, rr1.Code)
@@ -783,7 +730,7 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 	body2 := `{"amount_cents":2000,"frequency":"monthly","day_of_month":15,"note":"Monthly update"}`
 	req2 := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body2))
 	req2.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req2 = setRequestContext(req2, "parent", parent.ID, family.ID)
+	req2 = testutil.SetRequestContext(req2, "parent", parent.ID, family.ID)
 	rr2 := httptest.NewRecorder()
 	handler.HandleSetChildAllowance(rr2, req2)
 
@@ -797,16 +744,16 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 }
 
 func TestHandleSetChildAllowance_ChildForbidden(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "child", child.ID, family.ID)
+	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleSetChildAllowance(rr, req)
 
@@ -814,17 +761,17 @@ func TestHandleSetChildAllowance_ChildForbidden(t *testing.T) {
 }
 
 func TestHandleSetChildAllowance_InvalidAmount(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	body := `{"amount_cents":0,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleSetChildAllowance(rr, req)
 
@@ -832,10 +779,10 @@ func TestHandleSetChildAllowance_InvalidAmount(t *testing.T) {
 }
 
 func TestHandleDeleteChildAllowance_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -843,7 +790,7 @@ func TestHandleDeleteChildAllowance_Success(t *testing.T) {
 
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleDeleteChildAllowance(rr, req)
 
@@ -852,7 +799,7 @@ func TestHandleDeleteChildAllowance_Success(t *testing.T) {
 	// Verify it's gone
 	getReq := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	getReq.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	getReq = setRequestContext(getReq, "parent", parent.ID, family.ID)
+	getReq = testutil.SetRequestContext(getReq, "parent", parent.ID, family.ID)
 	getRR := httptest.NewRecorder()
 	handler.HandleGetChildAllowance(getRR, getReq)
 	assert.Equal(t, http.StatusOK, getRR.Code)
@@ -860,16 +807,16 @@ func TestHandleDeleteChildAllowance_Success(t *testing.T) {
 }
 
 func TestHandleDeleteChildAllowance_NotFound(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleDeleteChildAllowance(rr, req)
 
@@ -877,10 +824,10 @@ func TestHandleDeleteChildAllowance_NotFound(t *testing.T) {
 }
 
 func TestHandlePauseChildAllowance_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -888,7 +835,7 @@ func TestHandlePauseChildAllowance_Success(t *testing.T) {
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandlePauseChildAllowance(rr, req)
 
@@ -900,16 +847,16 @@ func TestHandlePauseChildAllowance_Success(t *testing.T) {
 }
 
 func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandlePauseChildAllowance(rr, req)
 
@@ -917,10 +864,10 @@ func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
 }
 
 func TestHandleResumeChildAllowance_Success(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
 	dow := 5
@@ -929,7 +876,7 @@ func TestHandleResumeChildAllowance_Success(t *testing.T) {
 	// Pause first
 	pauseReq := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
 	pauseReq.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	pauseReq = setRequestContext(pauseReq, "parent", parent.ID, family.ID)
+	pauseReq = testutil.SetRequestContext(pauseReq, "parent", parent.ID, family.ID)
 	pauseRR := httptest.NewRecorder()
 	handler.HandlePauseChildAllowance(pauseRR, pauseReq)
 	require.Equal(t, http.StatusOK, pauseRR.Code)
@@ -937,7 +884,7 @@ func TestHandleResumeChildAllowance_Success(t *testing.T) {
 	// Resume
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/resume", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
-	req = setRequestContext(req, "parent", parent.ID, family.ID)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
 	rr := httptest.NewRecorder()
 	handler.HandleResumeChildAllowance(rr, req)
 

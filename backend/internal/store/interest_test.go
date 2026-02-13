@@ -23,7 +23,7 @@ func TestSetInterestRate(t *testing.T) {
 
 	// Verify rate was stored
 	var rateBps int
-	err = db.Read.QueryRow("SELECT interest_rate_bps FROM children WHERE id = ?", child.ID).Scan(&rateBps)
+	err = db.QueryRow("SELECT interest_rate_bps FROM children WHERE id = $1", child.ID).Scan(&rateBps)
 	require.NoError(t, err)
 	assert.Equal(t, 500, rateBps)
 }
@@ -44,7 +44,7 @@ func TestSetInterestRate_Update(t *testing.T) {
 	require.NoError(t, err)
 
 	var rateBps int
-	err = db.Read.QueryRow("SELECT interest_rate_bps FROM children WHERE id = ?", child.ID).Scan(&rateBps)
+	err = db.QueryRow("SELECT interest_rate_bps FROM children WHERE id = $1", child.ID).Scan(&rateBps)
 	require.NoError(t, err)
 	assert.Equal(t, 1000, rateBps)
 }
@@ -64,7 +64,7 @@ func TestSetInterestRate_SetToZero(t *testing.T) {
 	require.NoError(t, err)
 
 	var rateBps int
-	err = db.Read.QueryRow("SELECT interest_rate_bps FROM children WHERE id = ?", child.ID).Scan(&rateBps)
+	err = db.QueryRow("SELECT interest_rate_bps FROM children WHERE id = $1", child.ID).Scan(&rateBps)
 	require.NoError(t, err)
 	assert.Equal(t, 0, rateBps)
 }
@@ -169,7 +169,7 @@ func TestApplyInterest_UpdatesLastInterestAt(t *testing.T) {
 
 	// Before applying, last_interest_at should be null
 	var lastInterest *string
-	err = db.Read.QueryRow("SELECT last_interest_at FROM children WHERE id = ?", child.ID).Scan(&lastInterest)
+	err = db.QueryRow("SELECT last_interest_at FROM children WHERE id = $1", child.ID).Scan(&lastInterest)
 	require.NoError(t, err)
 	assert.Nil(t, lastInterest)
 
@@ -179,7 +179,7 @@ func TestApplyInterest_UpdatesLastInterestAt(t *testing.T) {
 
 	// After applying, last_interest_at should be set
 	var lastInterestStr string
-	err = db.Read.QueryRow("SELECT last_interest_at FROM children WHERE id = ?", child.ID).Scan(&lastInterestStr)
+	err = db.QueryRow("SELECT last_interest_at FROM children WHERE id = $1", child.ID).Scan(&lastInterestStr)
 	require.NoError(t, err)
 	assert.NotEmpty(t, lastInterestStr)
 }
@@ -395,7 +395,7 @@ func TestListDueForInterest_LastAccruedPreviousMonth(t *testing.T) {
 
 	// Manually set last_interest_at to previous month
 	prevMonth := time.Now().AddDate(0, -1, 0).Format(time.RFC3339)
-	_, err = db.Write.Exec("UPDATE children SET last_interest_at = ? WHERE id = ?", prevMonth, child.ID)
+	_, err = db.Exec("UPDATE children SET last_interest_at = $1 WHERE id = $2", prevMonth, child.ID)
 	require.NoError(t, err)
 
 	// Should be due

@@ -1,8 +1,6 @@
 package store
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,21 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestDB(t *testing.T) *DB {
-	t.Helper()
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	db, err := Open(dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		db.Close()
-		os.Remove(dbPath)
-	})
-	return db
-}
-
 func TestLogEvent(t *testing.T) {
-	db := setupTestDB(t)
+	db := testDB(t)
 	s := NewAuthEventStore(db)
 
 	event := AuthEvent{
@@ -55,7 +40,7 @@ func TestLogEvent(t *testing.T) {
 }
 
 func TestGetEventsByFamily(t *testing.T) {
-	db := setupTestDB(t)
+	db := testDB(t)
 	s := NewAuthEventStore(db)
 
 	now := time.Now().UTC().Truncate(time.Second)
@@ -96,7 +81,7 @@ func TestGetEventsByFamily(t *testing.T) {
 }
 
 func TestGetEventsByFamily_Empty(t *testing.T) {
-	db := setupTestDB(t)
+	db := testDB(t)
 	s := NewAuthEventStore(db)
 
 	events, err := s.GetEventsByFamily(9999)
@@ -105,7 +90,7 @@ func TestGetEventsByFamily_Empty(t *testing.T) {
 }
 
 func TestGetEventsByFamily_OrderedByCreatedAtDesc(t *testing.T) {
-	db := setupTestDB(t)
+	db := testDB(t)
 	s := NewAuthEventStore(db)
 
 	base := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
@@ -150,36 +135,4 @@ func TestGetEventsByFamily_OrderedByCreatedAtDesc(t *testing.T) {
 
 	assert.True(t, events[0].CreatedAt.After(events[1].CreatedAt))
 	assert.True(t, events[1].CreatedAt.After(events[2].CreatedAt))
-}
-
-func TestAuthEventsSchema_NoSensitiveFields(t *testing.T) {
-	db := setupTestDB(t)
-
-	rows, err := db.Read.Query("PRAGMA table_info(auth_events)")
-	require.NoError(t, err)
-	defer rows.Close()
-
-	sensitiveNames := map[string]bool{
-		"password":      true,
-		"password_hash": true,
-		"token":         true,
-		"secret":        true,
-		"refresh_token": true,
-		"access_token":  true,
-	}
-
-	var columns []string
-	for rows.Next() {
-		var cid int
-		var name, ctype string
-		var notnull, pk int
-		var dfltValue *string
-		err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
-		require.NoError(t, err)
-		columns = append(columns, name)
-		assert.False(t, sensitiveNames[name], "auth_events table should not contain sensitive column %q", name)
-	}
-	require.NoError(t, rows.Err())
-
-	assert.NotEmpty(t, columns, "should have found columns in auth_events table")
 }

@@ -9,22 +9,6 @@ import (
 	"time"
 )
 
-// parseTime tries multiple formats that SQLite might use for datetime values.
-func parseTime(s string) (time.Time, error) {
-	formats := []string{
-		time.RFC3339,
-		time.DateTime,
-		"2006-01-02T15:04:05Z",
-		"2006-01-02 15:04:05",
-	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("cannot parse time %q", s)
-}
-
 type Session struct {
 	Token     string
 	UserType  string
@@ -35,10 +19,10 @@ type Session struct {
 }
 
 type SessionStore struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewSessionStore(db *DB) *SessionStore {
+func NewSessionStore(db *sql.DB) *SessionStore {
 	return &SessionStore{db: db}
 }
 
@@ -53,10 +37,10 @@ func (s *SessionStore) Create(userType string, userID int64, familyID int64, ttl
 
 	expiresAt := time.Now().Add(ttl)
 
-	_, err := s.db.Write.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO sessions (token, user_type, user_id, family_id, expires_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		token, userType, userID, familyID, expiresAt.UTC().Format(time.DateTime),
+		 VALUES ($1, $2, $3, $4, $5)`,
+		token, userType, userID, familyID, expiresAt,
 	)
 	if err != nil {
 		return "", fmt.Errorf("insert session: %w", err)
@@ -68,30 +52,20 @@ func (s *SessionStore) Create(userType string, userID int64, familyID int64, ttl
 // GetByToken looks up a session by its token using the read pool.
 // Returns nil if the token does not exist or the session has expired.
 func (s *SessionStore) GetByToken(token string) (*Session, error) {
-	row := s.db.Read.QueryRow(
+	row := s.db.QueryRow(
 		`SELECT token, user_type, user_id, family_id, created_at, expires_at
 		 FROM sessions
-		 WHERE token = ? AND expires_at > ?`,
-		token, time.Now().UTC().Format(time.DateTime),
+		 WHERE token = $1 AND expires_at > $2`,
+		token, time.Now(),
 	)
 
 	var sess Session
-	var createdAt, expiresAt string
-	err := row.Scan(&sess.Token, &sess.UserType, &sess.UserID, &sess.FamilyID, &createdAt, &expiresAt)
+	err := row.Scan(&sess.Token, &sess.UserType, &sess.UserID, &sess.FamilyID, &sess.CreatedAt, &sess.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("scan session: %w", err)
-	}
-
-	sess.CreatedAt, err = parseTime(createdAt)
-	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
-	}
-	sess.ExpiresAt, err = parseTime(expiresAt)
-	if err != nil {
-		return nil, fmt.Errorf("parse expires_at: %w", err)
 	}
 
 	return &sess, nil
@@ -115,8 +89,8 @@ func (s *SessionStore) ValidateSession(token string) (string, int64, int64, erro
 
 // UpdateFamilyID updates the family_id for a session identified by token.
 func (s *SessionStore) UpdateFamilyID(token string, familyID int64) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE sessions SET family_id = ? WHERE token = ?`,
+	_, err := s.db.Exec(
+		`UPDATE sessions SET family_id = $1 WHERE token = $2`,
 		familyID, token,
 	)
 	if err != nil {
@@ -127,7 +101,7 @@ func (s *SessionStore) UpdateFamilyID(token string, familyID int64) error {
 
 // DeleteByToken removes a single session row by token.
 func (s *SessionStore) DeleteByToken(token string) error {
-	_, err := s.db.Write.Exec(`DELETE FROM sessions WHERE token = ?`, token)
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE token = $1`, token)
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
@@ -137,9 +111,9 @@ func (s *SessionStore) DeleteByToken(token string) error {
 // DeleteExpired removes all sessions whose expires_at is in the past and
 // returns the number of rows deleted.
 func (s *SessionStore) DeleteExpired() (int64, error) {
-	res, err := s.db.Write.Exec(
-		`DELETE FROM sessions WHERE expires_at < ?`,
-		time.Now().UTC().Format(time.DateTime),
+	res, err := s.db.Exec(
+		`DELETE FROM sessions WHERE expires_at < $1`,
+		time.Now(),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("delete expired sessions: %w", err)

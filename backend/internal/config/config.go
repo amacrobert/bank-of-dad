@@ -9,7 +9,7 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
-	DatabasePath       string
+	DatabaseURL        string
 	CookieDomain       string
 	CookieSecure       bool
 	ServerPort         string
@@ -21,7 +21,7 @@ func Load() (*Config, error) {
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
-		DatabasePath:       getEnvOrDefault("DATABASE_PATH", "bankodad.db"),
+		DatabaseURL:        getEnvOrDefault("DATABASE_URL", "postgres://bankofdad:bankofdad@localhost:5432/bankofdad?sslmode=disable"),
 		CookieDomain:       os.Getenv("COOKIE_DOMAIN"),
 		CookieSecure:       os.Getenv("COOKIE_SECURE") != "false",
 		ServerPort:         getEnvOrDefault("SERVER_PORT", "8001"),

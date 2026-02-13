@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 func intP(i int) *int       { return &i }
 func strP(s string) *string { return &s }
 
-func createTestSchedule(t *testing.T, db *DB, childID, parentID int64) *AllowanceSchedule {
+func createTestSchedule(t *testing.T, db *sql.DB, childID, parentID int64) *AllowanceSchedule {
 	t.Helper()
 	ss := NewScheduleStore(db)
 	nextRun := time.Date(2026, time.February, 7, 0, 0, 0, 0, time.UTC)
@@ -404,7 +405,7 @@ func TestScheduleStore_CascadeDeleteOnChildRemoval(t *testing.T) {
 	require.NotNil(t, sched)
 
 	// Delete the child
-	_, err = db.Write.Exec("DELETE FROM children WHERE id = ?", child.ID)
+	_, err = db.Exec("DELETE FROM children WHERE id = $1", child.ID)
 	require.NoError(t, err)
 
 	// Verify child is gone
