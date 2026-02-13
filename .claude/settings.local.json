@@ -44,7 +44,10 @@
       "Bash(grep:*)",
       "Bash(for type in \"FamilyCheck\" \"SlugCheck\" \"ChildCreateResponse\" \"CreateScheduleRequest\" \"UpdateScheduleRequest\" \"ScheduleWithChild\" \"SetInterestRequest\")",
       "Bash(do)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(go vet:*)",
+      "Bash(docker ps:*)",
+      "Bash(TEST_DATABASE_URL=\"postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable\" go test:*)"
     ]
   }
 }
