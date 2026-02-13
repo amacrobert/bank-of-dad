@@ -35,11 +35,11 @@ var ErrInsufficientFunds = errors.New("insufficient funds")
 
 // TransactionStore handles database operations for transactions.
 type TransactionStore struct {
-	db *DB
+	db *sql.DB
 }
 
 // NewTransactionStore creates a new TransactionStore.
-func NewTransactionStore(db *DB) *TransactionStore {
+func NewTransactionStore(db *sql.DB) *TransactionStore {
 	return &TransactionStore{db: db}
 }
 
@@ -50,7 +50,7 @@ func (s *TransactionStore) Deposit(childID, parentID, amountCents int64, note st
 		return nil, 0, fmt.Errorf("amount must be positive")
 	}
 
-	tx, err := s.db.Write.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, 0, fmt.Errorf("begin transaction: %w", err)
 	}
@@ -58,20 +58,19 @@ func (s *TransactionStore) Deposit(childID, parentID, amountCents int64, note st
 
 	// Insert transaction record
 	notePtr := nullableString(note)
-	result, err := tx.Exec(
+	var txID int64
+	err = tx.QueryRow(
 		`INSERT INTO transactions (child_id, parent_id, amount_cents, transaction_type, note)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		childID, parentID, amountCents, TransactionTypeDeposit, notePtr,
-	)
+	).Scan(&txID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("insert transaction: %w", err)
 	}
 
-	txID, _ := result.LastInsertId()
-
 	// Update balance
 	_, err = tx.Exec(
-		`UPDATE children SET balance_cents = balance_cents + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		`UPDATE children SET balance_cents = balance_cents + $1, updated_at = NOW() WHERE id = $2`,
 		amountCents, childID,
 	)
 	if err != nil {
@@ -80,7 +79,7 @@ func (s *TransactionStore) Deposit(childID, parentID, amountCents int64, note st
 
 	// Get new balance
 	var newBalance int64
-	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&newBalance)
+	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&newBalance)
 	if err != nil {
 		return nil, 0, fmt.Errorf("get new balance: %w", err)
 	}
@@ -105,7 +104,7 @@ func (s *TransactionStore) Withdraw(childID, parentID, amountCents int64, note s
 		return nil, 0, fmt.Errorf("amount must be positive")
 	}
 
-	tx, err := s.db.Write.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, 0, fmt.Errorf("begin transaction: %w", err)
 	}
@@ -113,7 +112,7 @@ func (s *TransactionStore) Withdraw(childID, parentID, amountCents int64, note s
 
 	// Check current balance
 	var currentBalance int64
-	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&currentBalance)
+	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&currentBalance)
 	if err == sql.ErrNoRows {
 		return nil, 0, fmt.Errorf("child not found")
 	}
@@ -127,20 +126,19 @@ func (s *TransactionStore) Withdraw(childID, parentID, amountCents int64, note s
 
 	// Insert transaction record
 	notePtr := nullableString(note)
-	result, err := tx.Exec(
+	var txID int64
+	err = tx.QueryRow(
 		`INSERT INTO transactions (child_id, parent_id, amount_cents, transaction_type, note)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		childID, parentID, amountCents, TransactionTypeWithdrawal, notePtr,
-	)
+	).Scan(&txID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("insert transaction: %w", err)
 	}
 
-	txID, _ := result.LastInsertId()
-
 	// Update balance
 	_, err = tx.Exec(
-		`UPDATE children SET balance_cents = balance_cents - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		`UPDATE children SET balance_cents = balance_cents - $1, updated_at = NOW() WHERE id = $2`,
 		amountCents, childID,
 	)
 	if err != nil {
@@ -149,7 +147,7 @@ func (s *TransactionStore) Withdraw(childID, parentID, amountCents int64, note s
 
 	// Get new balance
 	var newBalance int64
-	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&newBalance)
+	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&newBalance)
 	if err != nil {
 		return nil, 0, fmt.Errorf("get new balance: %w", err)
 	}
@@ -170,14 +168,13 @@ func (s *TransactionStore) Withdraw(childID, parentID, amountCents int64, note s
 // GetByID retrieves a transaction by its ID.
 func (s *TransactionStore) GetByID(id int64) (*Transaction, error) {
 	var t Transaction
-	var createdAt string
 	var note sql.NullString
 	var scheduleID sql.NullInt64
 
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, child_id, parent_id, amount_cents, transaction_type, note, schedule_id, created_at
-		 FROM transactions WHERE id = ?`, id,
-	).Scan(&t.ID, &t.ChildID, &t.ParentID, &t.AmountCents, &t.TransactionType, &note, &scheduleID, &createdAt)
+		 FROM transactions WHERE id = $1`, id,
+	).Scan(&t.ID, &t.ChildID, &t.ParentID, &t.AmountCents, &t.TransactionType, &note, &scheduleID, &t.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -186,7 +183,6 @@ func (s *TransactionStore) GetByID(id int64) (*Transaction, error) {
 		return nil, fmt.Errorf("get transaction by id: %w", err)
 	}
 
-	t.CreatedAt, _ = parseTime(createdAt)
 	if note.Valid {
 		t.Note = &note.String
 	}
@@ -199,9 +195,9 @@ func (s *TransactionStore) GetByID(id int64) (*Transaction, error) {
 
 // ListByChild retrieves all transactions for a child, ordered by most recent first.
 func (s *TransactionStore) ListByChild(childID int64) ([]Transaction, error) {
-	rows, err := s.db.Read.Query(
+	rows, err := s.db.Query(
 		`SELECT id, child_id, parent_id, amount_cents, transaction_type, note, schedule_id, created_at
-		 FROM transactions WHERE child_id = ? ORDER BY created_at DESC, id DESC`, childID,
+		 FROM transactions WHERE child_id = $1 ORDER BY created_at DESC, id DESC`, childID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list transactions: %w", err)
@@ -211,15 +207,13 @@ func (s *TransactionStore) ListByChild(childID int64) ([]Transaction, error) {
 	var transactions []Transaction
 	for rows.Next() {
 		var t Transaction
-		var createdAt string
 		var note sql.NullString
 		var scheduleID sql.NullInt64
 
-		if err := rows.Scan(&t.ID, &t.ChildID, &t.ParentID, &t.AmountCents, &t.TransactionType, &note, &scheduleID, &createdAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.ChildID, &t.ParentID, &t.AmountCents, &t.TransactionType, &note, &scheduleID, &t.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan transaction: %w", err)
 		}
 
-		t.CreatedAt, _ = parseTime(createdAt)
 		if note.Valid {
 			t.Note = &note.String
 		}
@@ -240,26 +234,25 @@ func (s *TransactionStore) DepositAllowance(childID, parentID, amountCents, sche
 		return nil, 0, fmt.Errorf("amount must be positive")
 	}
 
-	tx, err := s.db.Write.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, 0, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
 	notePtr := nullableString(note)
-	result, err := tx.Exec(
+	var txID int64
+	err = tx.QueryRow(
 		`INSERT INTO transactions (child_id, parent_id, amount_cents, transaction_type, note, schedule_id)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 		childID, parentID, amountCents, TransactionTypeAllowance, notePtr, scheduleID,
-	)
+	).Scan(&txID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("insert transaction: %w", err)
 	}
 
-	txID, _ := result.LastInsertId()
-
 	_, err = tx.Exec(
-		`UPDATE children SET balance_cents = balance_cents + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		`UPDATE children SET balance_cents = balance_cents + $1, updated_at = NOW() WHERE id = $2`,
 		amountCents, childID,
 	)
 	if err != nil {
@@ -267,7 +260,7 @@ func (s *TransactionStore) DepositAllowance(childID, parentID, amountCents, sche
 	}
 
 	var newBalance int64
-	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&newBalance)
+	err = tx.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&newBalance)
 	if err != nil {
 		return nil, 0, fmt.Errorf("get new balance: %w", err)
 	}

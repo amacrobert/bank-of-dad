@@ -16,14 +16,8 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /bank-of-dad /bank-of-dad
-
-# Create data directory for SQLite
-RUN mkdir -p /data
-
-ENV DATABASE_PATH=/data/bankodad.db
+COPY --from=builder /app/migrations /app/migrations
 
 EXPOSE 8001
-
-VOLUME ["/data"]
 
 CMD ["/bank-of-dad"]

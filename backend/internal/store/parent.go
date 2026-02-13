@@ -17,65 +17,61 @@ type Parent struct {
 }
 
 type ParentStore struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewParentStore(db *DB) *ParentStore {
+func NewParentStore(db *sql.DB) *ParentStore {
 	return &ParentStore{db: db}
 }
 
 func (s *ParentStore) Create(googleID, email, displayName string) (*Parent, error) {
-	res, err := s.db.Write.Exec(
-		`INSERT INTO parents (google_id, email, display_name) VALUES (?, ?, ?)`,
+	var id int64
+	err := s.db.QueryRow(
+		`INSERT INTO parents (google_id, email, display_name) VALUES ($1, $2, $3) RETURNING id`,
 		googleID, email, displayName,
-	)
+	).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
+		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, fmt.Errorf("google account already registered")
 		}
 		return nil, fmt.Errorf("insert parent: %w", err)
 	}
-	id, _ := res.LastInsertId()
 	return s.GetByID(id)
 }
 
 func (s *ParentStore) GetByGoogleID(googleID string) (*Parent, error) {
 	var p Parent
-	var createdAt string
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, google_id, email, display_name, family_id, created_at
-		 FROM parents WHERE google_id = ?`, googleID,
-	).Scan(&p.ID, &p.GoogleID, &p.Email, &p.DisplayName, &p.FamilyID, &createdAt)
+		 FROM parents WHERE google_id = $1`, googleID,
+	).Scan(&p.ID, &p.GoogleID, &p.Email, &p.DisplayName, &p.FamilyID, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get parent by google id: %w", err)
 	}
-	p.CreatedAt, _ = parseTime(createdAt)
 	return &p, nil
 }
 
 func (s *ParentStore) GetByID(id int64) (*Parent, error) {
 	var p Parent
-	var createdAt string
-	err := s.db.Read.QueryRow(
+	err := s.db.QueryRow(
 		`SELECT id, google_id, email, display_name, family_id, created_at
-		 FROM parents WHERE id = ?`, id,
-	).Scan(&p.ID, &p.GoogleID, &p.Email, &p.DisplayName, &p.FamilyID, &createdAt)
+		 FROM parents WHERE id = $1`, id,
+	).Scan(&p.ID, &p.GoogleID, &p.Email, &p.DisplayName, &p.FamilyID, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get parent by id: %w", err)
 	}
-	p.CreatedAt, _ = parseTime(createdAt)
 	return &p, nil
 }
 
 func (s *ParentStore) SetFamilyID(parentID, familyID int64) error {
-	_, err := s.db.Write.Exec(
-		`UPDATE parents SET family_id = ? WHERE id = ?`,
+	_, err := s.db.Exec(
+		`UPDATE parents SET family_id = $1 WHERE id = $2`,
 		familyID, parentID,
 	)
 	if err != nil {

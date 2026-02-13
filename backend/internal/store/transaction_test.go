@@ -1,13 +1,14 @@
 package store
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func createTestParent(t *testing.T, db *DB, familyID int64) *Parent {
+func createTestParent(t *testing.T, db *sql.DB, familyID int64) *Parent {
 	t.Helper()
 	ps := NewParentStore(db)
 	p, err := ps.Create("google-test-123", "test@example.com", "Test Parent")
@@ -19,7 +20,7 @@ func createTestParent(t *testing.T, db *DB, familyID int64) *Parent {
 	return p
 }
 
-func createTestChild(t *testing.T, db *DB, familyID int64) *Child {
+func createTestChild(t *testing.T, db *sql.DB, familyID int64) *Child {
 	t.Helper()
 	cs := NewChildStore(db)
 	c, err := cs.Create(familyID, "TestChild", "password123", nil)

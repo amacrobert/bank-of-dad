@@ -17,11 +17,11 @@ type InterestDue struct {
 
 // InterestStore handles database operations for interest accrual.
 type InterestStore struct {
-	db *DB
+	db *sql.DB
 }
 
 // NewInterestStore creates a new InterestStore.
-func NewInterestStore(db *DB) *InterestStore {
+func NewInterestStore(db *sql.DB) *InterestStore {
 	return &InterestStore{db: db}
 }
 
@@ -32,8 +32,8 @@ func (s *InterestStore) SetInterestRate(childID int64, rateBps int) error {
 		return fmt.Errorf("interest rate must be between 0 and 10000 basis points")
 	}
 
-	_, err := s.db.Write.Exec(
-		`UPDATE children SET interest_rate_bps = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+	_, err := s.db.Exec(
+		`UPDATE children SET interest_rate_bps = $1, updated_at = NOW() WHERE id = $2`,
 		rateBps, childID,
 	)
 	if err != nil {
@@ -45,8 +45,8 @@ func (s *InterestStore) SetInterestRate(childID int64, rateBps int) error {
 // GetInterestRate returns the current interest rate in basis points for a child.
 func (s *InterestStore) GetInterestRate(childID int64) (int, error) {
 	var rateBps int
-	err := s.db.Read.QueryRow(
-		`SELECT interest_rate_bps FROM children WHERE id = ?`, childID,
+	err := s.db.QueryRow(
+		`SELECT interest_rate_bps FROM children WHERE id = $1`, childID,
 	).Scan(&rateBps)
 	if err == sql.ErrNoRows {
 		return 0, fmt.Errorf("child not found")
@@ -65,13 +65,13 @@ func (s *InterestStore) ListDueForInterest() ([]InterestDue, error) {
 	now := time.Now()
 	currentMonth := now.Format("2006-01")
 
-	rows, err := s.db.Read.Query(`
+	rows, err := s.db.Query(`
 		SELECT c.id, c.balance_cents, c.interest_rate_bps, p.id
 		FROM children c
 		JOIN parents p ON p.family_id = c.family_id
 		WHERE c.interest_rate_bps > 0
 		  AND c.balance_cents > 0
-		  AND (c.last_interest_at IS NULL OR strftime('%Y-%m', c.last_interest_at) != ?)
+		  AND (c.last_interest_at IS NULL OR to_char(c.last_interest_at, 'YYYY-MM') != $1)
 	`, currentMonth)
 	if err != nil {
 		return nil, fmt.Errorf("list due for interest: %w", err)
@@ -95,7 +95,7 @@ func (s *InterestStore) ListDueForInterest() ([]InterestDue, error) {
 func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, periodsPerYear int) error {
 	// Get current balance
 	var balanceCents int64
-	err := s.db.Read.QueryRow(`SELECT balance_cents FROM children WHERE id = ?`, childID).Scan(&balanceCents)
+	err := s.db.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&balanceCents)
 	if err != nil {
 		return fmt.Errorf("get balance: %w", err)
 	}
@@ -124,7 +124,7 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, peri
 	ratePercent := fmt.Sprintf("%.2f%%", float64(rateBps)/100.0)
 	note := ratePercent + " annual rate"
 
-	tx, err := s.db.Write.Begin()
+	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -133,7 +133,7 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, peri
 	// Insert interest transaction
 	_, err = tx.Exec(
 		`INSERT INTO transactions (child_id, parent_id, amount_cents, transaction_type, note)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5)`,
 		childID, parentID, interestCents, TransactionTypeInterest, note,
 	)
 	if err != nil {
@@ -142,8 +142,8 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, peri
 
 	// Update balance
 	_, err = tx.Exec(
-		`UPDATE children SET balance_cents = balance_cents + ?, last_interest_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		interestCents, time.Now().UTC().Format(time.RFC3339), childID,
+		`UPDATE children SET balance_cents = balance_cents + $1, last_interest_at = $2, updated_at = NOW() WHERE id = $3`,
+		interestCents, time.Now().UTC(), childID,
 	)
 	if err != nil {
 		return fmt.Errorf("update balance: %w", err)

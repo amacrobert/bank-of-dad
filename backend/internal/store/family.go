@@ -17,61 +17,57 @@ type Family struct {
 }
 
 type FamilyStore struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewFamilyStore(db *DB) *FamilyStore {
+func NewFamilyStore(db *sql.DB) *FamilyStore {
 	return &FamilyStore{db: db}
 }
 
 func (s *FamilyStore) Create(slug string) (*Family, error) {
-	res, err := s.db.Write.Exec(`INSERT INTO families (slug) VALUES (?)`, slug)
+	var id int64
+	err := s.db.QueryRow(`INSERT INTO families (slug) VALUES ($1) RETURNING id`, slug).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint") {
+		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, fmt.Errorf("slug already taken: %s", slug)
 		}
 		return nil, fmt.Errorf("insert family: %w", err)
 	}
-	id, _ := res.LastInsertId()
 	return s.GetByID(id)
 }
 
 func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 	var f Family
-	var createdAt string
-	err := s.db.Read.QueryRow(
-		`SELECT id, slug, created_at FROM families WHERE id = ?`, id,
-	).Scan(&f.ID, &f.Slug, &createdAt)
+	err := s.db.QueryRow(
+		`SELECT id, slug, created_at FROM families WHERE id = $1`, id,
+	).Scan(&f.ID, &f.Slug, &f.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get family by id: %w", err)
 	}
-	f.CreatedAt, _ = parseTime(createdAt)
 	return &f, nil
 }
 
 func (s *FamilyStore) GetBySlug(slug string) (*Family, error) {
 	var f Family
-	var createdAt string
-	err := s.db.Read.QueryRow(
-		`SELECT id, slug, created_at FROM families WHERE slug = ?`, slug,
-	).Scan(&f.ID, &f.Slug, &createdAt)
+	err := s.db.QueryRow(
+		`SELECT id, slug, created_at FROM families WHERE slug = $1`, slug,
+	).Scan(&f.ID, &f.Slug, &f.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get family by slug: %w", err)
 	}
-	f.CreatedAt, _ = parseTime(createdAt)
 	return &f, nil
 }
 
 func (s *FamilyStore) SlugExists(slug string) (bool, error) {
 	var count int
-	err := s.db.Read.QueryRow(
-		`SELECT COUNT(*) FROM families WHERE slug = ?`, slug,
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM families WHERE slug = $1`, slug,
 	).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("check slug exists: %w", err)

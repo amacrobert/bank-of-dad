@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bank-of-dad/internal/store"
+	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,10 +16,10 @@ import (
 // =====================================================
 
 func TestScheduler_ProcessDueSchedules_CreatesAllowanceTransaction(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -60,10 +61,10 @@ func TestScheduler_ProcessDueSchedules_CreatesAllowanceTransaction(t *testing.T)
 }
 
 func TestScheduler_ProcessDueSchedules_AdvancesNextRunAt(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -93,10 +94,10 @@ func TestScheduler_ProcessDueSchedules_AdvancesNextRunAt(t *testing.T) {
 }
 
 func TestScheduler_ProcessDueSchedules_SkipsPaused(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -129,11 +130,11 @@ func TestScheduler_ProcessDueSchedules_SkipsPaused(t *testing.T) {
 }
 
 func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child1 := createTestChild(t, db, family.ID, "Emma")
-	child2 := createTestChild(t, db, family.ID, "Liam")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
+	child2 := testutil.CreateTestChild(t, db, family.ID, "Liam")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -185,10 +186,10 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 }
 
 func TestScheduler_ProcessDueSchedules_HandlesMissed(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -223,10 +224,10 @@ func TestScheduler_ProcessDueSchedules_HandlesMissed(t *testing.T) {
 // =====================================================
 
 func TestScheduler_ProcessDueSchedules_BiweeklyAdvances14Days(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -262,10 +263,10 @@ func TestScheduler_ProcessDueSchedules_BiweeklyAdvances14Days(t *testing.T) {
 }
 
 func TestScheduler_ProcessDueSchedules_MonthlyAdvancesToNextMonth(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)
@@ -295,10 +296,10 @@ func TestScheduler_ProcessDueSchedules_MonthlyAdvancesToNextMonth(t *testing.T) 
 }
 
 func TestScheduler_ProcessDueSchedules_Monthly31stClampsToFeb28(t *testing.T) {
-	db := setupTestDB(t)
-	family := createTestFamily(t, db)
-	parent := createTestParent(t, db, family.ID)
-	child := createTestChild(t, db, family.ID, "Emma")
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	schedStore := store.NewScheduleStore(db)
 	txStore := store.NewTransactionStore(db)

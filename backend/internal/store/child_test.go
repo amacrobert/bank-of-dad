@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func createTestFamily(t *testing.T, db *DB) *Family {
+func createTestFamily(t *testing.T, db *sql.DB) *Family {
 	t.Helper()
 	fs := NewFamilyStore(db)
 	f, err := fs.Create("test-family")
@@ -285,7 +286,7 @@ func TestDeleteChild_CascadesTransactions(t *testing.T) {
 
 	// Transactions should be gone (cascade)
 	var count int
-	err = db.Read.QueryRow(`SELECT COUNT(*) FROM transactions WHERE child_id = ?`, child.ID).Scan(&count)
+	err = db.QueryRow(`SELECT COUNT(*) FROM transactions WHERE child_id = $1`, child.ID).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
@@ -335,7 +336,7 @@ func TestDeleteChild_CleansUpAuthEvents(t *testing.T) {
 
 	// Auth events for this child should be gone
 	var count int
-	err = db.Read.QueryRow(`SELECT COUNT(*) FROM auth_events WHERE user_type = 'child' AND user_id = ?`, child.ID).Scan(&count)
+	err = db.QueryRow(`SELECT COUNT(*) FROM auth_events WHERE user_type = 'child' AND user_id = $1`, child.ID).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 }
