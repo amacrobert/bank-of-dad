@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17
+    platform: linux/arm64
     environment:
       - POSTGRES_USER=bankofdad
       - POSTGRES_PASSWORD=bankofdad
