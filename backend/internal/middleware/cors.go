@@ -2,7 +2,7 @@ package middleware
 
 import "net/http"
 
-func CORS(allowedOrigin string, allowCredentials bool) func(http.Handler) http.Handler {
+func CORS(allowedOrigin string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := allowedOrigin
@@ -13,10 +13,6 @@ func CORS(allowedOrigin string, allowCredentials bool) func(http.Handler) http.H
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-			if allowCredentials {
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
 
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)

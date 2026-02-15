@@ -8,16 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/auth"
 	"bank-of-dad/internal/store"
 )
 
 type Handlers struct {
-	familyStore  *store.FamilyStore
-	parentStore  *store.ParentStore
-	childStore   *store.ChildStore
-	eventStore   *store.AuthEventStore
-	sessionStore *store.SessionStore
+	familyStore *store.FamilyStore
+	parentStore *store.ParentStore
+	childStore  *store.ChildStore
+	eventStore  *store.AuthEventStore
+	jwtKey      []byte
 }
 
 func NewHandlers(
@@ -25,19 +25,19 @@ func NewHandlers(
 	parentStore *store.ParentStore,
 	childStore *store.ChildStore,
 	eventStore *store.AuthEventStore,
-	sessionStore *store.SessionStore,
+	jwtKey []byte,
 ) *Handlers {
 	return &Handlers{
-		familyStore:  familyStore,
-		parentStore:  parentStore,
-		childStore:   childStore,
-		eventStore:   eventStore,
-		sessionStore: sessionStore,
+		familyStore: familyStore,
+		parentStore: parentStore,
+		childStore:  childStore,
+		eventStore:  eventStore,
+		jwtKey:      jwtKey,
 	}
 }
 
 func (h *Handlers) HandleCreateFamily(w http.ResponseWriter, r *http.Request) {
-	parentID := middleware.GetUserID(r)
+	parentID := auth.GetUserID(r)
 
 	var req struct {
 		Slug string `json:"slug"`
@@ -80,14 +80,17 @@ func (h *Handlers) HandleCreateFamily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the session's familyID so subsequent requests use the correct value
-	if cookie, err := r.Cookie("session"); err == nil {
-		h.sessionStore.UpdateFamilyID(cookie.Value, fam.ID) //nolint:errcheck // best-effort session update
+	// Generate new access token with updated family_id
+	accessToken, err := auth.GenerateAccessToken(h.jwtKey, "parent", parentID, fam.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
+		return
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"id":   fam.ID,
-		"slug": fam.Slug,
+		"id":           fam.ID,
+		"slug":         fam.Slug,
+		"access_token": accessToken,
 	})
 }
 
@@ -136,7 +139,7 @@ func (h *Handlers) HandleGetFamily(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
-	familyID := middleware.GetFamilyID(r)
+	familyID := auth.GetFamilyID(r)
 	if familyID == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No family associated with your account"})
 		return
@@ -204,7 +207,7 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
-	familyID := middleware.GetFamilyID(r)
+	familyID := auth.GetFamilyID(r)
 	if familyID == 0 {
 		writeJSON(w, http.StatusOK, map[string]interface{}{"children": []interface{}{}})
 		return
@@ -241,7 +244,7 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
-	familyID := middleware.GetFamilyID(r)
+	familyID := auth.GetFamilyID(r)
 	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid child ID"})
@@ -281,7 +284,7 @@ func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "password_reset",
 		UserType:  "parent",
-		UserID:    middleware.GetUserID(r),
+		UserID:    auth.GetUserID(r),
 		FamilyID:  familyID,
 		IPAddress: r.RemoteAddr,
 		Details:   fmt.Sprintf("reset password for child %d (%s)", childID, child.FirstName),
@@ -295,7 +298,7 @@ func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
-	familyID := middleware.GetFamilyID(r)
+	familyID := auth.GetFamilyID(r)
 	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid child ID"})
@@ -363,7 +366,7 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "name_updated",
 		UserType:  "parent",
-		UserID:    middleware.GetUserID(r),
+		UserID:    auth.GetUserID(r),
 		FamilyID:  familyID,
 		IPAddress: r.RemoteAddr,
 		Details:   fmt.Sprintf("updated child %d name from %q to %q", childID, child.FirstName, req.FirstName),
@@ -383,7 +386,7 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
-	familyID := middleware.GetFamilyID(r)
+	familyID := auth.GetFamilyID(r)
 	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid child ID"})
@@ -405,7 +408,7 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "account_deleted",
 		UserType:  "parent",
-		UserID:    middleware.GetUserID(r),
+		UserID:    auth.GetUserID(r),
 		FamilyID:  familyID,
 		IPAddress: r.RemoteAddr,
 		Details:   fmt.Sprintf("deleted child account %d (%s)", childID, child.FirstName),

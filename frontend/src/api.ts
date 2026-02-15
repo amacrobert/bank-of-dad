@@ -1,4 +1,5 @@
 import { ApiError } from "./types";
+import { getAccessToken, clearTokens, refreshTokens } from "./auth";
 
 export class ApiRequestError extends Error {
   status: number;
@@ -15,11 +16,16 @@ async function request<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const token = getAccessToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`/api${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     ...init,
   });
 
@@ -30,6 +36,35 @@ async function request<T>(
     } catch {
       body = { error: "Unknown error" };
     }
+
+    if (res.status === 401) {
+      // Attempt to refresh tokens before giving up
+      const refreshed = await refreshTokens();
+      if (refreshed) {
+        // Retry the original request with new token
+        const retryHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        const newToken = getAccessToken();
+        if (newToken) {
+          retryHeaders["Authorization"] = `Bearer ${newToken}`;
+        }
+        const retryRes = await fetch(`/api${path}`, {
+          ...init,
+          headers: retryHeaders,
+        });
+        if (retryRes.ok) {
+          if (retryRes.status === 204) {
+            return undefined as T;
+          }
+          return retryRes.json();
+        }
+      }
+      clearTokens();
+      window.location.href = "/";
+      throw new ApiRequestError(res.status, body);
+    }
+
     throw new ApiRequestError(res.status, body);
   }
 
