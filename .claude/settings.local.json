@@ -47,7 +47,9 @@
       "Bash(done)",
       "Bash(go vet:*)",
       "Bash(docker ps:*)",
-      "Bash(TEST_DATABASE_URL=\"postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable\" go test:*)"
+      "Bash(TEST_DATABASE_URL=\"postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable\" go test:*)",
+      "Bash(go run:*)",
+      "Bash(export PATH=\"/Users/andrewmacrobert/.nvm/versions/node/v21.7.2/bin:$PATH\")"
     ]
   }
 }

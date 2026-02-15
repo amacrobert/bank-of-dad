@@ -29,12 +29,15 @@ func main() {
 	}
 	defer db.Close() //nolint:errcheck // deferred close on application shutdown
 
-	sessionStore := store.NewSessionStore(db)
+	refreshTokenStore := store.NewRefreshTokenStore(db)
 
-	// Start session cleanup goroutine (every hour)
+	// Start refresh token cleanup goroutine (every hour)
 	stopCleanup := make(chan struct{})
 	defer close(stopCleanup)
-	sessionStore.StartCleanupLoop(1*time.Hour, stopCleanup)
+	refreshTokenStore.StartCleanupLoop(1*time.Hour, stopCleanup)
+
+	jwtKey := cfg.JWTSecret
+
 	parentStore := store.NewParentStore(db)
 	familyStore := store.NewFamilyStore(db)
 	childStore := store.NewChildStore(db)
@@ -46,15 +49,15 @@ func main() {
 		cfg.GoogleClientSecret,
 		cfg.GoogleRedirectURL,
 		parentStore,
-		sessionStore,
+		refreshTokenStore,
 		eventStore,
 		cfg.FrontendURL,
-		cfg.CookieSecure,
+		jwtKey,
 	)
 
-	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore, sessionStore)
-	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
-	childAuth := auth.NewChildAuth(familyStore, childStore, sessionStore, eventStore, cfg.CookieSecure)
+	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore, jwtKey)
+	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, refreshTokenStore, eventStore, jwtKey)
+	childAuth := auth.NewChildAuth(familyStore, childStore, refreshTokenStore, eventStore, jwtKey)
 	txStore := store.NewTransactionStore(db)
 	interestStore := store.NewInterestStore(db)
 	interestScheduleStore := store.NewInterestScheduleStore(db)
@@ -77,8 +80,8 @@ func main() {
 	interestScheduler.Start(1*time.Hour, stopInterest)
 
 	// Auth middleware
-	requireAuth := middleware.RequireAuth(sessionStore)
-	requireParent := middleware.RequireParent(sessionStore)
+	requireAuth := middleware.RequireAuth(jwtKey)
+	requireParent := middleware.RequireParent(jwtKey)
 
 	mux := http.NewServeMux()
 
@@ -105,6 +108,10 @@ func main() {
 	mux.Handle("PUT /api/children/{id}/password", requireParent(http.HandlerFunc(familyHandlers.HandleResetPassword)))
 	mux.Handle("PUT /api/children/{id}/name", requireParent(http.HandlerFunc(familyHandlers.HandleUpdateName)))
 	mux.Handle("DELETE /api/children/{id}", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteChild)))
+
+	// Token refresh (public — access token may be expired)
+	refreshRateLimit := middleware.RateLimit(10, 1*time.Minute)
+	mux.Handle("POST /api/auth/refresh", refreshRateLimit(http.HandlerFunc(authHandlers.HandleRefresh)))
 
 	// US4: Child login and family lookup (public)
 	childLoginRateLimit := middleware.RateLimit(10, 1*time.Minute)
@@ -141,7 +148,7 @@ func main() {
 	mux.Handle("POST /api/children/{childId}/allowance/resume", requireParent(http.HandlerFunc(allowanceHandler.HandleResumeChildAllowance)))
 
 	// Apply middleware chain: CORS → Logging → Routes
-	corsMiddleware := middleware.CORS(cfg.FrontendURL, true)
+	corsMiddleware := middleware.CORS(cfg.FrontendURL)
 	handler := corsMiddleware(middleware.RequestLogging(mux))
 
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { get } from "../api";
-import { AuthUser } from "../types";
+import { setTokens } from "../auth";
 import { Leaf, AlertCircle } from "lucide-react";
 import Button from "../components/ui/Button";
 
@@ -10,17 +9,22 @@ export default function GoogleCallback() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    get<AuthUser>("/auth/me")
-      .then((user) => {
-        if (user.user_type === "parent" && user.family_id === 0) {
-          navigate("/setup", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
-        }
-      })
-      .catch(() => {
-        setError("Authentication failed. Please try again.");
-      });
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const redirect = params.get("redirect") || "/dashboard";
+
+    if (!accessToken || !refreshToken) {
+      setError("Authentication failed. Please try again.");
+      return;
+    }
+
+    setTokens(accessToken, refreshToken);
+
+    // Clear tokens from URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    navigate(redirect, { replace: true });
   }, [navigate]);
 
   if (error) {

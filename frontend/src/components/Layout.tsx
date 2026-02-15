@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { post } from "../api";
+import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
 import { Leaf, LayoutDashboard, Home, LogOut } from "lucide-react";
 
@@ -18,10 +19,11 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
 
   const handleLogout = async () => {
     try {
-      await post("/auth/logout");
+      await post("/auth/logout", { refresh_token: getRefreshToken() });
     } catch {
-      // Even if logout fails server-side, redirect
+      // Even if logout fails server-side, clear tokens and redirect
     }
+    clearTokens();
     if (user.user_type === "child" && user.family_slug) {
       navigate(`/${user.family_slug}`);
     } else {

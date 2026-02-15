@@ -10,26 +10,26 @@ import (
 )
 
 type ChildAuth struct {
-	familyStore  *store.FamilyStore
-	childStore   *store.ChildStore
-	sessionStore *store.SessionStore
-	eventStore   *store.AuthEventStore
-	cookieSecure bool
+	familyStore       *store.FamilyStore
+	childStore        *store.ChildStore
+	refreshTokenStore *store.RefreshTokenStore
+	eventStore        *store.AuthEventStore
+	jwtKey            []byte
 }
 
 func NewChildAuth(
 	familyStore *store.FamilyStore,
 	childStore *store.ChildStore,
-	sessionStore *store.SessionStore,
+	refreshTokenStore *store.RefreshTokenStore,
 	eventStore *store.AuthEventStore,
-	cookieSecure bool,
+	jwtKey []byte,
 ) *ChildAuth {
 	return &ChildAuth{
-		familyStore:  familyStore,
-		childStore:   childStore,
-		sessionStore: sessionStore,
-		eventStore:   eventStore,
-		cookieSecure: cookieSecure,
+		familyStore:       familyStore,
+		childStore:        childStore,
+		refreshTokenStore: refreshTokenStore,
+		eventStore:        eventStore,
+		jwtKey:            jwtKey,
 	}
 }
 
@@ -128,22 +128,18 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	// Password correct — reset failed attempts
 	ca.childStore.ResetFailedAttempts(child.ID) //nolint:errcheck // best-effort cleanup
 
-	// Create session (24-hour TTL for children)
-	sessionToken, err := ca.sessionStore.Create("child", child.ID, fam.ID, 24*time.Hour)
+	// Generate JWT access token + refresh token (24-hour TTL for children)
+	accessToken, err := GenerateAccessToken(ca.jwtKey, "child", child.ID, fam.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create token"})
+		return
+	}
+
+	refreshToken, err := ca.refreshTokenStore.Create("child", child.ID, fam.ID, 24*time.Hour)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create session"})
 		return
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    sessionToken,
-		Path:     "/",
-		MaxAge:   86400, // 24 hours
-		HttpOnly: true,
-		Secure:   ca.cookieSecure,
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
@@ -155,8 +151,14 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"user_type":   "child",
-		"first_name":  child.FirstName,
-		"family_slug": req.FamilySlug,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user": map[string]interface{}{
+			"user_type":   "child",
+			"user_id":     child.ID,
+			"family_id":   fam.ID,
+			"first_name":  child.FirstName,
+			"family_slug": req.FamilySlug,
+		},
 	})
 }

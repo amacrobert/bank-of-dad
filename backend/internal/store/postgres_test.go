@@ -43,7 +43,7 @@ func TestOpen_MigrationsApplied(t *testing.T) {
 
 	// Verify core tables exist by querying them
 	tables := []string{
-		"families", "parents", "children", "sessions",
+		"families", "parents", "children", "refresh_tokens",
 		"auth_events", "transactions", "allowance_schedules",
 		"interest_schedules",
 	}

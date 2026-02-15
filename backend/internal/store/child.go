@@ -205,8 +205,8 @@ func (s *ChildStore) Delete(id int64) error {
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
-	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_type = 'child' AND user_id = $1`, id); err != nil {
-		return fmt.Errorf("delete child sessions: %w", err)
+	if _, err := tx.Exec(`DELETE FROM refresh_tokens WHERE user_type = 'child' AND user_id = $1`, id); err != nil {
+		return fmt.Errorf("delete child refresh tokens: %w", err)
 	}
 
 	if _, err := tx.Exec(`DELETE FROM auth_events WHERE user_type = 'child' AND user_id = $1`, id); err != nil {
