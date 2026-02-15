@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { get, post, ApiRequestError } from "../api";
+import { setTokens } from "../auth";
 import { FamilyCheck } from "../types";
 import { Users, AlertCircle } from "lucide-react";
 import Card from "../components/ui/Card";
@@ -34,11 +35,12 @@ export default function FamilyLogin() {
     setError(null);
 
     try {
-      await post("/auth/child/login", {
+      const resp = await post<{ access_token: string; refresh_token: string }>("/auth/child/login", {
         family_slug: familySlug,
         first_name: firstName,
         password,
       });
+      setTokens(resp.access_token, resp.refresh_token);
       navigate("/child/dashboard", { replace: true });
     } catch (err) {
       if (err instanceof ApiRequestError) {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { post } from "../api";
 import { ApiRequestError } from "../api";
-import { Family } from "../types";
+import { setTokens, getRefreshToken } from "../auth";
 import SlugPicker from "../components/SlugPicker";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -22,7 +22,13 @@ export default function SetupPage() {
     setError(null);
 
     try {
-      await post<Family>("/families", { slug: selectedSlug });
+      const resp = await post<{ id: number; slug: string; access_token: string }>("/families", { slug: selectedSlug });
+      if (resp.access_token) {
+        const refreshToken = getRefreshToken();
+        if (refreshToken) {
+          setTokens(resp.access_token, refreshToken);
+        }
+      }
       setCreated(true);
     } catch (err) {
       if (err instanceof ApiRequestError) {
