@@ -291,25 +291,25 @@ func TestDeleteChild_CascadesTransactions(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-func TestDeleteChild_CleansUpSessions(t *testing.T) {
+func TestDeleteChild_CleansUpRefreshTokens(t *testing.T) {
 	db := testDB(t)
 	cs := NewChildStore(db)
-	ss := NewSessionStore(db)
+	rts := NewRefreshTokenStore(db)
 	fam := createTestFamily(t, db)
 
 	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
 	require.NoError(t, err)
 
-	token, err := ss.Create("child", child.ID, fam.ID, time.Hour)
+	token, err := rts.Create("child", child.ID, fam.ID, time.Hour)
 	require.NoError(t, err)
 
 	err = cs.Delete(child.ID)
 	require.NoError(t, err)
 
-	// Session should be gone
-	sess, err := ss.GetByToken(token)
+	// Refresh token should be gone
+	rt, err := rts.Validate(token)
 	require.NoError(t, err)
-	assert.Nil(t, sess)
+	assert.Nil(t, rt)
 }
 
 func TestDeleteChild_CleansUpAuthEvents(t *testing.T) {

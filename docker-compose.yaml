@@ -28,8 +28,7 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-http://localhost:8001/api/auth/google/callback}
       - DATABASE_URL=postgres://bankofdad:bankofdad@postgres:5432/bankofdad?sslmode=disable
-      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-localhost}
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - JWT_SECRET=${JWT_SECRET}
       - SERVER_PORT=8001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8000}
     depends_on:

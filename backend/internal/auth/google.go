@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"bank-of-dad/internal/store"
@@ -16,21 +18,21 @@ import (
 )
 
 type GoogleAuth struct {
-	config       *oauth2.Config
-	parentStore  *store.ParentStore
-	sessionStore *store.SessionStore
-	eventStore   *store.AuthEventStore
-	frontendURL  string
-	cookieSecure bool
+	config            *oauth2.Config
+	parentStore       *store.ParentStore
+	refreshTokenStore *store.RefreshTokenStore
+	eventStore        *store.AuthEventStore
+	frontendURL       string
+	jwtKey            []byte
 }
 
 func NewGoogleAuth(
 	clientID, clientSecret, redirectURL string,
 	parentStore *store.ParentStore,
-	sessionStore *store.SessionStore,
+	refreshTokenStore *store.RefreshTokenStore,
 	eventStore *store.AuthEventStore,
 	frontendURL string,
-	cookieSecure bool,
+	jwtKey []byte,
 ) *GoogleAuth {
 	return &GoogleAuth{
 		config: &oauth2.Config{
@@ -40,11 +42,11 @@ func NewGoogleAuth(
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint:     google.Endpoint,
 		},
-		parentStore:  parentStore,
-		sessionStore: sessionStore,
-		eventStore:   eventStore,
-		frontendURL:  frontendURL,
-		cookieSecure: cookieSecure,
+		parentStore:       parentStore,
+		refreshTokenStore: refreshTokenStore,
+		eventStore:        eventStore,
+		frontendURL:       frontendURL,
+		jwtKey:            jwtKey,
 	}
 }
 
@@ -68,7 +70,7 @@ func (g *GoogleAuth) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   600,
 		HttpOnly: true,
-		Secure:   g.cookieSecure,
+		Secure:   strings.HasPrefix(g.config.RedirectURL, "https://"),
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -149,22 +151,18 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Create session (7-day TTL for parents)
-	sessionToken, err := g.sessionStore.Create("parent", parent.ID, parent.FamilyID, 7*24*time.Hour)
+	// Generate JWT access token + refresh token
+	accessToken, err := GenerateAccessToken(g.jwtKey, "parent", parent.ID, parent.FamilyID)
+	if err != nil {
+		http.Error(w, `{"error":"Failed to create token"}`, http.StatusInternalServerError)
+		return
+	}
+
+	refreshToken, err := g.refreshTokenStore.Create("parent", parent.ID, parent.FamilyID, 7*24*time.Hour)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to create session"}`, http.StatusInternalServerError)
 		return
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    sessionToken,
-		Path:     "/",
-		MaxAge:   604800, // 7 days
-		HttpOnly: true,
-		Secure:   g.cookieSecure,
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	g.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
@@ -175,12 +173,19 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now().UTC(),
 	})
 
-	// Redirect: new users to setup, existing users to dashboard
+	// Redirect to frontend callback with tokens in URL params
+	redirect := "/dashboard"
 	if isNewUser || parent.FamilyID == 0 {
-		http.Redirect(w, r, g.frontendURL+"/setup", http.StatusFound)
-	} else {
-		http.Redirect(w, r, g.frontendURL+"/dashboard", http.StatusFound)
+		redirect = "/setup"
 	}
+
+	callbackURL := fmt.Sprintf("%s/auth/callback?access_token=%s&refresh_token=%s&redirect=%s",
+		g.frontendURL,
+		url.QueryEscape(accessToken),
+		url.QueryEscape(refreshToken),
+		url.QueryEscape(redirect),
+	)
+	http.Redirect(w, r, callbackURL, http.StatusFound)
 }
 
 func clientIP(r *http.Request) string {
