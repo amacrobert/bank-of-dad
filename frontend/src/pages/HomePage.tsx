@@ -28,7 +28,7 @@ export default function HomePage() {
         {/* Google Sign In */}
         <div className="text-center mb-12 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
           <a
-            href="/api/auth/google/login"
+            href={`${import.meta.env.VITE_API_URL || ''}/api/auth/google/login`}
             className="
               inline-flex items-center gap-3
               min-h-[48px] px-8 py-3
