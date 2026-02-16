@@ -1,11 +1,6 @@
 # Bank of Dad
 
-Teach your kids the power of compounding interest with Bank of Dad!
-
-## Prerequisites
-
-- Docker
-- Docker Compose
+A family banking app that teaches kids about money. Parents manage allowances, deposits, withdrawals, and interest rates. Kids log in to check their balance and transaction history. Allowances are scheduled automatically, and compound interest accrues on a configurable schedule.
 
 ## Project Structure
 
@@ -53,15 +48,3 @@ docker compose -f docker-compose.yaml up --build
 docker compose down
 ```
 
-## API Endpoints
-
-### GET /message
-
-Returns a JSON message.
-
-**Response:**
-```json
-{
-  "message": "Hello from Bank of Dad!"
-}
-```
