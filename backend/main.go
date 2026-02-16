@@ -117,6 +117,8 @@ func main() {
 	childLoginRateLimit := middleware.RateLimit(10, 1*time.Minute)
 	mux.Handle("POST /api/auth/child/login", childLoginRateLimit(http.HandlerFunc(childAuth.HandleChildLogin)))
 	mux.HandleFunc("GET /api/families/{slug}", familyHandlers.HandleGetFamily)
+	familyChildrenRateLimit := middleware.RateLimit(30, 1*time.Minute)
+	mux.Handle("GET /api/families/{slug}/children", familyChildrenRateLimit(http.HandlerFunc(familyHandlers.HandleListFamilyChildren)))
 
 	// Account Balances (002-account-balances)
 	mux.Handle("POST /api/children/{id}/deposit", requireParent(http.HandlerFunc(balanceHandler.HandleDeposit)))

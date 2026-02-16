@@ -50,6 +50,15 @@ export interface ApiError {
   suggestions?: string[];
 }
 
+export interface FamilyChild {
+  first_name: string;
+  avatar: string | null;
+}
+
+export interface FamilyChildrenResponse {
+  children: FamilyChild[];
+}
+
 export interface ChildCreateResponse {
   id: number;
   first_name: string;

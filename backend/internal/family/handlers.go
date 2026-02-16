@@ -138,6 +138,45 @@ func (h *Handlers) HandleGetFamily(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) HandleListFamilyChildren(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	if slug == "" {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"children": []interface{}{}})
+		return
+	}
+
+	fam, err := h.familyStore.GetBySlug(slug)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+	if fam == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"children": []interface{}{}})
+		return
+	}
+
+	children, err := h.childStore.ListByFamily(fam.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	type publicChild struct {
+		FirstName string  `json:"first_name"`
+		Avatar    *string `json:"avatar"`
+	}
+
+	result := make([]publicChild, len(children))
+	for i, c := range children {
+		result[i] = publicChild{
+			FirstName: c.FirstName,
+			Avatar:    c.Avatar,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"children": result})
+}
+
 func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 	familyID := auth.GetFamilyID(r)
 	if familyID == 0 {
