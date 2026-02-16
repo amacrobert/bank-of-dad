@@ -11,7 +11,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: dev.Dockerfile
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

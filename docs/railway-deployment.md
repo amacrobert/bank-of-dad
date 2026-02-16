@@ -139,8 +139,6 @@ In the service **Settings** tab:
 
 > Railpack auto-detects the Vite project (via `vite.config.ts`), runs `npm install` + `npm run build`, and serves the `dist/` output with Caddy — a lightweight static file server with built-in SPA routing (`try_files`). No build command or start command configuration is needed.
 
-**Alternative:** If you prefer the Nginx Docker approach, set the builder to **Dockerfile** instead. Railway will use `frontend/Dockerfile` + `frontend/nginx.conf`. Make sure `nginx.conf` does not include an `/api/` proxy block (API calls go directly to the backend).
-
 ### 4b. Set environment variables
 
 | Variable | Value | Notes |
