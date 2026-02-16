@@ -149,13 +149,13 @@ export default function FamilyLogin() {
             </h1>
 
             {children.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="flex flex-wrap justify-center gap-3 mb-4">
                 {children.map((child) => (
                   <button
                     key={child.first_name}
                     type="button"
                     onClick={() => setSelectedChild(child)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-sand bg-white hover:border-forest hover:bg-sage-light/20 transition-all duration-200 cursor-pointer"
+                    className="w-[calc(50%-6px)] aspect-square flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-sand bg-white hover:border-forest hover:bg-sage-light/20 transition-all duration-200 cursor-pointer"
                   >
                     <div className="w-14 h-14 bg-sage-light/40 rounded-full flex items-center justify-center">
                       <span className="text-2xl">
