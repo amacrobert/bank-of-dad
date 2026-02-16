@@ -19,9 +19,9 @@ This guide walks through deploying the app to Railway with three services:
        │
        ▼
  ┌───────────┐         ┌────────────┐
- │  Backend   │────────►│ PostgreSQL │
- │  (Docker)  │         │ (Railway)  │
- │  :8001     │         │ :5432      │
+ │  Backend  │────────►│ PostgreSQL │
+ │  (Docker) │         │ (Railway)  │
+ │  :8001    │         │ :5432      │
  └───────────┘         └────────────┘
 ```
 
