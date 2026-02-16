@@ -31,3 +31,7 @@ frontend/build/
 
 # Logs
 *.log
+
+# Claude
+.claude/settings.local.json
+

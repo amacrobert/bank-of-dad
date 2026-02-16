@@ -135,19 +135,18 @@ In the service **Settings** tab:
 | Setting | Value |
 |---------|-------|
 | **Root Directory** | `frontend` |
-| **Builder** | Nixpacks |
-| **Build Command** | `npm run build` |
-| **Start Command** | `npx serve dist -s -l 8000` |
+| **Builder** | Railpack |
 
-> Railway's Nixpacks builder detects the Node project, installs dependencies, runs the build, and serves the static output. The `-s` flag enables SPA fallback (rewrites all routes to `index.html`). Install `serve` as a dependency if not already present: add it to `package.json` devDependencies or use `npx`.
+> Railpack auto-detects the Vite project (via `vite.config.ts`), runs `npm install` + `npm run build`, and serves the `dist/` output with Caddy — a lightweight static file server with built-in SPA routing (`try_files`). No build command or start command configuration is needed.
 
-**Alternative:** If you prefer not to use `serve`, you can keep the Nginx Docker approach. Set the builder to **Dockerfile** and update `nginx.conf` to remove the `/api/` proxy block (since API calls go directly to the backend).
+**Alternative:** If you prefer the Nginx Docker approach, set the builder to **Dockerfile** instead. Railway will use `frontend/Dockerfile` + `frontend/nginx.conf`. Make sure `nginx.conf` does not include an `/api/` proxy block (API calls go directly to the backend).
 
 ### 4b. Set environment variables
 
 | Variable | Value | Notes |
 |----------|-------|-------|
 | `VITE_API_URL` | `https://your-backend-domain.up.railway.app` | The backend's public Railway domain (no trailing slash). Must be prefixed with `VITE_` for Vite to embed it at build time. |
+| `RAILPACK_SPA_OUTPUT_DIR` | `dist` | Explicitly tells Railpack to serve `dist/` as a static SPA via Caddy. Recommended to set so Railpack doesn't attempt to detect a start command. |
 
 ### 4c. Generate a public domain
 
@@ -239,6 +238,7 @@ After deployment:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `VITE_API_URL` | Yes (prod) | `''` (empty, uses relative paths) | Backend's full public URL. Must start with `VITE_` for Vite to embed at build time. |
+| `RAILPACK_SPA_OUTPUT_DIR` | Recommended | — | Set to `dist` so Railpack serves the Vite output as a static SPA via Caddy. |
 
 ---
 
