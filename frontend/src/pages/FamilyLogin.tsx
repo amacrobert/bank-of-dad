@@ -4,7 +4,6 @@ import { get, post, ApiRequestError } from "../api";
 import { setTokens } from "../auth";
 import { FamilyCheck, FamilyChild, FamilyChildrenResponse } from "../types";
 import { AlertCircle, ArrowLeft } from "lucide-react";
-import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -93,7 +92,7 @@ export default function FamilyLogin() {
       <div className="w-full max-w-sm animate-fade-in-up">
         {selectedChild ? (
           /* State 2: Password entry */
-          <Card padding="lg">
+          <>
             <button
               type="button"
               onClick={handleBack}
@@ -141,10 +140,10 @@ export default function FamilyLogin() {
                 {submitting ? "Logging in..." : "Log In"}
               </Button>
             </form>
-          </Card>
+          </>
         ) : (
           /* State 1: Child picker grid */
-          <Card padding="lg">
+          <>
             <h1 className="text-2xl font-bold text-forest text-center mb-6">
               Who's logging in?
             </h1>
@@ -174,7 +173,7 @@ export default function FamilyLogin() {
                 No accounts have been set up yet.
               </p>
             )}
-          </Card>
+          </>
         )}
 
         <p className="text-center mt-4 text-sm text-bark-light">
