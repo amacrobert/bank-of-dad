@@ -1,6 +1,8 @@
 import { ApiError } from "./types";
 import { getAccessToken, clearTokens, refreshTokens } from "./auth";
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 export class ApiRequestError extends Error {
   status: number;
   body: ApiError;
@@ -24,7 +26,7 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     headers,
     ...init,
   });
@@ -49,7 +51,7 @@ async function request<T>(
         if (newToken) {
           retryHeaders["Authorization"] = `Bearer ${newToken}`;
         }
-        const retryRes = await fetch(`/api${path}`, {
+        const retryRes = await fetch(`${API_BASE}/api${path}`, {
           ...init,
           headers: retryHeaders,
         });
