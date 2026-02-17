@@ -17,15 +17,30 @@ type Handler struct {
 	interestStore         *store.InterestStore
 	interestScheduleStore *store.InterestScheduleStore
 	childStore            *store.ChildStore
+	familyStore           *store.FamilyStore
 }
 
 // NewHandler creates a new interest handler.
-func NewHandler(interestStore *store.InterestStore, childStore *store.ChildStore, interestScheduleStore *store.InterestScheduleStore) *Handler {
+func NewHandler(interestStore *store.InterestStore, childStore *store.ChildStore, interestScheduleStore *store.InterestScheduleStore, familyStore *store.FamilyStore) *Handler {
 	return &Handler{
 		interestStore:         interestStore,
 		interestScheduleStore: interestScheduleStore,
 		childStore:            childStore,
+		familyStore:           familyStore,
 	}
+}
+
+// getFamilyTimezone loads the *time.Location for a family, falling back to UTC.
+func (h *Handler) getFamilyTimezone(familyID int64) *time.Location {
+	tz, err := h.familyStore.GetTimezone(familyID)
+	if err != nil || tz == "" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
 }
 
 // ErrorResponse represents an error response.
@@ -123,6 +138,7 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Rate > 0: create or update schedule
 		parentID := middleware.GetUserID(r)
+		loc := h.getFamilyTimezone(familyID)
 		existing, err := h.interestScheduleStore.GetByChildID(childID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to check existing schedule."})
@@ -133,7 +149,7 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 			existing.Frequency = req.Frequency
 			existing.DayOfWeek = req.DayOfWeek
 			existing.DayOfMonth = req.DayOfMonth
-			nextRun := calculateInterestNextRun(existing, time.Now().UTC())
+			nextRun := calculateInterestNextRun(existing, time.Now().UTC(), loc)
 			existing.NextRunAt = &nextRun
 
 			schedule, err = h.interestScheduleStore.Update(existing)
@@ -150,7 +166,7 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 				DayOfMonth: req.DayOfMonth,
 				Status:     store.ScheduleStatusActive,
 			}
-			nextRun := calculateInterestNextRun(sched, time.Now().UTC())
+			nextRun := calculateInterestNextRun(sched, time.Now().UTC(), loc)
 			sched.NextRunAt = &nextRun
 
 			schedule, err = h.interestScheduleStore.Create(sched)
@@ -209,14 +225,14 @@ func (h *Handler) HandleGetInterestSchedule(w http.ResponseWriter, r *http.Reque
 }
 
 // calculateInterestNextRun reuses the allowance schedule calculation logic for interest schedules.
-func calculateInterestNextRun(sched *store.InterestSchedule, now time.Time) time.Time {
+func calculateInterestNextRun(sched *store.InterestSchedule, now time.Time, loc *time.Location) time.Time {
 	// Create a temporary AllowanceSchedule to reuse CalculateNextRun
 	tmpSched := &store.AllowanceSchedule{
 		Frequency:  sched.Frequency,
 		DayOfWeek:  sched.DayOfWeek,
 		DayOfMonth: sched.DayOfMonth,
 	}
-	return allowance.CalculateNextRun(tmpSched, now)
+	return allowance.CalculateNextRun(tmpSched, now, loc)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

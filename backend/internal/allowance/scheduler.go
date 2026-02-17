@@ -23,11 +23,34 @@ func NewScheduler(scheduleStore *store.ScheduleStore, txStore *store.Transaction
 	}
 }
 
+// RecalculateAllNextRuns recalculates next_run_at for all active schedules
+// using timezone-aware logic. Called on startup to correct existing UTC-midnight values.
+func (s *Scheduler) RecalculateAllNextRuns() {
+	schedules, err := s.scheduleStore.ListAllActiveWithTimezone()
+	if err != nil {
+		log.Printf("Error listing active schedules for recalculation: %v", err)
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, ds := range schedules {
+		loc := loadTimezone(ds.FamilyTimezone)
+		nextRun := CalculateNextRun(&ds.AllowanceSchedule, now, loc)
+		if err := s.scheduleStore.UpdateNextRunAt(ds.ID, nextRun); err != nil {
+			log.Printf("Error recalculating next_run_at for schedule %d: %v", ds.ID, err)
+		}
+	}
+	log.Printf("Recalculated next_run_at for %d active allowance schedules", len(schedules))
+}
+
 // Start begins the background schedule processing goroutine.
 func (s *Scheduler) Start(interval time.Duration, stop <-chan struct{}) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
+		// Recalculate all next_run_at values with timezone-aware logic on startup
+		s.RecalculateAllNextRuns()
 
 		// Process immediately on start (catch any missed while down)
 		s.ProcessDueSchedules()
@@ -58,8 +81,18 @@ func (s *Scheduler) ProcessDueSchedules() {
 	}
 }
 
+// loadTimezone parses a timezone string into a *time.Location, falling back to UTC.
+func loadTimezone(tz string) *time.Location {
+	if tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			return loc
+		}
+	}
+	return time.UTC
+}
+
 // executeSchedule creates a deposit transaction and advances the schedule's next_run_at.
-func (s *Scheduler) executeSchedule(sched store.AllowanceSchedule) error {
+func (s *Scheduler) executeSchedule(sched store.DueAllowanceSchedule) error {
 	// Build note from schedule
 	var note string
 	if sched.Note != nil {
@@ -78,12 +111,13 @@ func (s *Scheduler) executeSchedule(sched store.AllowanceSchedule) error {
 		return err
 	}
 
-	// Calculate and set next run time
+	// Calculate and set next run time using family timezone
+	loc := loadTimezone(sched.FamilyTimezone)
 	executedAt := time.Now().UTC()
 	if sched.NextRunAt != nil {
 		executedAt = *sched.NextRunAt
 	}
-	nextRun := CalculateNextRunAfterExecution(&sched, executedAt)
+	nextRun := CalculateNextRunAfterExecution(&sched.AllowanceSchedule, executedAt, loc)
 
 	if err := s.scheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		return err

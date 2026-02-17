@@ -26,7 +26,7 @@ func TestHandleCreateSchedule_Success_Weekly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5,"note":"Weekly allowance"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -54,7 +54,7 @@ func TestHandleCreateSchedule_InvalidFrequency(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"daily","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -72,7 +72,7 @@ func TestHandleCreateSchedule_MissingDayOfWeek(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -93,7 +93,7 @@ func TestHandleCreateSchedule_ChildNotInFamily(t *testing.T) {
 	family2, _ := fs.Create("other-family")
 	child := testutil.CreateTestChild(t, db, family2.ID, "Other")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -111,7 +111,7 @@ func TestHandleCreateSchedule_ChildRoleForbidden(t *testing.T) {
 	testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -129,7 +129,7 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	// Zero amount
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":0,"frequency":"weekly","day_of_week":5}`, child.ID)
@@ -154,7 +154,7 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 
 func createScheduleViaHandler(t *testing.T, db *sql.DB, parentID, familyID, childID int64, frequency string, dayOfWeek *int, dayOfMonth *int) store.AllowanceSchedule {
 	t.Helper()
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	var body string
 	if dayOfWeek != nil {
@@ -180,7 +180,7 @@ func TestHandleListSchedules_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -204,7 +204,7 @@ func TestHandleListSchedules_EmptyList(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	parent := testutil.CreateTestParent(t, db, family.ID)
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	req := httptest.NewRequest("GET", "/api/schedules", nil)
 	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
@@ -224,7 +224,7 @@ func TestHandleGetSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -250,7 +250,7 @@ func TestHandleGetSchedule_WrongFamily(t *testing.T) {
 	fs := store.NewFamilyStore(db)
 	family2, _ := fs.Create("other-family")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent1.ID, family1.ID, child1.ID, "weekly", &dow, nil)
 
@@ -270,7 +270,7 @@ func TestHandleUpdateSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -295,7 +295,7 @@ func TestHandleDeleteSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -322,7 +322,7 @@ func TestHandlePauseSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -345,7 +345,7 @@ func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -372,7 +372,7 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -405,7 +405,7 @@ func TestHandleResumeSchedule_AlreadyActive(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -428,7 +428,7 @@ func TestHandleCreateSchedule_Success_Biweekly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":2000,"frequency":"biweekly","day_of_week":1}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -451,7 +451,7 @@ func TestHandleCreateSchedule_Success_Monthly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":5000,"frequency":"monthly","day_of_month":15}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -474,7 +474,7 @@ func TestHandleCreateSchedule_MonthlyMissingDayOfMonth(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"monthly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -491,7 +491,7 @@ func TestHandleCreateSchedule_BiweeklyMissingDayOfWeek(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"biweekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -512,7 +512,7 @@ func TestHandleGetUpcomingAllowances_ParentSuccess(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -536,7 +536,7 @@ func TestHandleGetUpcomingAllowances_ChildSeesOwn(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -560,7 +560,7 @@ func TestHandleGetUpcomingAllowances_ChildCannotSeeOther(t *testing.T) {
 	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child1.ID, "weekly", &dow, nil)
 
@@ -580,7 +580,7 @@ func TestHandleGetUpcomingAllowances_NoSchedules(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -605,7 +605,7 @@ func TestHandleGetChildAllowance_Exists(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	// Create allowance first
 	dow := 5
@@ -631,7 +631,7 @@ func TestHandleGetChildAllowance_None(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -649,7 +649,7 @@ func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -669,7 +669,7 @@ func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
 	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child1.ID, "weekly", &dow, nil)
 
@@ -688,7 +688,7 @@ func TestHandleSetChildAllowance_Create(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := `{"amount_cents":1500,"frequency":"weekly","day_of_week":3,"note":"Wednesday allowance"}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -715,7 +715,7 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	// Create first
 	body1 := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
@@ -748,7 +748,7 @@ func TestHandleSetChildAllowance_ChildForbidden(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -766,7 +766,7 @@ func TestHandleSetChildAllowance_InvalidAmount(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	body := `{"amount_cents":0,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -784,7 +784,7 @@ func TestHandleDeleteChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -812,7 +812,7 @@ func TestHandleDeleteChildAllowance_NotFound(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -829,7 +829,7 @@ func TestHandlePauseChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -852,7 +852,7 @@ func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -869,7 +869,7 @@ func TestHandleResumeChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db))
+	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 

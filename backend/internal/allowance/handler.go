@@ -20,14 +20,29 @@ const (
 type Handler struct {
 	scheduleStore *store.ScheduleStore
 	childStore    *store.ChildStore
+	familyStore   *store.FamilyStore
 }
 
 // NewHandler creates a new allowance handler.
-func NewHandler(scheduleStore *store.ScheduleStore, childStore *store.ChildStore) *Handler {
+func NewHandler(scheduleStore *store.ScheduleStore, childStore *store.ChildStore, familyStore *store.FamilyStore) *Handler {
 	return &Handler{
 		scheduleStore: scheduleStore,
 		childStore:    childStore,
+		familyStore:   familyStore,
 	}
+}
+
+// getFamilyTimezone loads the *time.Location for a family, falling back to UTC.
+func (h *Handler) getFamilyTimezone(familyID int64) *time.Location {
+	tz, err := h.familyStore.GetTimezone(familyID)
+	if err != nil || tz == "" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
 }
 
 // ErrorResponse represents an error response.
@@ -161,8 +176,9 @@ func (h *Handler) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 		sched.Note = &note
 	}
 
-	// Calculate next run
-	nextRun := CalculateNextRun(sched, time.Now().UTC())
+	// Calculate next run using family timezone
+	loc := h.getFamilyTimezone(familyID)
+	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 	sched.NextRunAt = &nextRun
 
 	created, dbErr := h.scheduleStore.Create(sched)
@@ -358,7 +374,8 @@ func (h *Handler) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 
 	// Recalculate next_run_at if frequency or day changed
 	if req.Frequency != nil || req.DayOfWeek != nil || req.DayOfMonth != nil {
-		nextRun := CalculateNextRun(sched, time.Now().UTC())
+		loc := h.getFamilyTimezone(middleware.GetFamilyID(r))
+		nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 		sched.NextRunAt = &nextRun
 	}
 
@@ -556,8 +573,9 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Recalculate next_run_at from now
-	nextRun := CalculateNextRun(sched, time.Now().UTC())
+	// Recalculate next_run_at from now using family timezone
+	loc := h.getFamilyTimezone(middleware.GetFamilyID(r))
+	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 	if err := h.scheduleStore.UpdateNextRunAt(scheduleID, nextRun); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -752,6 +770,8 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	loc := h.getFamilyTimezone(familyID)
+
 	if existing != nil {
 		// Update existing schedule
 		existing.AmountCents = req.AmountCents
@@ -763,7 +783,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		} else {
 			existing.Note = nil
 		}
-		nextRun := CalculateNextRun(existing, time.Now().UTC())
+		nextRun := CalculateNextRun(existing, time.Now().UTC(), loc)
 		existing.NextRunAt = &nextRun
 
 		updated, err := h.scheduleStore.Update(existing)
@@ -786,7 +806,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		if note != "" {
 			sched.Note = &note
 		}
-		nextRun := CalculateNextRun(sched, time.Now().UTC())
+		nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 		sched.NextRunAt = &nextRun
 
 		created, err := h.scheduleStore.Create(sched)
@@ -932,7 +952,8 @@ func (h *Handler) HandleResumeChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	nextRun := CalculateNextRun(sched, time.Now().UTC())
+	loc := h.getFamilyTimezone(middleware.GetFamilyID(r))
+	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 	if err := h.scheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update allowance."})
 		return

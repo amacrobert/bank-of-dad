@@ -24,11 +24,43 @@ func (s *Scheduler) SetInterestScheduleStore(iss *store.InterestScheduleStore) {
 	s.interestScheduleStore = iss
 }
 
+// RecalculateAllNextRuns recalculates next_run_at for all active interest schedules
+// using timezone-aware logic. Called on startup to correct existing UTC-midnight values.
+func (s *Scheduler) RecalculateAllNextRuns() {
+	if s.interestScheduleStore == nil {
+		return
+	}
+
+	schedules, err := s.interestScheduleStore.ListAllActiveWithTimezone()
+	if err != nil {
+		log.Printf("Error listing active interest schedules for recalculation: %v", err)
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, ds := range schedules {
+		loc := loadTimezone(ds.FamilyTimezone)
+		tmpSched := &store.AllowanceSchedule{
+			Frequency:  ds.Frequency,
+			DayOfWeek:  ds.DayOfWeek,
+			DayOfMonth: ds.DayOfMonth,
+		}
+		nextRun := allowance.CalculateNextRun(tmpSched, now, loc)
+		if err := s.interestScheduleStore.UpdateNextRunAt(ds.ID, nextRun); err != nil {
+			log.Printf("Error recalculating next_run_at for interest schedule %d: %v", ds.ID, err)
+		}
+	}
+	log.Printf("Recalculated next_run_at for %d active interest schedules", len(schedules))
+}
+
 // Start begins the background interest processing goroutine.
 func (s *Scheduler) Start(interval time.Duration, stop <-chan struct{}) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
+		// Recalculate all next_run_at values with timezone-aware logic on startup
+		s.RecalculateAllNextRuns()
 
 		// Process immediately on start (catch any missed while down)
 		s.processTick()
@@ -110,14 +142,25 @@ func (s *Scheduler) ProcessDueSchedules() {
 }
 
 // advanceNextRun calculates and updates the next_run_at for a schedule after execution.
-func (s *Scheduler) advanceNextRun(sched *store.InterestSchedule) {
+func (s *Scheduler) advanceNextRun(sched *store.DueInterestSchedule) {
+	loc := loadTimezone(sched.FamilyTimezone)
 	tmpSched := &store.AllowanceSchedule{
 		Frequency:  sched.Frequency,
 		DayOfWeek:  sched.DayOfWeek,
 		DayOfMonth: sched.DayOfMonth,
 	}
-	nextRun := allowance.CalculateNextRunAfterExecution(tmpSched, *sched.NextRunAt)
+	nextRun := allowance.CalculateNextRunAfterExecution(tmpSched, *sched.NextRunAt, loc)
 	if err := s.interestScheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		log.Printf("Error updating next_run_at for interest schedule %d: %v", sched.ID, err)
 	}
+}
+
+// loadTimezone parses a timezone string into a *time.Location, falling back to UTC.
+func loadTimezone(tz string) *time.Location {
+	if tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			return loc
+		}
+	}
+	return time.UTC
 }
