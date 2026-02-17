@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
-import { Leaf, LayoutDashboard, Home, LogOut } from "lucide-react";
+import { Leaf, LayoutDashboard, Home, LogOut, Settings } from "lucide-react";
 
 interface LayoutProps {
   user: AuthUser;
@@ -13,6 +13,7 @@ interface LayoutProps {
 
 export default function Layout({ user, children, maxWidth = "narrow" }: LayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const displayName =
     user.user_type === "parent" ? user.display_name : user.first_name;
@@ -43,6 +44,24 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-bark-light">{displayName}</span>
+          {user.user_type === "parent" && (
+            <>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className={`inline-flex items-center gap-1.5 text-sm font-medium cursor-pointer ${location.pathname === "/dashboard" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                Dashboard
+              </button>
+              <button
+                onClick={() => navigate("/settings")}
+                className={`inline-flex items-center gap-1.5 text-sm font-medium cursor-pointer ${location.pathname === "/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <Settings className="h-4 w-4" aria-hidden="true" />
+                Settings
+              </button>
+            </>
+          )}
           <button
             onClick={handleLogout}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-bark-light hover:text-terracotta transition-colors cursor-pointer"
@@ -62,13 +81,22 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sand px-4 py-2" aria-label="Mobile navigation">
         <div className="flex items-center justify-around">
           {user.user_type === "parent" ? (
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex flex-col items-center gap-1 py-2 px-4 text-forest cursor-pointer"
-            >
-              <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
-              <span className="text-xs font-semibold">Dashboard</span>
-            </button>
+            <>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/dashboard" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Dashboard</span>
+              </button>
+              <button
+                onClick={() => navigate("/settings")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <Settings className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Settings</span>
+              </button>
+            </>
           ) : (
             <button
               onClick={() => navigate("/child/dashboard")}

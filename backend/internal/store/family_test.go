@@ -99,6 +99,73 @@ func TestValidateSlug(t *testing.T) {
 	}
 }
 
+func TestGetTimezone_Default(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("tz-family")
+	require.NoError(t, err)
+
+	tz, err := fs.GetTimezone(fam.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "America/New_York", tz)
+}
+
+func TestGetTimezone_NotFound(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	_, err := fs.GetTimezone(99999)
+	assert.Error(t, err)
+}
+
+func TestUpdateTimezone(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("tz-update-family")
+	require.NoError(t, err)
+
+	err = fs.UpdateTimezone(fam.ID, "America/Chicago")
+	require.NoError(t, err)
+
+	tz, err := fs.GetTimezone(fam.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "America/Chicago", tz)
+}
+
+func TestUpdateTimezone_NonexistentFamily(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	err := fs.UpdateTimezone(99999, "America/Chicago")
+	assert.Error(t, err)
+}
+
+func TestCreateFamily_HasDefaultTimezone(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("tz-default-family")
+	require.NoError(t, err)
+	assert.Equal(t, "America/New_York", fam.Timezone)
+}
+
+func TestGetByID_IncludesTimezone(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	created, err := fs.Create("tz-getbyid-family")
+	require.NoError(t, err)
+
+	err = fs.UpdateTimezone(created.ID, "Europe/London")
+	require.NoError(t, err)
+
+	found, err := fs.GetByID(created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Europe/London", found.Timezone)
+}
+
 func TestSuggestSlugs(t *testing.T) {
 	db := testDB(t)
 	fs := NewFamilyStore(db)

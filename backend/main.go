@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	_ "time/tzdata" // Embed IANA timezone database for environments without system tzdata (e.g. Alpine Docker)
 
 	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/auth"
@@ -14,6 +15,7 @@ import (
 	"bank-of-dad/internal/family"
 	"bank-of-dad/internal/interest"
 	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/settings"
 	"bank-of-dad/internal/store"
 )
 
@@ -65,6 +67,7 @@ func main() {
 	scheduleStore := store.NewScheduleStore(db)
 	allowanceHandler := allowance.NewHandler(scheduleStore, childStore)
 	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore)
+	settingsHandlers := settings.NewHandlers(familyStore)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopScheduler := make(chan struct{})
@@ -141,6 +144,10 @@ func main() {
 
 	// Interest schedule endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/interest-schedule", requireAuth(http.HandlerFunc(interestHandler.HandleGetInterestSchedule)))
+
+	// Settings (013-parent-settings)
+	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
+	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))
 
 	// Child-scoped allowance endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/allowance", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetChildAllowance)))

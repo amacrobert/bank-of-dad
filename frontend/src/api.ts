@@ -186,3 +186,14 @@ export function deleteChild(childId: number): Promise<void> {
   return request<void>(`/children/${childId}`, { method: "DELETE" });
 }
 
+// Settings API functions (013-parent-settings)
+import { SettingsResponse, UpdateTimezoneResponse } from "./types";
+
+export function getSettings(): Promise<SettingsResponse> {
+  return get<SettingsResponse>("/settings");
+}
+
+export function updateTimezone(timezone: string): Promise<UpdateTimezoneResponse> {
+  return put<UpdateTimezoneResponse>("/settings/timezone", { timezone });
+}
+
