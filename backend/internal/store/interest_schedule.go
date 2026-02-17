@@ -263,32 +263,3 @@ func (s *InterestScheduleStore) scanOne(query string, args ...interface{}) (*Int
 
 	return &sched, nil
 }
-
-// scanRow scans a single row from rows.
-func (s *InterestScheduleStore) scanRow(rows *sql.Rows) (*InterestSchedule, error) {
-	var sched InterestSchedule
-	var dayOfWeek, dayOfMonth sql.NullInt64
-	var nextRunAt sql.NullTime
-
-	if err := rows.Scan(
-		&sched.ID, &sched.ChildID, &sched.ParentID, &sched.Frequency,
-		&dayOfWeek, &dayOfMonth, &sched.Status, &nextRunAt,
-		&sched.CreatedAt, &sched.UpdatedAt,
-	); err != nil {
-		return nil, fmt.Errorf("scan interest schedule row: %w", err)
-	}
-
-	if dayOfWeek.Valid {
-		v := int(dayOfWeek.Int64)
-		sched.DayOfWeek = &v
-	}
-	if dayOfMonth.Valid {
-		v := int(dayOfMonth.Int64)
-		sched.DayOfMonth = &v
-	}
-	if nextRunAt.Valid {
-		sched.NextRunAt = &nextRunAt.Time
-	}
-
-	return &sched, nil
-}
