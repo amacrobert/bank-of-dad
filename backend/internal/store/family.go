@@ -13,6 +13,7 @@ var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
 type Family struct {
 	ID        int64
 	Slug      string
+	Timezone  string
 	CreatedAt time.Time
 }
 
@@ -39,8 +40,8 @@ func (s *FamilyStore) Create(slug string) (*Family, error) {
 func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, created_at FROM families WHERE id = $1`, id,
-	).Scan(&f.ID, &f.Slug, &f.CreatedAt)
+		`SELECT id, slug, timezone, created_at FROM families WHERE id = $1`, id,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -53,8 +54,8 @@ func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 func (s *FamilyStore) GetBySlug(slug string) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, created_at FROM families WHERE slug = $1`, slug,
-	).Scan(&f.ID, &f.Slug, &f.CreatedAt)
+		`SELECT id, slug, timezone, created_at FROM families WHERE slug = $1`, slug,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -62,6 +63,34 @@ func (s *FamilyStore) GetBySlug(slug string) (*Family, error) {
 		return nil, fmt.Errorf("get family by slug: %w", err)
 	}
 	return &f, nil
+}
+
+func (s *FamilyStore) GetTimezone(familyID int64) (string, error) {
+	var tz string
+	err := s.db.QueryRow(
+		`SELECT timezone FROM families WHERE id = $1`, familyID,
+	).Scan(&tz)
+	if err != nil {
+		return "", fmt.Errorf("get timezone: %w", err)
+	}
+	return tz, nil
+}
+
+func (s *FamilyStore) UpdateTimezone(familyID int64, timezone string) error {
+	result, err := s.db.Exec(
+		`UPDATE families SET timezone = $1 WHERE id = $2`, timezone, familyID,
+	)
+	if err != nil {
+		return fmt.Errorf("update timezone: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update timezone rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("family not found: %d", familyID)
+	}
+	return nil
 }
 
 func (s *FamilyStore) SlugExists(slug string) (bool, error) {
