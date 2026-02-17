@@ -337,6 +337,63 @@ func TestInterestScheduleStore_UpdateNextRunAt(t *testing.T) {
 	assert.Equal(t, newTime.UTC(), fetched.NextRunAt.UTC())
 }
 
+func TestInterestScheduleStore_ListAllActiveWithTimezone(t *testing.T) {
+	db := testDB(t)
+	iss := NewInterestScheduleStore(db)
+	fs := NewFamilyStore(db)
+	cs := NewChildStore(db)
+
+	fam := createTestFamily(t, db)
+	err := fs.UpdateTimezone(fam.ID, "America/New_York")
+	require.NoError(t, err)
+	parent := createTestParent(t, db, fam.ID)
+	child1 := createTestChild(t, db, fam.ID)
+	child2, err := cs.Create(fam.ID, "Child2", "pass123", nil)
+	require.NoError(t, err)
+
+	// Create an active schedule for child1
+	nextRun := time.Date(2025, time.January, 15, 5, 0, 0, 0, time.UTC)
+	s1 := &InterestSchedule{
+		ChildID:    child1.ID,
+		ParentID:   parent.ID,
+		Frequency:  FrequencyMonthly,
+		DayOfMonth: intP(15),
+		Status:     ScheduleStatusActive,
+		NextRunAt:  &nextRun,
+	}
+	_, err = iss.Create(s1)
+	require.NoError(t, err)
+
+	// Create a paused schedule for child2 — should NOT be returned
+	s2 := &InterestSchedule{
+		ChildID:    child2.ID,
+		ParentID:   parent.ID,
+		Frequency:  FrequencyWeekly,
+		DayOfWeek:  intP(5),
+		Status:     ScheduleStatusActive,
+		NextRunAt:  &nextRun,
+	}
+	created2, err := iss.Create(s2)
+	require.NoError(t, err)
+	err = iss.UpdateStatus(created2.ID, ScheduleStatusPaused)
+	require.NoError(t, err)
+
+	results, err := iss.ListAllActiveWithTimezone()
+	require.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, child1.ID, results[0].ChildID)
+	assert.Equal(t, "America/New_York", results[0].FamilyTimezone)
+}
+
+func TestInterestScheduleStore_ListAllActiveWithTimezone_Empty(t *testing.T) {
+	db := testDB(t)
+	iss := NewInterestScheduleStore(db)
+
+	results, err := iss.ListAllActiveWithTimezone()
+	require.NoError(t, err)
+	assert.Len(t, results, 0)
+}
+
 func TestInterestScheduleStore_CascadeDelete(t *testing.T) {
 	db := testDB(t)
 	iss := NewInterestScheduleStore(db)

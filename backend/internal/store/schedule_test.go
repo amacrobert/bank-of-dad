@@ -386,6 +386,65 @@ func TestScheduleStore_GetByChildID_ReturnsPausedToo(t *testing.T) {
 	assert.Equal(t, ScheduleStatusPaused, fetched.Status)
 }
 
+func TestScheduleStore_ListAllActiveWithTimezone(t *testing.T) {
+	db := testDB(t)
+	ss := NewScheduleStore(db)
+	fs := NewFamilyStore(db)
+	cs := NewChildStore(db)
+
+	fam := createTestFamily(t, db)
+	err := fs.UpdateTimezone(fam.ID, "America/New_York")
+	require.NoError(t, err)
+	parent := createTestParent(t, db, fam.ID)
+	child1 := createTestChild(t, db, fam.ID)
+	child2, err := cs.Create(fam.ID, "Child2", "pass123", nil)
+	require.NoError(t, err)
+
+	// Create an active schedule for child1
+	nextRun := time.Date(2026, time.February, 7, 5, 0, 0, 0, time.UTC)
+	active := &AllowanceSchedule{
+		ChildID:     child1.ID,
+		ParentID:    parent.ID,
+		AmountCents: 1000,
+		Frequency:   FrequencyWeekly,
+		DayOfWeek:   intP(5),
+		Status:      ScheduleStatusActive,
+		NextRunAt:   &nextRun,
+	}
+	_, err = ss.Create(active)
+	require.NoError(t, err)
+
+	// Create a paused schedule for child2 — should NOT be returned
+	paused := &AllowanceSchedule{
+		ChildID:     child2.ID,
+		ParentID:    parent.ID,
+		AmountCents: 2000,
+		Frequency:   FrequencyWeekly,
+		DayOfWeek:   intP(1),
+		Status:      ScheduleStatusActive,
+		NextRunAt:   &nextRun,
+	}
+	created2, err := ss.Create(paused)
+	require.NoError(t, err)
+	err = ss.UpdateStatus(created2.ID, ScheduleStatusPaused)
+	require.NoError(t, err)
+
+	results, err := ss.ListAllActiveWithTimezone()
+	require.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, int64(1000), results[0].AmountCents)
+	assert.Equal(t, "America/New_York", results[0].FamilyTimezone)
+}
+
+func TestScheduleStore_ListAllActiveWithTimezone_Empty(t *testing.T) {
+	db := testDB(t)
+	ss := NewScheduleStore(db)
+
+	results, err := ss.ListAllActiveWithTimezone()
+	require.NoError(t, err)
+	assert.Len(t, results, 0)
+}
+
 // T040: Verify ON DELETE CASCADE removes schedules when child is deleted
 func TestScheduleStore_CascadeDeleteOnChildRemoval(t *testing.T) {
 	db := testDB(t)
