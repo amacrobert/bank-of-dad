@@ -6,8 +6,7 @@ import Layout from "../components/Layout";
 import Card from "../components/ui/Card";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import BalanceDisplay from "../components/BalanceDisplay";
-import TransactionHistory from "../components/TransactionHistory";
-import UpcomingPayments from "../components/UpcomingPayments";
+import TransactionsCard from "../components/TransactionsCard";
 import { TrendingUp } from "lucide-react";
 
 export default function ChildDashboard() {
@@ -86,24 +85,15 @@ export default function ChildDashboard() {
           )}
         </Card>
 
-        {/* Upcoming payments */}
+        {/* Transactions */}
         {!loadingData && (
-          <UpcomingPayments
+          <TransactionsCard
             childId={user.user_id}
             balanceCents={balance}
             interestRateBps={interestRateBps}
+            transactions={transactions}
           />
         )}
-
-        {/* Transaction history */}
-        <Card padding="md">
-          <h3 className="text-base font-bold text-bark mb-3">Recent Activity</h3>
-          {loadingData ? (
-            <LoadingSpinner variant="inline" />
-          ) : (
-            <TransactionHistory transactions={transactions} />
-          )}
-        </Card>
       </div>
     </Layout>
   );

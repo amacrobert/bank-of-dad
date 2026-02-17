@@ -13,6 +13,7 @@ Auto-generated from all feature plans. Last updated: 2026-01-29
 - PostgreSQL 17 (replacing SQLite) (011-sqlite-to-postgres)
 - Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `golang-jwt/jwt/v5` (new), `jackc/pgx/v5`, `testify`, react-router-dom, Vite (012-stateless-auth)
 - PostgreSQL 17 — new `refresh_tokens` table, drop `sessions` table (012-stateless-auth)
+- TypeScript 5.3.3 + React 18.2.0 + react-router-dom, Vite, lucide-react (icons) (014-combine-transactions)
 - Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); `react-router-dom`, `lucide-react`, Vite (frontend) (013-parent-settings)
 - PostgreSQL 17 — add `timezone` column to existing `families` table (013-parent-settings)
 
@@ -34,6 +35,7 @@ npm test && npm run lint
 Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend): Follow standard conventions
 
 ## Recent Changes
+- 014-combine-transactions: Added TypeScript 5.3.3 + React 18.2.0 + react-router-dom, Vite, lucide-react (icons)
 - 013-parent-settings: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); `react-router-dom`, `lucide-react`, Vite (frontend)
 - 012-stateless-auth: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `golang-jwt/jwt/v5` (new), `jackc/pgx/v5`, `testify`, react-router-dom, Vite
 - 011-sqlite-to-postgres: Added Go 1.24.0 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend — unchanged) + `jackc/pgx/v5` + `pgx/v5/stdlib` (new), `golang-migrate/migrate/v4` (new), remove `modernc.org/sqlite`

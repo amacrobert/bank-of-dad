@@ -8,8 +8,7 @@ import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
 import InterestForm from "./InterestForm";
-import TransactionHistory from "./TransactionHistory";
-import UpcomingPayments from "./UpcomingPayments";
+import TransactionsCard from "./TransactionsCard";
 import ChildAllowanceForm from "./ChildAllowanceForm";
 import AvatarPicker from "./AvatarPicker";
 import { AlertTriangle, Trash2, X, ArrowDownCircle, ArrowUpCircle, ChevronDown } from "lucide-react";
@@ -202,13 +201,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
         />
       )}
 
-      <UpcomingPayments childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} />
-
-      {/* Transaction history */}
-      <Card padding="md">
-        <h4 className="text-base font-bold text-bark mb-3">Transaction History</h4>
-        <TransactionHistory transactions={transactions} />
-      </Card>
+      <TransactionsCard childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} transactions={transactions} />
 
       <ChildAllowanceForm
         childId={child.id}
