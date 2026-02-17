@@ -62,26 +62,12 @@ func (s *Scheduler) ProcessDue() {
 	}
 
 	for _, due := range dues {
-		if err := s.interestStore.ApplyInterest(due.ChildID, due.ParentID, due.InterestRateBps, 12); err != nil {
+		if err := s.interestStore.ApplyInterest(due.ChildID, due.ParentID, due.InterestRateBps, store.FrequencyMonthly); err != nil {
 			log.Printf("Error applying interest for child %d: %v", due.ChildID, err)
 			continue
 		}
 		log.Printf("Applied interest for child %d: %d bps on %d cents",
 			due.ChildID, due.InterestRateBps, due.BalanceCents)
-	}
-}
-
-// frequencyPeriodsPerYear maps schedule frequency to the number of periods per year for proration.
-func frequencyPeriodsPerYear(freq store.Frequency) int {
-	switch freq {
-	case store.FrequencyWeekly:
-		return 52
-	case store.FrequencyBiweekly:
-		return 26
-	case store.FrequencyMonthly:
-		return 12
-	default:
-		return 12
 	}
 }
 
@@ -109,17 +95,15 @@ func (s *Scheduler) ProcessDueSchedules() {
 			continue
 		}
 
-		periodsPerYear := frequencyPeriodsPerYear(sched.Frequency)
-
-		if err := s.interestStore.ApplyInterest(sched.ChildID, sched.ParentID, rateBps, periodsPerYear); err != nil {
+		if err := s.interestStore.ApplyInterest(sched.ChildID, sched.ParentID, rateBps, sched.Frequency); err != nil {
 			log.Printf("Error applying interest for child %d: %v", sched.ChildID, err)
 			// Still advance next_run_at to avoid retrying zero-interest cases
 			s.advanceNextRun(&sched)
 			continue
 		}
 
-		log.Printf("Applied scheduled interest for child %d: %d bps, %d periods/year",
-			sched.ChildID, rateBps, periodsPerYear)
+		log.Printf("Applied scheduled interest for child %d: %d bps, frequency %s",
+			sched.ChildID, rateBps, sched.Frequency)
 
 		s.advanceNextRun(&sched)
 	}

@@ -132,7 +132,7 @@ func TestApplyInterest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply interest with monthly proration (12): 20000 * 1000 / 12 / 10000 = 166.67 → 167 cents
-	err = is.ApplyInterest(child.ID, parent.ID, 1000, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 1000, FrequencyMonthly)
 	require.NoError(t, err)
 
 	// Verify balance increased
@@ -150,7 +150,8 @@ func TestApplyInterest(t *testing.T) {
 	assert.Equal(t, int64(167), interestTx.AmountCents)
 	assert.Equal(t, parent.ID, interestTx.ParentID)
 	require.NotNil(t, interestTx.Note)
-	assert.Contains(t, *interestTx.Note, "10.00%")
+	assert.Contains(t, *interestTx.Note, "10%")
+	assert.Contains(t, *interestTx.Note, "compounded monthly")
 }
 
 func TestApplyInterest_UpdatesLastInterestAt(t *testing.T) {
@@ -174,7 +175,7 @@ func TestApplyInterest_UpdatesLastInterestAt(t *testing.T) {
 	assert.Nil(t, lastInterest)
 
 	// Apply interest
-	err = is.ApplyInterest(child.ID, parent.ID, 500, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 500, FrequencyMonthly)
 	require.NoError(t, err)
 
 	// After applying, last_interest_at should be set
@@ -186,24 +187,24 @@ func TestApplyInterest_UpdatesLastInterestAt(t *testing.T) {
 
 func TestApplyInterest_CalculationExamples(t *testing.T) {
 	tests := []struct {
-		name           string
-		balanceCents   int64
-		rateBps        int
-		periodsPerYear int
-		wantInterest   int64
+		name         string
+		balanceCents int64
+		rateBps      int
+		frequency    Frequency
+		wantInterest int64
 	}{
 		// Monthly (12 periods): balance * rate / 12 / 10000
-		{"$100 at 5% monthly", 10000, 500, 12, 42},           // 10000 * 500 / 12 / 10000 = 41.67 → 42
-		{"$100 at 10% monthly", 10000, 1000, 12, 83},          // 10000 * 1000 / 12 / 10000 = 83.33 → 83
-		{"$1000 at 5% monthly", 100000, 500, 12, 417},         // 100000 * 500 / 12 / 10000 = 416.67 → 417
-		{"$50 at 12% monthly", 5000, 1200, 12, 50},            // 5000 * 1200 / 12 / 10000 = 50
-		{"$1 at 5% monthly", 100, 500, 12, 0},                 // 100 * 500 / 12 / 10000 = 0.42 → 0 (skip)
+		{"$100 at 5% monthly", 10000, 500, FrequencyMonthly, 42},           // 10000 * 500 / 12 / 10000 = 41.67 → 42
+		{"$100 at 10% monthly", 10000, 1000, FrequencyMonthly, 83},          // 10000 * 1000 / 12 / 10000 = 83.33 → 83
+		{"$1000 at 5% monthly", 100000, 500, FrequencyMonthly, 417},         // 100000 * 500 / 12 / 10000 = 416.67 → 417
+		{"$50 at 12% monthly", 5000, 1200, FrequencyMonthly, 50},            // 5000 * 1200 / 12 / 10000 = 50
+		{"$1 at 5% monthly", 100, 500, FrequencyMonthly, 0},                 // 100 * 500 / 12 / 10000 = 0.42 → 0 (skip)
 		// Weekly (52 periods): balance * rate / 52 / 10000
-		{"$1000 at 5% weekly", 100000, 500, 52, 96},           // 100000 * 500 / 52 / 10000 = 96.15 → 96
-		{"$200 at 10% weekly", 20000, 1000, 52, 38},           // 20000 * 1000 / 52 / 10000 = 38.46 → 38
+		{"$1000 at 5% weekly", 100000, 500, FrequencyWeekly, 96},           // 100000 * 500 / 52 / 10000 = 96.15 → 96
+		{"$200 at 10% weekly", 20000, 1000, FrequencyWeekly, 38},           // 20000 * 1000 / 52 / 10000 = 38.46 → 38
 		// Biweekly (26 periods): balance * rate / 26 / 10000
-		{"$1000 at 5% biweekly", 100000, 500, 26, 192},        // 100000 * 500 / 26 / 10000 = 192.31 → 192
-		{"$200 at 10% biweekly", 20000, 1000, 26, 77},         // 20000 * 1000 / 26 / 10000 = 76.92 → 77
+		{"$1000 at 5% biweekly", 100000, 500, FrequencyBiweekly, 192},        // 100000 * 500 / 26 / 10000 = 192.31 → 192
+		{"$200 at 10% biweekly", 20000, 1000, FrequencyBiweekly, 77},         // 20000 * 1000 / 26 / 10000 = 76.92 → 77
 	}
 
 	for _, tt := range tests {
@@ -224,7 +225,7 @@ func TestApplyInterest_CalculationExamples(t *testing.T) {
 			err := is.SetInterestRate(child.ID, tt.rateBps)
 			require.NoError(t, err)
 
-			err = is.ApplyInterest(child.ID, parent.ID, tt.rateBps, tt.periodsPerYear)
+			err = is.ApplyInterest(child.ID, parent.ID, tt.rateBps, tt.frequency)
 
 			if tt.wantInterest == 0 {
 				assert.Error(t, err, "should return error for zero interest")
@@ -256,7 +257,7 @@ func TestApplyInterest_ZeroBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should fail — zero balance means zero interest
-	err = is.ApplyInterest(child.ID, parent.ID, 500, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 500, FrequencyMonthly)
 	assert.Error(t, err)
 }
 
@@ -273,7 +274,7 @@ func TestApplyInterest_ZeroRate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should fail — zero rate means zero interest
-	err = is.ApplyInterest(child.ID, parent.ID, 0, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 0, FrequencyMonthly)
 	assert.Error(t, err)
 }
 
@@ -293,7 +294,7 @@ func TestApplyInterest_DuplicatePrevention(t *testing.T) {
 	require.NoError(t, err)
 
 	// First accrual should succeed
-	err = is.ApplyInterest(child.ID, parent.ID, 500, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 500, FrequencyMonthly)
 	require.NoError(t, err)
 
 	balanceAfterFirst, err := cs.GetBalance(child.ID)
@@ -370,7 +371,7 @@ func TestListDueForInterest_AlreadyAccruedThisMonth(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply interest (sets last_interest_at to now)
-	err = is.ApplyInterest(child.ID, parent.ID, 500, 12)
+	err = is.ApplyInterest(child.ID, parent.ID, 500, FrequencyMonthly)
 	require.NoError(t, err)
 
 	// Should not be due anymore

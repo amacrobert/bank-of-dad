@@ -33,6 +33,12 @@ function periodsPerYear(frequency: Frequency): number {
   }
 }
 
+function formatInterestNote(rateBps: number, frequency: Frequency): string {
+  const rate = rateBps / 100;
+  const rateStr = rate % 1 === 0 ? rate.toFixed(0) : rate.toString();
+  return `${rateStr}% annual interest compounded ${frequency}`;
+}
+
 function estimateInterestCents(
   balanceCents: number,
   rateBps: number,
@@ -127,7 +133,7 @@ export default function TransactionsCard({
             ),
             estimated: true,
             date: interestSched.next_run_at!,
-            note: undefined,
+            note: formatInterestNote(interestRateBps, interestSched.frequency),
           });
         }
 
@@ -150,60 +156,59 @@ export default function TransactionsCard({
       <h3 className="text-base font-bold text-bark mb-4">Transactions</h3>
 
       {/* Upcoming section */}
-      <div className="mb-5">
-        <h4 className="text-sm font-semibold text-bark-light uppercase tracking-wide mb-3">
-          Upcoming
-        </h4>
-        {loadingUpcoming ? (
-          <LoadingSpinner variant="inline" message="Loading payments..." />
-        ) : upcomingPayments.length === 0 ? (
-          <p className="text-sm text-bark-light">No upcoming payments</p>
-        ) : (
-          <div className="space-y-3">
-            {upcomingPayments.map((p, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-bark">
-                    {formatUpcomingAmount(p.amountCents, p.estimated)}
-                  </span>
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                      p.type === "interest"
-                        ? "bg-sage-light/30 text-forest"
-                        : "bg-sky-100 text-sky-700"
-                    }`}
+      {(loadingUpcoming || upcomingPayments.length > 0) && (
+        <div className="mb-5">
+          <h4 className="text-sm font-bold text-bark-light uppercase tracking-wide mb-3">
+            Upcoming
+          </h4>
+          {loadingUpcoming ? (
+            <LoadingSpinner variant="inline" message="Loading payments..." />
+          ) : (
+            <div className="space-y-0">
+              {upcomingPayments.map((p, i) => {
+                const config = typeConfig[p.type] || typeConfig.deposit;
+                const Icon = config.icon;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 py-3 border-b border-sand/60 last:border-b-0"
                   >
-                    {p.type === "interest" ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <TrendingUp className="h-3 w-3" aria-hidden="true" />
-                        Interest
-                      </span>
-                    ) : (
-                      "Allowance"
-                    )}
-                  </span>
-                  {p.note && (
-                    <span className="text-xs text-bark-light">{p.note}</span>
-                  )}
-                </div>
-                <span className="text-xs text-bark-light">
-                  {new Date(p.date).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-sand/60 mb-5" />
+                    <div className={`flex-shrink-0 ${config.color}`}>
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium text-bark truncate">
+                          {getTypeLabel(p.type)}
+                        </span>
+                        <span className="text-sm font-bold tabular-nums text-forest">
+                          +{formatUpcomingAmount(p.amountCents, p.estimated)}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2 mt-0.5">
+                        <span className="text-xs text-bark-light truncate">
+                          {p.note || "\u00A0"}
+                        </span>
+                        <span className="text-xs text-bark-light/70 whitespace-nowrap">
+                          {new Date(p.date).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent section */}
       <div>
-        <h4 className="text-sm font-semibold text-bark-light uppercase tracking-wide mb-3">
+        <h4 className="text-sm font-bold text-bark-light uppercase tracking-wide mb-3">
           Recent
         </h4>
         {transactions.length === 0 ? (

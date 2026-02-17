@@ -35,3 +35,6 @@ frontend/build/
 # Claude
 .claude/settings.local.json
 
+# Git
+.worktrees/
+

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -90,9 +91,9 @@ func (s *InterestStore) ListDueForInterest() ([]InterestDue, error) {
 }
 
 // ApplyInterest atomically calculates interest, creates a transaction, updates the balance,
-// and sets last_interest_at. periodsPerYear controls proration: 12 for monthly, 26 for biweekly, 52 for weekly.
+// and sets last_interest_at. frequency controls proration: monthly=12, biweekly=26, weekly=52 periods per year.
 // Returns an error if the calculated interest rounds to zero.
-func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, periodsPerYear int) error {
+func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, frequency Frequency) error {
 	// Get current balance
 	var balanceCents int64
 	err := s.db.QueryRow(`SELECT balance_cents FROM children WHERE id = $1`, childID).Scan(&balanceCents)
@@ -107,8 +108,16 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, peri
 		return fmt.Errorf("no interest with zero rate")
 	}
 
-	if periodsPerYear <= 0 {
-		return fmt.Errorf("periodsPerYear must be positive")
+	var periodsPerYear int
+	switch frequency {
+	case FrequencyWeekly:
+		periodsPerYear = 52
+	case FrequencyBiweekly:
+		periodsPerYear = 26
+	case FrequencyMonthly:
+		periodsPerYear = 12
+	default:
+		periodsPerYear = 12
 	}
 
 	// Calculate interest: balance_cents * rate_bps / periodsPerYear / 10000
@@ -120,9 +129,9 @@ func (s *InterestStore) ApplyInterest(childID, parentID int64, rateBps int, peri
 		return fmt.Errorf("calculated interest rounds to zero")
 	}
 
-	// Format rate for note
-	ratePercent := fmt.Sprintf("%.2f%%", float64(rateBps)/100.0)
-	note := ratePercent + " annual rate"
+	// Format rate for note (no trailing zeros: 500bps→"5", 525bps→"5.25")
+	ratePercent := strconv.FormatFloat(float64(rateBps)/100.0, 'f', -1, 64)
+	note := ratePercent + "% annual interest compounded " + string(frequency)
 
 	tx, err := s.db.Begin()
 	if err != nil {
