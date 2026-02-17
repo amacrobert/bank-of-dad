@@ -80,7 +80,7 @@ export default function TimezoneSelect({ value, onChange }: TimezoneSelectProps)
         htmlFor="timezone-search"
         className="block text-sm font-semibold text-bark-light"
       >
-        Family timezone
+        Bank timezone
       </label>
       <input
         id="timezone-search"
