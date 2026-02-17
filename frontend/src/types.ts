@@ -159,6 +159,17 @@ export interface SetInterestResponse {
   schedule: InterestSchedule | null;
 }
 
+// Settings Feature (013-parent-settings)
+
+export interface SettingsResponse {
+  timezone: string;
+}
+
+export interface UpdateTimezoneResponse {
+  message: string;
+  timezone: string;
+}
+
 // Interest Schedule Feature (006-account-management-enhancements)
 
 export interface InterestSchedule {

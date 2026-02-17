@@ -50,7 +50,24 @@ jobs:
         env:
           DATABASE_URL: postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable
           TEST_DATABASE_URL: postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable
-        run: go test -p 1 ./...
+        run: go test -coverprofile=coverage.out -p 1 ./...
+
+      - name: Check coverage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $NF}' | tr -d '%')
+          BASELINE=$(cat coverage-baseline.txt)
+          echo "Current coverage: ${COVERAGE}%"
+          echo "Baseline minimum: ${BASELINE}%"
+          if [ -z "$COVERAGE" ] || [ -z "$BASELINE" ]; then
+            echo "ERROR: Failed to parse coverage or baseline"
+            exit 1
+          fi
+          PASS=$(echo "$COVERAGE >= $BASELINE" | bc -l)
+          if [ "$PASS" -ne 1 ]; then
+            echo "FAIL: Coverage ${COVERAGE}% is below baseline ${BASELINE}%"
+            exit 1
+          fi
+          echo "PASS: Coverage ${COVERAGE}% meets or exceeds baseline ${BASELINE}%"
 
   frontend:
     name: Frontend
