@@ -12,6 +12,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// =====================================================
+// Tests for loadTimezone
+// =====================================================
+
+func TestLoadTimezone_ValidTimezone(t *testing.T) {
+	loc := loadTimezone("America/New_York")
+	expected, _ := time.LoadLocation("America/New_York")
+	assert.Equal(t, expected, loc)
+}
+
+func TestLoadTimezone_EmptyString(t *testing.T) {
+	loc := loadTimezone("")
+	assert.Equal(t, time.UTC, loc)
+}
+
+func TestLoadTimezone_InvalidTimezone(t *testing.T) {
+	loc := loadTimezone("Not/A/Timezone")
+	assert.Equal(t, time.UTC, loc)
+}
+
 // T017: Tests for ProcessDue
 
 func TestProcessDue_AppliesInterest(t *testing.T) {
@@ -415,4 +435,50 @@ func TestProcessDueSchedules_SkipsZeroRate(t *testing.T) {
 	balance, err := cs.GetBalance(child.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(100000), balance, "balance should be unchanged with zero rate")
+}
+
+// =====================================================
+// Tests for RecalculateAllNextRuns
+// =====================================================
+
+func TestScheduler_RecalculateAllNextRuns(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
+
+	// Set family timezone to America/New_York
+	fs := store.NewFamilyStore(db)
+	err := fs.UpdateTimezone(family.ID, "America/New_York")
+	require.NoError(t, err)
+
+	interestStore := store.NewInterestStore(db)
+	iss := store.NewInterestScheduleStore(db)
+
+	// Create an active monthly schedule with UTC-midnight next_run_at
+	dom := 15
+	utcMidnight := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyMonthly, nil, &dom, utcMidnight)
+
+	scheduler := NewScheduler(interestStore)
+	scheduler.SetInterestScheduleStore(iss)
+	scheduler.RecalculateAllNextRuns()
+
+	// Verify next_run_at was recalculated to midnight in America/New_York
+	results, err := iss.ListAllActiveWithTimezone()
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.NotNil(t, results[0].NextRunAt)
+
+	est, _ := time.LoadLocation("America/New_York")
+	localTime := results[0].NextRunAt.In(est)
+	assert.Equal(t, 0, localTime.Hour(), "should be midnight in family timezone")
+	assert.Equal(t, 0, localTime.Minute())
+}
+
+func TestScheduler_RecalculateAllNextRuns_NilStore(t *testing.T) {
+	interestStore := store.NewInterestStore(nil)
+	scheduler := NewScheduler(interestStore)
+	// interestScheduleStore is nil — should not panic
+	scheduler.RecalculateAllNextRuns()
 }

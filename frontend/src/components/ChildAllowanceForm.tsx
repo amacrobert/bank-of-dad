@@ -12,6 +12,7 @@ import Input from "./ui/Input";
 import Select from "./ui/Select";
 import Button from "./ui/Button";
 import { Calendar } from "lucide-react";
+import { useTimezone } from "../context/TimezoneContext";
 
 interface ChildAllowanceFormProps {
   childId: number;
@@ -41,6 +42,7 @@ export default function ChildAllowanceForm({
   const [dayOfWeek, setDayOfWeek] = useState(5);
   const [dayOfMonth, setDayOfMonth] = useState(1);
   const [note, setNote] = useState("");
+  const timezone = useTimezone();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -158,6 +160,7 @@ export default function ChildAllowanceForm({
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: timezone,
     });
   };
 

@@ -17,7 +17,7 @@ import (
 
 func newTestHandler(t *testing.T, db *sql.DB) *Handler {
 	t.Helper()
-	return NewHandler(store.NewInterestStore(db), store.NewChildStore(db), store.NewInterestScheduleStore(db))
+	return NewHandler(store.NewInterestStore(db), store.NewChildStore(db), store.NewInterestScheduleStore(db), store.NewFamilyStore(db))
 }
 
 func intPtr(i int) *int {

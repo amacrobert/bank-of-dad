@@ -4,6 +4,7 @@ import type { Transaction, Frequency } from "../types";
 import { ArrowDownCircle, ArrowUpCircle, Calendar, TrendingUp } from "lucide-react";
 import Card from "./ui/Card";
 import LoadingSpinner from "./ui/LoadingSpinner";
+import { useTimezone } from "../context/TimezoneContext";
 
 interface TransactionsCardProps {
   childId: number;
@@ -63,12 +64,13 @@ const typeConfig: Record<string, { icon: typeof ArrowDownCircle; color: string; 
   interest: { icon: TrendingUp, color: "text-amber", amountColor: "text-forest" },
 };
 
-function formatRecentDate(dateStr: string): string {
+function formatRecentDate(dateStr: string, timeZone: string): string {
   const date = new Date(dateStr);
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone,
   });
 }
 
@@ -93,6 +95,7 @@ export default function TransactionsCard({
   interestRateBps,
   transactions,
 }: TransactionsCardProps) {
+  const timezone = useTimezone();
   const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(true);
 
@@ -194,6 +197,7 @@ export default function TransactionsCard({
                             month: "short",
                             day: "numeric",
                             year: "numeric",
+                            timeZone: timezone,
                           })}
                         </span>
                       </div>
@@ -242,7 +246,7 @@ export default function TransactionsCard({
                         {tx.note || "\u00A0"}
                       </span>
                       <span className="text-xs text-bark-light/70 whitespace-nowrap">
-                        {formatRecentDate(tx.created_at)}
+                        {formatRecentDate(tx.created_at, timezone)}
                       </span>
                     </div>
                   </div>

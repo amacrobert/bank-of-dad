@@ -6,6 +6,7 @@ import Input from "./ui/Input";
 import Select from "./ui/Select";
 import Button from "./ui/Button";
 import { TrendingUp } from "lucide-react";
+import { useTimezone } from "../context/TimezoneContext";
 
 interface InterestFormProps {
   childId: number;
@@ -56,6 +57,7 @@ export default function InterestForm({
     }
   }, [schedule]);
 
+  const timezone = useTimezone();
   const parsedRate = parseFloat(ratePercent);
   const rateIsPositive = !isNaN(parsedRate) && parsedRate > 0;
 
@@ -64,6 +66,7 @@ export default function InterestForm({
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: timezone,
     });
   };
 

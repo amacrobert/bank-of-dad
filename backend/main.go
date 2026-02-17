@@ -65,8 +65,8 @@ func main() {
 	interestScheduleStore := store.NewInterestScheduleStore(db)
 	balanceHandler := balance.NewHandler(txStore, childStore, interestStore, interestScheduleStore)
 	scheduleStore := store.NewScheduleStore(db)
-	allowanceHandler := allowance.NewHandler(scheduleStore, childStore)
-	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore)
+	allowanceHandler := allowance.NewHandler(scheduleStore, childStore, familyStore)
+	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore, familyStore)
 	settingsHandlers := settings.NewHandlers(familyStore)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)

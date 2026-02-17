@@ -45,6 +45,12 @@ type ScheduleWithChild struct {
 	ChildFirstName string `json:"child_first_name"`
 }
 
+// DueAllowanceSchedule extends AllowanceSchedule with the family's timezone for timezone-aware scheduling.
+type DueAllowanceSchedule struct {
+	AllowanceSchedule
+	FamilyTimezone string `json:"family_timezone"`
+}
+
 // UpcomingAllowance represents a child's next scheduled allowance deposit.
 type UpcomingAllowance struct {
 	AmountCents int64     `json:"amount_cents"`
@@ -261,15 +267,18 @@ func (s *ScheduleStore) Delete(id int64) error {
 	return nil
 }
 
-// ListDue returns all active schedules whose next_run_at is at or before the given time.
-func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
+// ListDue returns all active schedules whose next_run_at is at or before the given time,
+// including the family's timezone for timezone-aware next-run calculation.
+func (s *ScheduleStore) ListDue(now time.Time) ([]DueAllowanceSchedule, error) {
 	rows, err := s.db.Query(
-		`SELECT id, child_id, parent_id, amount_cents, frequency,
-		        day_of_week, day_of_month, note, status, next_run_at,
-		        created_at, updated_at
-		 FROM allowance_schedules
-		 WHERE status = 'active' AND next_run_at <= $1
-		 ORDER BY next_run_at ASC`,
+		`SELECT s.id, s.child_id, s.parent_id, s.amount_cents, s.frequency,
+		        s.day_of_week, s.day_of_month, s.note, s.status, s.next_run_at,
+		        s.created_at, s.updated_at, COALESCE(f.timezone, '')
+		 FROM allowance_schedules s
+		 JOIN children c ON c.id = s.child_id
+		 JOIN families f ON f.id = c.family_id
+		 WHERE s.status = 'active' AND s.next_run_at <= $1
+		 ORDER BY s.next_run_at ASC`,
 		now,
 	)
 	if err != nil {
@@ -277,35 +286,87 @@ func (s *ScheduleStore) ListDue(now time.Time) ([]AllowanceSchedule, error) {
 	}
 	defer rows.Close()
 
-	var schedules []AllowanceSchedule
+	var schedules []DueAllowanceSchedule
 	for rows.Next() {
-		var sched AllowanceSchedule
+		var ds DueAllowanceSchedule
 		var dayOfWeek, dayOfMonth sql.NullInt64
 		var note sql.NullString
 		var nextRunAt sql.NullTime
 
-		if err := rows.Scan(&sched.ID, &sched.ChildID, &sched.ParentID, &sched.AmountCents, &sched.Frequency,
-			&dayOfWeek, &dayOfMonth, &note, &sched.Status, &nextRunAt,
-			&sched.CreatedAt, &sched.UpdatedAt); err != nil {
+		if err := rows.Scan(&ds.ID, &ds.ChildID, &ds.ParentID, &ds.AmountCents, &ds.Frequency,
+			&dayOfWeek, &dayOfMonth, &note, &ds.Status, &nextRunAt,
+			&ds.CreatedAt, &ds.UpdatedAt, &ds.FamilyTimezone); err != nil {
 			return nil, fmt.Errorf("scan due schedule: %w", err)
 		}
 
 		if dayOfWeek.Valid {
 			v := int(dayOfWeek.Int64)
-			sched.DayOfWeek = &v
+			ds.DayOfWeek = &v
 		}
 		if dayOfMonth.Valid {
 			v := int(dayOfMonth.Int64)
-			sched.DayOfMonth = &v
+			ds.DayOfMonth = &v
 		}
 		if note.Valid {
-			sched.Note = &note.String
+			ds.Note = &note.String
 		}
 		if nextRunAt.Valid {
-			sched.NextRunAt = &nextRunAt.Time
+			ds.NextRunAt = &nextRunAt.Time
 		}
 
-		schedules = append(schedules, sched)
+		schedules = append(schedules, ds)
+	}
+
+	return schedules, rows.Err()
+}
+
+// ListAllActiveWithTimezone returns all active schedules with their family's timezone.
+// Used for startup recalculation of next_run_at values.
+func (s *ScheduleStore) ListAllActiveWithTimezone() ([]DueAllowanceSchedule, error) {
+	rows, err := s.db.Query(
+		`SELECT s.id, s.child_id, s.parent_id, s.amount_cents, s.frequency,
+		        s.day_of_week, s.day_of_month, s.note, s.status, s.next_run_at,
+		        s.created_at, s.updated_at, COALESCE(f.timezone, '')
+		 FROM allowance_schedules s
+		 JOIN children c ON c.id = s.child_id
+		 JOIN families f ON f.id = c.family_id
+		 WHERE s.status = 'active'
+		 ORDER BY s.id ASC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list all active schedules with timezone: %w", err)
+	}
+	defer rows.Close()
+
+	var schedules []DueAllowanceSchedule
+	for rows.Next() {
+		var ds DueAllowanceSchedule
+		var dayOfWeek, dayOfMonth sql.NullInt64
+		var note sql.NullString
+		var nextRunAt sql.NullTime
+
+		if err := rows.Scan(&ds.ID, &ds.ChildID, &ds.ParentID, &ds.AmountCents, &ds.Frequency,
+			&dayOfWeek, &dayOfMonth, &note, &ds.Status, &nextRunAt,
+			&ds.CreatedAt, &ds.UpdatedAt, &ds.FamilyTimezone); err != nil {
+			return nil, fmt.Errorf("scan active schedule with timezone: %w", err)
+		}
+
+		if dayOfWeek.Valid {
+			v := int(dayOfWeek.Int64)
+			ds.DayOfWeek = &v
+		}
+		if dayOfMonth.Valid {
+			v := int(dayOfMonth.Int64)
+			ds.DayOfMonth = &v
+		}
+		if note.Valid {
+			ds.Note = &note.String
+		}
+		if nextRunAt.Valid {
+			ds.NextRunAt = &nextRunAt.Time
+		}
+
+		schedules = append(schedules, ds)
 	}
 
 	return schedules, rows.Err()

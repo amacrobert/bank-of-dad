@@ -12,6 +12,26 @@ import (
 )
 
 // =====================================================
+// Tests for loadTimezone
+// =====================================================
+
+func TestLoadTimezone_ValidTimezone(t *testing.T) {
+	loc := loadTimezone("America/New_York")
+	expected, _ := time.LoadLocation("America/New_York")
+	assert.Equal(t, expected, loc)
+}
+
+func TestLoadTimezone_EmptyString(t *testing.T) {
+	loc := loadTimezone("")
+	assert.Equal(t, time.UTC, loc)
+}
+
+func TestLoadTimezone_InvalidTimezone(t *testing.T) {
+	loc := loadTimezone("Not/A/Timezone")
+	assert.Equal(t, time.UTC, loc)
+}
+
+// =====================================================
 // T011: Tests for Scheduler.ProcessDueSchedules
 // =====================================================
 
@@ -70,7 +90,9 @@ func TestScheduler_ProcessDueSchedules_AdvancesNextRunAt(t *testing.T) {
 	txStore := store.NewTransactionStore(db)
 	childStore := store.NewChildStore(db)
 
-	pastTime := time.Date(2026, time.January, 30, 0, 0, 0, 0, time.UTC) // Friday
+	// Friday Jan 30 midnight in America/New_York (default family tz) = 05:00 UTC
+	est, _ := time.LoadLocation("America/New_York")
+	pastTime := time.Date(2026, time.January, 30, 0, 0, 0, 0, est)
 	sched := &store.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
@@ -86,11 +108,12 @@ func TestScheduler_ProcessDueSchedules_AdvancesNextRunAt(t *testing.T) {
 	scheduler := NewScheduler(schedStore, txStore, childStore)
 	scheduler.ProcessDueSchedules()
 
-	// Verify next_run_at was advanced to next Friday (Jan 30 + 7 = Feb 6)
+	// Verify next_run_at was advanced to next Friday (Jan 30 + 7 = Feb 6) at midnight EST
 	updated, err := schedStore.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
-	assert.Equal(t, time.Date(2026, time.February, 6, 0, 0, 0, 0, time.UTC), updated.NextRunAt.UTC())
+	expectedNextRun := time.Date(2026, time.February, 6, 0, 0, 0, 0, est)
+	assert.Equal(t, expectedNextRun.UTC(), updated.NextRunAt.UTC())
 }
 
 func TestScheduler_ProcessDueSchedules_SkipsPaused(t *testing.T) {
@@ -233,7 +256,9 @@ func TestScheduler_ProcessDueSchedules_BiweeklyAdvances14Days(t *testing.T) {
 	txStore := store.NewTransactionStore(db)
 	childStore := store.NewChildStore(db)
 
-	pastTime := time.Date(2026, time.January, 19, 0, 0, 0, 0, time.UTC) // Monday
+	// Monday Jan 19 midnight in America/New_York
+	est, _ := time.LoadLocation("America/New_York")
+	pastTime := time.Date(2026, time.January, 19, 0, 0, 0, 0, est)
 	sched := &store.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
@@ -249,11 +274,12 @@ func TestScheduler_ProcessDueSchedules_BiweeklyAdvances14Days(t *testing.T) {
 	scheduler := NewScheduler(schedStore, txStore, childStore)
 	scheduler.ProcessDueSchedules()
 
-	// Verify next_run_at advanced by 14 days
+	// Verify next_run_at advanced by 14 days (Feb 2 midnight EST)
 	updated, err := schedStore.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
-	assert.Equal(t, time.Date(2026, time.February, 2, 0, 0, 0, 0, time.UTC), updated.NextRunAt.UTC())
+	expectedNextRun := time.Date(2026, time.February, 2, 0, 0, 0, 0, est)
+	assert.Equal(t, expectedNextRun.UTC(), updated.NextRunAt.UTC())
 
 	// Verify transaction created
 	txns, err := txStore.ListByChild(child.ID)
@@ -272,7 +298,9 @@ func TestScheduler_ProcessDueSchedules_MonthlyAdvancesToNextMonth(t *testing.T) 
 	txStore := store.NewTransactionStore(db)
 	childStore := store.NewChildStore(db)
 
-	pastTime := time.Date(2026, time.January, 15, 0, 0, 0, 0, time.UTC)
+	// Jan 15 midnight in America/New_York
+	est, _ := time.LoadLocation("America/New_York")
+	pastTime := time.Date(2026, time.January, 15, 0, 0, 0, 0, est)
 	sched := &store.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
@@ -288,11 +316,12 @@ func TestScheduler_ProcessDueSchedules_MonthlyAdvancesToNextMonth(t *testing.T) 
 	scheduler := NewScheduler(schedStore, txStore, childStore)
 	scheduler.ProcessDueSchedules()
 
-	// Verify next_run_at advanced to Feb 15
+	// Verify next_run_at advanced to Feb 15 midnight EST
 	updated, err := schedStore.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
-	assert.Equal(t, time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC), updated.NextRunAt.UTC())
+	expectedNextRun := time.Date(2026, time.February, 15, 0, 0, 0, 0, est)
+	assert.Equal(t, expectedNextRun.UTC(), updated.NextRunAt.UTC())
 }
 
 func TestScheduler_ProcessDueSchedules_Monthly31stClampsToFeb28(t *testing.T) {
@@ -305,8 +334,9 @@ func TestScheduler_ProcessDueSchedules_Monthly31stClampsToFeb28(t *testing.T) {
 	txStore := store.NewTransactionStore(db)
 	childStore := store.NewChildStore(db)
 
-	// Schedule due on Jan 31
-	pastTime := time.Date(2026, time.January, 31, 0, 0, 0, 0, time.UTC)
+	// Schedule due on Jan 31 midnight in America/New_York
+	est, _ := time.LoadLocation("America/New_York")
+	pastTime := time.Date(2026, time.January, 31, 0, 0, 0, 0, est)
 	sched := &store.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
@@ -322,9 +352,59 @@ func TestScheduler_ProcessDueSchedules_Monthly31stClampsToFeb28(t *testing.T) {
 	scheduler := NewScheduler(schedStore, txStore, childStore)
 	scheduler.ProcessDueSchedules()
 
-	// Verify next_run_at clamped to Feb 28 (2026 is not a leap year)
+	// Verify next_run_at clamped to Feb 28 midnight EST (2026 is not a leap year)
 	updated, err := schedStore.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
-	assert.Equal(t, time.Date(2026, time.February, 28, 0, 0, 0, 0, time.UTC), updated.NextRunAt.UTC())
+	expectedNextRun := time.Date(2026, time.February, 28, 0, 0, 0, 0, est)
+	assert.Equal(t, expectedNextRun.UTC(), updated.NextRunAt.UTC())
+}
+
+// =====================================================
+// Tests for RecalculateAllNextRuns
+// =====================================================
+
+func TestScheduler_RecalculateAllNextRuns(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
+
+	// Set family timezone to America/New_York
+	fs := store.NewFamilyStore(db)
+	err := fs.UpdateTimezone(family.ID, "America/New_York")
+	require.NoError(t, err)
+
+	schedStore := store.NewScheduleStore(db)
+	txStore := store.NewTransactionStore(db)
+	childStore := store.NewChildStore(db)
+
+	// Create an active weekly schedule with UTC-midnight next_run_at (simulating old behavior)
+	utcMidnight := time.Date(2026, time.February, 13, 0, 0, 0, 0, time.UTC) // Friday
+	sched := &store.AllowanceSchedule{
+		ChildID:     child.ID,
+		ParentID:    parent.ID,
+		AmountCents: 1000,
+		Frequency:   store.FrequencyWeekly,
+		DayOfWeek:   intPtr(5), // Friday
+		Status:      store.ScheduleStatusActive,
+		NextRunAt:   &utcMidnight,
+	}
+	created, err := schedStore.Create(sched)
+	require.NoError(t, err)
+
+	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler.RecalculateAllNextRuns()
+
+	// Verify next_run_at was updated to a future Friday at midnight EST (05:00 UTC)
+	updated, err := schedStore.GetByID(created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.NextRunAt)
+
+	// The recalculated time should be at midnight in America/New_York
+	est, _ := time.LoadLocation("America/New_York")
+	localTime := updated.NextRunAt.In(est)
+	assert.Equal(t, 0, localTime.Hour(), "should be midnight in family timezone")
+	assert.Equal(t, 0, localTime.Minute())
+	assert.Equal(t, time.Friday, localTime.Weekday(), "should still be a Friday")
 }

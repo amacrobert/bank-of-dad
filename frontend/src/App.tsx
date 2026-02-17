@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { TimezoneProvider } from "./context/TimezoneContext";
 import HomePage from "./pages/HomePage";
 import GoogleCallback from "./pages/GoogleCallback";
 import SetupPage from "./pages/SetupPage";
@@ -10,6 +11,7 @@ import NotFound from "./pages/NotFound";
 
 function App() {
   return (
+    <TimezoneProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -22,6 +24,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+    </TimezoneProvider>
   );
 }
 
