@@ -145,6 +145,9 @@ func main() {
 	// Interest schedule endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/interest-schedule", requireAuth(http.HandlerFunc(interestHandler.HandleGetInterestSchedule)))
 
+	// Child settings (017-child-visual-themes)
+	mux.Handle("PUT /api/child/settings/theme", requireAuth(http.HandlerFunc(familyHandlers.HandleUpdateTheme)))
+
 	// Settings (013-parent-settings)
 	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
 	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))

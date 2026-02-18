@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
+import { useTheme } from "../context/ThemeContext";
 import { Leaf, LayoutDashboard, Home, TrendingUp, LogOut, Settings } from "lucide-react";
 
 interface LayoutProps {
@@ -14,6 +15,7 @@ interface LayoutProps {
 export default function Layout({ user, children, maxWidth = "narrow" }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setTheme } = useTheme();
 
   const displayName =
     user.user_type === "parent" ? user.display_name : user.first_name;
@@ -25,6 +27,7 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
       // Even if logout fails server-side, clear tokens and redirect
     }
     clearTokens();
+    setTheme("sapling");
     if (user.user_type === "child" && user.family_slug) {
       navigate(`/${user.family_slug}`);
     } else {
@@ -35,7 +38,7 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
   const maxWidthClass = maxWidth === "wide" ? "max-w-[960px]" : "max-w-[480px]";
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col lg:flex-row">
+    <div className={`min-h-screen flex flex-col lg:flex-row ${user.user_type === "parent" ? "bg-cream" : ""}`}>
       {/* Desktop sidebar */}
       <nav className="hidden lg:flex flex-col w-56 h-screen sticky top-0 bg-white border-r border-sand" aria-label="Main navigation">
         {/* Branding */}
@@ -107,6 +110,20 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
                 <TrendingUp className="h-4 w-4" aria-hidden="true" />
                 Growth
               </button>
+              <button
+                onClick={() => navigate("/child/settings")}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname === "/child/settings"
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                <Settings className="h-4 w-4" aria-hidden="true" />
+                Settings
+              </button>
             </>
           )}
         </div>
@@ -166,6 +183,13 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
               >
                 <TrendingUp className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Growth</span>
+              </button>
+              <button
+                onClick={() => navigate("/child/settings")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/child/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <Settings className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Settings</span>
               </button>
             </>
           )}

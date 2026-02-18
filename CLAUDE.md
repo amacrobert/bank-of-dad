@@ -19,6 +19,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-29
 - PostgreSQL 17 — no schema changes; existing `families.timezone` column used (015-timezone-aware-scheduling)
 - TypeScript 5.3.3 + React 18.2.0 (frontend only — no backend changes) + Recharts (new), react-router-dom, lucide-react, Vite (existing) (016-savings-growth-projector)
 - N/A — no persistence; all projections are computed client-side from existing API data (016-savings-growth-projector)
+- Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); react-router-dom, lucide-react, Vite (frontend) (017-child-visual-themes)
+- PostgreSQL 17 — add `theme TEXT` column to existing `children` table (017-child-visual-themes)
 
 - Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend) + `golang.org/x/oauth2` (Google OAuth), `golang.org/x/crypto/bcrypt` (password hashing), `modernc.org/sqlite` (database), `react-router-dom` (frontend routing), `testify` (Go test assertions) (001-user-auth)
 
@@ -38,9 +40,9 @@ npm test && npm run lint
 Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend): Follow standard conventions
 
 ## Recent Changes
+- 017-child-visual-themes: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); react-router-dom, lucide-react, Vite (frontend)
 - 016-savings-growth-projector: Added TypeScript 5.3.3 + React 18.2.0 (frontend only — no backend changes) + Recharts (new), react-router-dom, lucide-react, Vite (existing)
 - 015-timezone-aware-scheduling: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); `react-router-dom`, `lucide-react`, Vite (frontend)
-- 014-combine-transactions: Added TypeScript 5.3.3 + React 18.2.0 + react-router-dom, Vite, lucide-react (icons)
 
 
 <!-- MANUAL ADDITIONS START -->

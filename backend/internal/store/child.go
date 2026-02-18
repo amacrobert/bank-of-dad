@@ -18,6 +18,7 @@ type Child struct {
 	FailedLoginAttempts int
 	BalanceCents        int64
 	Avatar              *string
+	Theme               *string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -53,11 +54,11 @@ func (s *ChildStore) Create(familyID int64, firstName, password string, avatar *
 
 func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	var c Child
-	var avatar sql.NullString
+	var avatar, theme sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE id = $1`, id,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -67,16 +68,19 @@ func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	if avatar.Valid {
 		c.Avatar = &avatar.String
 	}
+	if theme.Valid {
+		c.Theme = &theme.String
+	}
 	return &c, nil
 }
 
 func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Child, error) {
 	var c Child
-	var avatar sql.NullString
+	var avatar, theme sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE family_id = $1 AND first_name = $2`, familyID, firstName,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -86,12 +90,15 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 	if avatar.Valid {
 		c.Avatar = &avatar.String
 	}
+	if theme.Valid {
+		c.Theme = &theme.String
+	}
 	return &c, nil
 }
 
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	rows, err := s.db.Query(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE family_id = $1 ORDER BY first_name`, familyID,
 	)
 	if err != nil {
@@ -102,12 +109,15 @@ func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	var children []Child
 	for rows.Next() {
 		var c Child
-		var avatar sql.NullString
-		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var avatar, theme sql.NullString
+		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
 		if avatar.Valid {
 			c.Avatar = &avatar.String
+		}
+		if theme.Valid {
+			c.Theme = &theme.String
 		}
 		children = append(children, c)
 	}
@@ -190,6 +200,25 @@ func (s *ChildStore) UpdateNameAndAvatar(id, familyID int64, newName string, ava
 			return fmt.Errorf("child named %q already exists in this family", newName)
 		}
 		return fmt.Errorf("update name: %w", err)
+	}
+	return nil
+}
+
+// UpdateTheme sets the child's visual theme preference.
+func (s *ChildStore) UpdateTheme(childID int64, theme string) error {
+	result, err := s.db.Exec(
+		`UPDATE children SET theme = $1, updated_at = NOW() WHERE id = $2`,
+		theme, childID,
+	)
+	if err != nil {
+		return fmt.Errorf("update theme: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update theme rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("child not found")
 	}
 	return nil
 }

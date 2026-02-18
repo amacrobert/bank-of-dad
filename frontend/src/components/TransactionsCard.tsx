@@ -58,10 +58,10 @@ function formatUpcomingAmount(cents: number, estimated: boolean): string {
 // --- Recent helpers ---
 
 const typeConfig: Record<string, { icon: typeof ArrowDownCircle; color: string; amountColor: string }> = {
-  deposit: { icon: ArrowDownCircle, color: "text-forest", amountColor: "text-forest" },
+  deposit: { icon: ArrowDownCircle, color: "text-forest", amountColor: "text-[#2D5A3D]" },
   withdrawal: { icon: ArrowUpCircle, color: "text-terracotta", amountColor: "text-terracotta" },
-  allowance: { icon: Calendar, color: "text-forest", amountColor: "text-forest" },
-  interest: { icon: TrendingUp, color: "text-amber", amountColor: "text-forest" },
+  allowance: { icon: Calendar, color: "text-forest", amountColor: "text-[#2D5A3D]" },
+  interest: { icon: TrendingUp, color: "text-amber", amountColor: "text-[#2D5A3D]" },
 };
 
 function formatRecentDate(dateStr: string, timeZone: string): string {
@@ -184,7 +184,7 @@ export default function TransactionsCard({
                         <span className="text-sm font-medium text-bark truncate">
                           {getTypeLabel(p.type)}
                         </span>
-                        <span className="text-sm font-bold tabular-nums text-forest">
+                        <span className="text-sm font-bold tabular-nums text-[#2D5A3D]">
                           +{formatUpcomingAmount(p.amountCents, p.estimated)}
                         </span>
                       </div>

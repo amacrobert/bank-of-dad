@@ -462,6 +462,45 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+var validThemes = map[string]bool{
+	"sapling":  true,
+	"piggybank": true,
+	"rainbow":  true,
+}
+
+func (h *Handlers) HandleUpdateTheme(w http.ResponseWriter, r *http.Request) {
+	userType := auth.GetUserType(r)
+	if userType != "child" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Only child users can set themes"})
+		return
+	}
+
+	childID := auth.GetUserID(r)
+
+	var req struct {
+		Theme string `json:"theme"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if !validThemes[req.Theme] {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid theme. Must be one of: sapling, piggybank, rainbow"})
+		return
+	}
+
+	if err := h.childStore.UpdateTheme(childID, req.Theme); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update theme"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Theme updated",
+		"theme":   req.Theme,
+	})
+}
+
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
