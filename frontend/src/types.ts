@@ -14,6 +14,7 @@ export interface ChildUser {
   first_name: string;
   family_slug: string;
   avatar?: string | null;
+  theme?: string | null;
 }
 
 export type AuthUser = ParentUser | ChildUser;

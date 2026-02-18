@@ -80,6 +80,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 		"first_name":  child.FirstName,
 		"family_slug": familySlug,
 		"avatar":      child.Avatar,
+		"theme":       child.Theme,
 	})
 }
 

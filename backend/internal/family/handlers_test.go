@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"bank-of-dad/internal/store"
@@ -115,4 +116,78 @@ func TestHandleListFamilyChildren_NoSensitiveFields(t *testing.T) {
 	assert.NotContains(t, child, "is_locked")
 	assert.NotContains(t, child, "password_hash")
 	assert.NotContains(t, child, "family_id")
+}
+
+// T006: HandleUpdateTheme tests
+func TestHandleUpdateTheme_ValidTheme(t *testing.T) {
+	h, familyStore, childStore := newTestHandlers(t)
+
+	fam, err := familyStore.Create("test-family")
+	require.NoError(t, err)
+
+	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	require.NoError(t, err)
+
+	body := strings.NewReader(`{"theme":"piggybank"}`)
+	req := httptest.NewRequest("PUT", "/api/child/settings/theme", body)
+	req = testutil.SetRequestContext(req, "child", child.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleUpdateTheme(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var resp struct {
+		Message string `json:"message"`
+		Theme   string `json:"theme"`
+	}
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, "Theme updated", resp.Message)
+	assert.Equal(t, "piggybank", resp.Theme)
+
+	// Verify persisted
+	updated, err := childStore.GetByID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.Theme)
+	assert.Equal(t, "piggybank", *updated.Theme)
+}
+
+func TestHandleUpdateTheme_InvalidTheme(t *testing.T) {
+	h, familyStore, childStore := newTestHandlers(t)
+
+	fam, err := familyStore.Create("test-family")
+	require.NoError(t, err)
+
+	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	require.NoError(t, err)
+
+	body := strings.NewReader(`{"theme":"darkmode"}`)
+	req := httptest.NewRequest("PUT", "/api/child/settings/theme", body)
+	req = testutil.SetRequestContext(req, "child", child.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleUpdateTheme(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestHandleUpdateTheme_NonChildUser(t *testing.T) {
+	h, familyStore, _ := newTestHandlers(t)
+
+	fam, err := familyStore.Create("test-family")
+	require.NoError(t, err)
+
+	ps := store.NewParentStore(testutil.SetupTestDB(t))
+	parent, err := ps.Create("g-123", "p@test.com", "Parent")
+	require.NoError(t, err)
+
+	body := strings.NewReader(`{"theme":"rainbow"}`)
+	req := httptest.NewRequest("PUT", "/api/child/settings/theme", body)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleUpdateTheme(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 }

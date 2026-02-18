@@ -186,6 +186,17 @@ export function deleteChild(childId: number): Promise<void> {
   return request<void>(`/children/${childId}`, { method: "DELETE" });
 }
 
+// Child Settings API functions (017-child-visual-themes)
+
+export interface UpdateChildThemeResponse {
+  message: string;
+  theme: string;
+}
+
+export function updateChildTheme(theme: string): Promise<UpdateChildThemeResponse> {
+  return put<UpdateChildThemeResponse>("/child/settings/theme", { theme });
+}
+
 // Settings API functions (013-parent-settings)
 import { SettingsResponse, UpdateTimezoneResponse } from "./types";
 

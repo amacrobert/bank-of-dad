@@ -469,3 +469,93 @@ func TestUpdateNameAndAvatar_PreservesAvatarWhenNotSet(t *testing.T) {
 	assert.NotNil(t, updated.Avatar)
 	assert.Equal(t, "🐸", *updated.Avatar)
 }
+
+// T004: Theme store tests — UpdateTheme and Theme field
+func TestUpdateTheme(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Tommy", "secret123", nil)
+	require.NoError(t, err)
+	// New children should have nil theme (defaults to sapling)
+	assert.Nil(t, child.Theme)
+
+	// Update to piggybank
+	err = cs.UpdateTheme(child.ID, "piggybank")
+	require.NoError(t, err)
+
+	updated, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.Theme)
+	assert.Equal(t, "piggybank", *updated.Theme)
+
+	// Update to rainbow
+	err = cs.UpdateTheme(child.ID, "rainbow")
+	require.NoError(t, err)
+
+	updated, err = cs.GetByID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.Theme)
+	assert.Equal(t, "rainbow", *updated.Theme)
+
+	// Update to sapling
+	err = cs.UpdateTheme(child.ID, "sapling")
+	require.NoError(t, err)
+
+	updated, err = cs.GetByID(child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.Theme)
+	assert.Equal(t, "sapling", *updated.Theme)
+}
+
+func TestUpdateTheme_NonexistentChild(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+
+	err := cs.UpdateTheme(99999, "rainbow")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// T005: Theme field returned in GetByFamilyAndName and ListByFamily
+func TestGetByFamilyAndName_ReturnsTheme(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	child, err := cs.Create(fam.ID, "Sarah", "pass123456", nil)
+	require.NoError(t, err)
+
+	err = cs.UpdateTheme(child.ID, "rainbow")
+	require.NoError(t, err)
+
+	found, err := cs.GetByFamilyAndName(fam.ID, "Sarah")
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.NotNil(t, found.Theme)
+	assert.Equal(t, "rainbow", *found.Theme)
+}
+
+func TestListByFamily_ReturnsTheme(t *testing.T) {
+	db := testDB(t)
+	cs := NewChildStore(db)
+	fam := createTestFamily(t, db)
+
+	_, err := cs.Create(fam.ID, "Alice", "pass123456", nil)
+	require.NoError(t, err)
+	child2, err := cs.Create(fam.ID, "Bob", "pass123456", nil)
+	require.NoError(t, err)
+
+	err = cs.UpdateTheme(child2.ID, "piggybank")
+	require.NoError(t, err)
+
+	children, err := cs.ListByFamily(fam.ID)
+	require.NoError(t, err)
+	assert.Len(t, children, 2)
+	// Alice has no theme
+	assert.Nil(t, children[0].Theme)
+	// Bob has piggybank theme
+	require.NotNil(t, children[1].Theme)
+	assert.Equal(t, "piggybank", *children[1].Theme)
+}
