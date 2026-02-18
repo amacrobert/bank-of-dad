@@ -138,7 +138,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
   };
 
   return (
-    <div className="space-y-4">
+    <div className="animate-fade-in-up space-y-4">
       {/* Header with close */}
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-forest">Manage {child.first_name}</h3>
