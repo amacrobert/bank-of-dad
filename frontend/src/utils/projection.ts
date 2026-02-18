@@ -18,7 +18,7 @@ function periodsPerYear(frequency: Frequency): number {
 }
 
 /** Fractional weeks between payments for a given frequency */
-function weeksPerPeriodFractional(frequency: Frequency): number {
+export function weeksPerPeriod(frequency: Frequency): number {
   switch (frequency) {
     case "weekly":
       return 1;
@@ -51,12 +51,12 @@ export function calculateProjection(config: ProjectionConfig): ProjectionResult 
   const interestPerPeriod = hasInterest
     ? interestRateBps / 10000 / periodsPerYear(interestFrequency!)
     : 0;
-  const interestInterval = hasInterest ? weeksPerPeriodFractional(interestFrequency!) : 0;
+  const interestInterval = hasInterest ? weeksPerPeriod(interestFrequency!) : 0;
   let nextInterestWeek = hasInterest ? interestInterval : Infinity;
 
   // Allowance config
   const hasAllowance = allowanceFrequency !== null && allowanceAmountCents > 0;
-  const allowanceInterval = hasAllowance ? weeksPerPeriodFractional(allowanceFrequency!) : 0;
+  const allowanceInterval = hasAllowance ? weeksPerPeriod(allowanceFrequency!) : 0;
   let nextAllowanceWeek = hasAllowance ? allowanceInterval : Infinity;
 
   // Tracking

@@ -9,7 +9,7 @@ import {
   ScenarioInputs,
   ProjectionConfig,
 } from "../types";
-import { calculateProjection } from "../utils/projection";
+import { calculateProjection, weeksPerPeriod } from "../utils/projection";
 import Layout from "../components/Layout";
 import Card from "../components/ui/Card";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -66,6 +66,15 @@ export default function GrowthPage() {
             setBalanceData(bal);
             setAllowance(allow);
             setInterestSchedule(interest);
+
+            // Pre-populate spending to half the allowance (converted to weekly)
+            if (allow?.status === "active" && allow.amount_cents > 0) {
+              const weeklyEquivalent = allow.amount_cents / weeksPerPeriod(allow.frequency);
+              setScenario((s) => ({
+                ...s,
+                weeklySpendingCents: Math.round(weeklyEquivalent / 2),
+              }));
+            }
           })
           .catch(() => {
             setError("Failed to load account data.");
@@ -183,6 +192,7 @@ export default function GrowthPage() {
               isInterestPaused={interestSchedule?.status === "paused"}
               weeklyAllowanceCentsDisplay={allowance?.amount_cents ?? 0}
               allowanceFrequencyDisplay={allowance?.frequency ?? "weekly"}
+              weeklySpendingCents={scenario.weeklySpendingCents}
             />
           </Card>
         )}

@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { ScenarioInputs } from "../types";
 import Input from "./ui/Input";
 
@@ -18,6 +19,12 @@ function dollarsToCents(value: string): number {
   return Math.round(parsed * 100);
 }
 
+const fields = [
+  "weeklySpendingCents",
+  "oneTimeDepositCents",
+  "oneTimeWithdrawalCents",
+] as const;
+
 export default function ScenarioControls({
   scenario,
   onChange,
@@ -26,9 +33,50 @@ export default function ScenarioControls({
   const withdrawalExceedsBalance =
     scenario.oneTimeWithdrawalCents > currentBalanceCents;
 
-  const handleChange = (field: keyof ScenarioInputs, value: string) => {
-    const cents = dollarsToCents(value);
+  const [localWeekly, setLocalWeekly] = useState(() =>
+    centsToDollars(scenario.weeklySpendingCents)
+  );
+  const [localDeposit, setLocalDeposit] = useState(() =>
+    centsToDollars(scenario.oneTimeDepositCents)
+  );
+  const [localWithdrawal, setLocalWithdrawal] = useState(() =>
+    centsToDollars(scenario.oneTimeWithdrawalCents)
+  );
+
+  // Track last-known cents to detect external changes (e.g. reset)
+  const prevCents = useRef({
+    weeklySpendingCents: scenario.weeklySpendingCents,
+    oneTimeDepositCents: scenario.oneTimeDepositCents,
+    oneTimeWithdrawalCents: scenario.oneTimeWithdrawalCents,
+  });
+
+  useEffect(() => {
+    for (const field of fields) {
+      if (scenario[field] !== prevCents.current[field]) {
+        const formatted = centsToDollars(scenario[field]);
+        if (field === "weeklySpendingCents") setLocalWeekly(formatted);
+        if (field === "oneTimeDepositCents") setLocalDeposit(formatted);
+        if (field === "oneTimeWithdrawalCents") setLocalWithdrawal(formatted);
+      }
+    }
+    prevCents.current = {
+      weeklySpendingCents: scenario.weeklySpendingCents,
+      oneTimeDepositCents: scenario.oneTimeDepositCents,
+      oneTimeWithdrawalCents: scenario.oneTimeWithdrawalCents,
+    };
+  }, [scenario]);
+
+  const handleBlur = (field: keyof ScenarioInputs, localValue: string) => {
+    const cents = dollarsToCents(localValue);
+    // Update parent
     onChange({ ...scenario, [field]: cents });
+    // Reformat display
+    const formatted = centsToDollars(cents);
+    if (field === "weeklySpendingCents") setLocalWeekly(formatted);
+    if (field === "oneTimeDepositCents") setLocalDeposit(formatted);
+    if (field === "oneTimeWithdrawalCents") setLocalWithdrawal(formatted);
+    // Keep ref in sync so useEffect doesn't re-override
+    prevCents.current = { ...prevCents.current, [field]: cents };
   };
 
   return (
@@ -44,8 +92,9 @@ export default function ScenarioControls({
           min="0"
           step="0.01"
           placeholder="$0.00"
-          value={centsToDollars(scenario.weeklySpendingCents)}
-          onChange={(e) => handleChange("weeklySpendingCents", e.target.value)}
+          value={localWeekly}
+          onChange={(e) => setLocalWeekly(e.target.value)}
+          onBlur={() => handleBlur("weeklySpendingCents", localWeekly)}
         />
         <Input
           label="One-time extra deposit"
@@ -54,8 +103,9 @@ export default function ScenarioControls({
           min="0"
           step="0.01"
           placeholder="$0.00"
-          value={centsToDollars(scenario.oneTimeDepositCents)}
-          onChange={(e) => handleChange("oneTimeDepositCents", e.target.value)}
+          value={localDeposit}
+          onChange={(e) => setLocalDeposit(e.target.value)}
+          onBlur={() => handleBlur("oneTimeDepositCents", localDeposit)}
         />
         <Input
           label="One-time withdrawal"
@@ -64,8 +114,9 @@ export default function ScenarioControls({
           min="0"
           step="0.01"
           placeholder="$0.00"
-          value={centsToDollars(scenario.oneTimeWithdrawalCents)}
-          onChange={(e) => handleChange("oneTimeWithdrawalCents", e.target.value)}
+          value={localWithdrawal}
+          onChange={(e) => setLocalWithdrawal(e.target.value)}
+          onBlur={() => handleBlur("oneTimeWithdrawalCents", localWithdrawal)}
           error={
             withdrawalExceedsBalance
               ? `You can't withdraw more than your $${(currentBalanceCents / 100).toFixed(2)} balance`

@@ -1,4 +1,5 @@
-import { ProjectionResult } from "../types";
+import { ProjectionResult, Frequency } from "../types";
+import { weeksPerPeriod } from "../utils/projection";
 
 interface GrowthExplanationProps {
   projection: ProjectionResult;
@@ -9,6 +10,7 @@ interface GrowthExplanationProps {
   isInterestPaused: boolean;
   weeklyAllowanceCentsDisplay: number;
   allowanceFrequencyDisplay: string;
+  weeklySpendingCents: number;
 }
 
 function formatDollars(cents: number): string {
@@ -34,6 +36,7 @@ export default function GrowthExplanation({
   isInterestPaused,
   weeklyAllowanceCentsDisplay,
   allowanceFrequencyDisplay,
+  weeklySpendingCents,
 }: GrowthExplanationProps) {
   const {
     finalBalanceCents,
@@ -47,8 +50,8 @@ export default function GrowthExplanation({
   const horizon = horizonLabel(horizonMonths);
   const noGrowthSources = !hasAllowance && !hasInterest;
 
-  // No growth sources — encouraging message
-  if (noGrowthSources && totalSpendingCents === 0) {
+  // No growth sources and no spending — encouraging message
+  if (noGrowthSources && weeklySpendingCents === 0) {
     return (
       <div className="text-sm text-bark-light leading-relaxed">
         <p>
@@ -61,18 +64,27 @@ export default function GrowthExplanation({
     );
   }
 
-  // Build the explanation
-  const parts: string[] = [];
+  // Build intro sentence based on allowance + spending relationship
+  let intro: string;
 
-  if (hasAllowance) {
-    parts.push(
-      `If you keep saving your ${formatDollars(weeklyAllowanceCentsDisplay)} ${allowanceFrequencyDisplay} allowance`
+  if (hasAllowance && weeklySpendingCents > 0) {
+    const spendingPerPeriod = Math.round(
+      weeklySpendingCents * weeksPerPeriod(allowanceFrequencyDisplay as Frequency)
     );
-  }
+    const savingsPerPeriod = weeklyAllowanceCentsDisplay - spendingPerPeriod;
 
-  const intro = parts.length > 0
-    ? `${parts.join(" and ")}, in ${horizon}`
-    : `In ${horizon}`;
+    if (savingsPerPeriod > 0) {
+      intro = `If you spend ${formatDollars(weeklySpendingCents)} each week and save ${formatDollars(savingsPerPeriod)} from your ${formatDollars(weeklyAllowanceCentsDisplay)} ${allowanceFrequencyDisplay} allowance, in ${horizon}`;
+    } else {
+      intro = `If you spend ${formatDollars(weeklySpendingCents)} each week and save none of your ${formatDollars(weeklyAllowanceCentsDisplay)} ${allowanceFrequencyDisplay} allowance, in ${horizon}`;
+    }
+  } else if (hasAllowance && weeklySpendingCents === 0) {
+    intro = `If you keep saving your ${formatDollars(weeklyAllowanceCentsDisplay)} ${allowanceFrequencyDisplay} allowance, in ${horizon}`;
+  } else if (weeklySpendingCents > 0) {
+    intro = `If you spend ${formatDollars(weeklySpendingCents)} each week, in ${horizon}`;
+  } else {
+    intro = `In ${horizon}`;
+  }
 
   // Build breakdown pieces
   const breakdown: string[] = [];
