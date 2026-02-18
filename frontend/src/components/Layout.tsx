@@ -35,36 +35,72 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
   const maxWidthClass = maxWidth === "wide" ? "max-w-[960px]" : "max-w-[480px]";
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      {/* Desktop top nav */}
-      <nav className="hidden md:flex items-center justify-between px-6 py-4 bg-white border-b border-sand" aria-label="Main navigation">
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-cream flex flex-col lg:flex-row">
+      {/* Desktop sidebar */}
+      <nav className="hidden lg:flex flex-col w-56 h-screen sticky top-0 bg-white border-r border-sand" aria-label="Main navigation">
+        {/* Branding */}
+        <div className="flex items-center gap-2 px-5 py-5">
           <Leaf className="h-6 w-6 text-forest" aria-hidden="true" />
           <span className="text-lg font-bold text-forest">Bank of Dad</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-bark-light">{displayName}</span>
-          {user.user_type === "parent" && (
+
+        {/* Navigation links */}
+        <div className="flex-1 flex flex-col gap-1 px-3 py-2">
+          {user.user_type === "parent" ? (
             <>
               <button
                 onClick={() => navigate("/dashboard")}
-                className={`inline-flex items-center gap-1.5 text-sm font-medium cursor-pointer ${location.pathname === "/dashboard" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname === "/dashboard"
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
               >
                 <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                 Dashboard
               </button>
               <button
                 onClick={() => navigate("/settings")}
-                className={`inline-flex items-center gap-1.5 text-sm font-medium cursor-pointer ${location.pathname === "/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname === "/settings"
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
               >
                 <Settings className="h-4 w-4" aria-hidden="true" />
                 Settings
               </button>
             </>
+          ) : (
+            <button
+              onClick={() => navigate("/child/dashboard")}
+              className={`
+                flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                transition-colors text-left cursor-pointer
+                ${location.pathname === "/child/dashboard"
+                  ? "bg-forest text-white"
+                  : "text-bark-light hover:bg-cream-dark"
+                }
+              `}
+            >
+              <Home className="h-4 w-4" aria-hidden="true" />
+              Home
+            </button>
           )}
+        </div>
+
+        {/* User section */}
+        <div className="border-t border-sand px-3 py-4 flex flex-col gap-2">
+          <span className="px-4 text-sm font-medium text-bark-light truncate">{displayName}</span>
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-bark-light hover:text-terracotta transition-colors cursor-pointer"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold text-bark-light hover:text-terracotta hover:bg-cream-dark transition-colors cursor-pointer text-left"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Log out
@@ -73,12 +109,14 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
       </nav>
 
       {/* Main content */}
-      <main className={`flex-1 w-full ${maxWidthClass} mx-auto px-4 py-6 pb-24 md:pb-6`}>
-        {children}
+      <main className="flex-1 min-w-0">
+        <div className={`w-full ${maxWidthClass} mx-auto px-4 py-6 pb-24 lg:pb-6`}>
+          {children}
+        </div>
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sand px-4 py-2" aria-label="Mobile navigation">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sand px-4 py-2" aria-label="Mobile navigation">
         <div className="flex items-center justify-around">
           {user.user_type === "parent" ? (
             <>
