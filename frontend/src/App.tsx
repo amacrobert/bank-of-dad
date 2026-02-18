@@ -6,6 +6,7 @@ import SetupPage from "./pages/SetupPage";
 import ParentDashboard from "./pages/ParentDashboard";
 import FamilyLogin from "./pages/FamilyLogin";
 import ChildDashboard from "./pages/ChildDashboard";
+import GrowthPage from "./pages/GrowthPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
@@ -20,6 +21,7 @@ function App() {
         <Route path="/auth/callback" element={<GoogleCallback />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/child/dashboard" element={<ChildDashboard />} />
+        <Route path="/child/growth" element={<GrowthPage />} />
         <Route path="/:familySlug" element={<FamilyLogin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
