@@ -96,6 +96,7 @@ export default function SettingsPage() {
 
   return (
     <Layout user={user} maxWidth="wide">
+      <div className="animate-fade-in-up">
       <div className="flex items-center gap-3 mb-6">
         <Settings className="h-6 w-6 text-forest" aria-hidden="true" />
         <h1 className="text-2xl font-bold text-bark">Settings</h1>
@@ -195,6 +196,7 @@ export default function SettingsPage() {
             </Card>
           )}
         </div>
+      </div>
       </div>
     </Layout>
   );
