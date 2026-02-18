@@ -24,8 +24,8 @@
 
 **Purpose**: Install dependencies, set up test infrastructure, define shared TypeScript interfaces
 
-- [ ] T001 Install recharts dependency and configure vitest for unit testing in frontend/package.json
-- [ ] T002 [P] Add projection-related TypeScript interfaces (ScenarioInputs, ProjectionDataPoint, ProjectionResult, ProjectionConfig) to frontend/src/types.ts
+- [x] T001 Install recharts dependency and configure vitest for unit testing in frontend/package.json
+- [x] T002 [P] Add projection-related TypeScript interfaces (ScenarioInputs, ProjectionDataPoint, ProjectionResult, ProjectionConfig) to frontend/src/types.ts
 
 ---
 
@@ -35,8 +35,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete. The projection engine is the foundation for the graph, scenario controls, explanation text, and horizon selector.
 
-- [ ] T003 Write unit tests for calculateProjection covering: (a) allowance-only linear growth, (b) interest-only compound growth, (c) combined allowance + interest, (d) weekly/biweekly/monthly frequencies, (e) zero balance with no schedules (flat line), (f) balance floor at $0, (g) depletion week detection, (h) one-time deposit/withdrawal adjustments, (i) paused schedules excluded — in frontend/src/utils/projection.test.ts
-- [ ] T004 Implement calculateProjection() pure function using weekly-step iteration with schedule-based discrete compounding (per-period rate = interest_rate_bps / 10000 / periods_per_year) that passes all tests — in frontend/src/utils/projection.ts
+- [x] T003 Write unit tests for calculateProjection covering: (a) allowance-only linear growth, (b) interest-only compound growth, (c) combined allowance + interest, (d) weekly/biweekly/monthly frequencies, (e) zero balance with no schedules (flat line), (f) balance floor at $0, (g) depletion week detection, (h) one-time deposit/withdrawal adjustments, (i) paused schedules excluded — in frontend/src/utils/projection.test.ts
+- [x] T004 Implement calculateProjection() pure function using weekly-step iteration with schedule-based discrete compounding (per-period rate = interest_rate_bps / 10000 / periods_per_year) that passes all tests — in frontend/src/utils/projection.ts
 
 **Checkpoint**: Projection engine complete with passing tests. All financial math verified against known compound interest calculations.
 
@@ -50,10 +50,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Create GrowthChart component wrapping Recharts ResponsiveContainer + LineChart + Line + XAxis + YAxis + Tooltip, accepting ProjectionDataPoint[] as data and rendering balance over time with dollar-formatted Y axis and date-formatted X axis — in frontend/src/components/GrowthChart.tsx
-- [ ] T006 [US1] Create GrowthPage component with auth check (redirect non-child users), parallel data fetching (getBalance, getChildAllowance, getInterestSchedule), projection calculation via calculateProjection with default 1-year horizon, and GrowthChart rendering — in frontend/src/pages/GrowthPage.tsx
-- [ ] T007 [P] [US1] Add `/child/growth` route pointing to GrowthPage — in frontend/src/App.tsx
-- [ ] T008 [P] [US1] Add "Growth" navigation item with TrendingUp icon for child users, positioned after "Home" in both desktop sidebar and mobile bottom tab bar — in frontend/src/components/Layout.tsx
+- [x] T005 [US1] Create GrowthChart component wrapping Recharts ResponsiveContainer + LineChart + Line + XAxis + YAxis + Tooltip, accepting ProjectionDataPoint[] as data and rendering balance over time with dollar-formatted Y axis and date-formatted X axis — in frontend/src/components/GrowthChart.tsx
+- [x] T006 [US1] Create GrowthPage component with auth check (redirect non-child users), parallel data fetching (getBalance, getChildAllowance, getInterestSchedule), projection calculation via calculateProjection with default 1-year horizon, and GrowthChart rendering — in frontend/src/pages/GrowthPage.tsx
+- [x] T007 [P] [US1] Add `/child/growth` route pointing to GrowthPage — in frontend/src/App.tsx
+- [x] T008 [P] [US1] Add "Growth" navigation item with TrendingUp icon for child users, positioned after "Home" in both desktop sidebar and mobile bottom tab bar — in frontend/src/components/Layout.tsx
 
 **Checkpoint**: Child can navigate to Growth page via sidebar and see projected balance graph. MVP is functional and independently testable.
 
@@ -67,8 +67,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Create ScenarioControls component with three dollar-amount inputs (weekly spending, one-time deposit, one-time withdrawal) using the existing Input component, with withdrawal validation capped at current balance displaying an error message — in frontend/src/components/ScenarioControls.tsx
-- [ ] T010 [US2] Integrate ScenarioControls into GrowthPage: lift scenario state, wire onChange handlers to recalculate projection and update GrowthChart on every input change — in frontend/src/pages/GrowthPage.tsx
+- [x] T009 [US2] Create ScenarioControls component with three dollar-amount inputs (weekly spending, one-time deposit, one-time withdrawal) using the existing Input component, with withdrawal validation capped at current balance displaying an error message — in frontend/src/components/ScenarioControls.tsx
+- [x] T010 [US2] Integrate ScenarioControls into GrowthPage: lift scenario state, wire onChange handlers to recalculate projection and update GrowthChart on every input change — in frontend/src/pages/GrowthPage.tsx
 
 **Checkpoint**: Child can adjust all three scenario inputs and see graph update in real-time. Withdrawal validation prevents exceeding balance.
 
@@ -82,8 +82,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] Create GrowthExplanation component that accepts ProjectionResult and renders plain-English text: "If you keep saving your $X weekly allowance, in [horizon] your account will have $Y total. That's $A from what you have now, $B from interest, and $C from allowance deposits [minus $D in spending]." Include depletion warning when depletionWeek is set, and encouraging message when no growth sources configured — in frontend/src/components/GrowthExplanation.tsx
-- [ ] T012 [US3] Integrate GrowthExplanation into GrowthPage below the chart and scenario controls, passing the current ProjectionResult — in frontend/src/pages/GrowthPage.tsx
+- [x] T011 [US3] Create GrowthExplanation component that accepts ProjectionResult and renders plain-English text: "If you keep saving your $X weekly allowance, in [horizon] your account will have $Y total. That's $A from what you have now, $B from interest, and $C from allowance deposits [minus $D in spending]." Include depletion warning when depletionWeek is set, and encouraging message when no growth sources configured — in frontend/src/components/GrowthExplanation.tsx
+- [x] T012 [US3] Integrate GrowthExplanation into GrowthPage below the chart and scenario controls, passing the current ProjectionResult — in frontend/src/pages/GrowthPage.tsx
 
 **Checkpoint**: Child sees plain-English explanation that updates with graph. Component breakdown sums to projected total.
 
@@ -97,8 +97,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T013 [US4] Add time horizon selector (button group or segmented control with options: 3mo, 6mo, 1yr, 2yr, 5yr) to GrowthPage above or near the chart, wire selection to horizonMonths in scenario state triggering projection recalculation — in frontend/src/pages/GrowthPage.tsx
-- [ ] T014 [US4] Update GrowthExplanation to dynamically reference the selected time horizon in the text (e.g., "in 3 months", "in 5 years") instead of hardcoded "in 1 year" — in frontend/src/components/GrowthExplanation.tsx
+- [x] T013 [US4] Add time horizon selector (button group or segmented control with options: 3mo, 6mo, 1yr, 2yr, 5yr) to GrowthPage above or near the chart, wire selection to horizonMonths in scenario state triggering projection recalculation — in frontend/src/pages/GrowthPage.tsx
+- [x] T014 [US4] Update GrowthExplanation to dynamically reference the selected time horizon in the text (e.g., "in 3 months", "in 5 years") instead of hardcoded "in 1 year" — in frontend/src/components/GrowthExplanation.tsx
 
 **Checkpoint**: Child can switch between all 5 time horizons. Graph, explanation, and values update. Scenario inputs persist.
 
@@ -108,9 +108,9 @@
 
 **Purpose**: Edge case handling, loading states, and visual polish
 
-- [ ] T015 Add no-growth-sources empty state to GrowthPage: when child has no active allowance and no active interest, show flat-line graph with an encouraging message ("Ask your parent about setting up an allowance!") — in frontend/src/pages/GrowthPage.tsx
-- [ ] T016 [P] Add paused-schedule notices to GrowthExplanation: when allowance or interest is paused, note it in the explanation text (e.g., "Your allowance is currently paused.") — in frontend/src/components/GrowthExplanation.tsx
-- [ ] T017 Add loading spinner while data fetches, error state for failed API calls, and fade-in-up animation (animate-fade-in-up class) consistent with dashboard pages — in frontend/src/pages/GrowthPage.tsx
+- [x] T015 Add no-growth-sources empty state to GrowthPage: when child has no active allowance and no active interest, show flat-line graph with an encouraging message ("Ask your parent about setting up an allowance!") — in frontend/src/pages/GrowthPage.tsx
+- [x] T016 [P] Add paused-schedule notices to GrowthExplanation: when allowance or interest is paused, note it in the explanation text (e.g., "Your allowance is currently paused.") — in frontend/src/components/GrowthExplanation.tsx
+- [x] T017 Add loading spinner while data fetches, error state for failed API calls, and fade-in-up animation (animate-fade-in-up class) consistent with dashboard pages — in frontend/src/pages/GrowthPage.tsx
 
 ---
 

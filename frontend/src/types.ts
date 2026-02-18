@@ -184,3 +184,37 @@ export interface InterestSchedule {
   created_at: string;
   updated_at: string;
 }
+
+// Savings Growth Projector Feature (016-savings-growth-projector)
+
+export interface ScenarioInputs {
+  weeklySpendingCents: number;
+  oneTimeDepositCents: number;
+  oneTimeWithdrawalCents: number;
+  horizonMonths: number;
+}
+
+export interface ProjectionDataPoint {
+  weekIndex: number;
+  date: string;
+  balanceCents: number;
+}
+
+export interface ProjectionResult {
+  dataPoints: ProjectionDataPoint[];
+  finalBalanceCents: number;
+  totalInterestCents: number;
+  totalAllowanceCents: number;
+  totalSpendingCents: number;
+  startingBalanceCents: number;
+  depletionWeek: number | null;
+}
+
+export interface ProjectionConfig {
+  currentBalanceCents: number;
+  interestRateBps: number;
+  interestFrequency: Frequency | null;
+  allowanceAmountCents: number;
+  allowanceFrequency: Frequency | null;
+  scenario: ScenarioInputs;
+}
