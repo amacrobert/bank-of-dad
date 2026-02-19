@@ -71,7 +71,7 @@ func (g *GoogleAuth) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   600,
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(g.config.RedirectURL, "https://"),
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	url := g.config.AuthCodeURL(state)
