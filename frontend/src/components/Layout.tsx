@@ -9,10 +9,9 @@ import { Leaf, LayoutDashboard, Home, TrendingUp, LogOut, Settings } from "lucid
 interface LayoutProps {
   user: AuthUser;
   children: ReactNode;
-  maxWidth?: "narrow" | "wide";
 }
 
-export default function Layout({ user, children, maxWidth = "narrow" }: LayoutProps) {
+export default function Layout({ user, children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { setTheme } = useTheme();
@@ -34,8 +33,6 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
       navigate("/");
     }
   };
-
-  const maxWidthClass = maxWidth === "wide" ? "max-w-[960px]" : "max-w-[480px]";
 
   return (
     <div className={`min-h-screen flex flex-col lg:flex-row ${user.user_type === "parent" ? "bg-cream" : ""}`}>
@@ -143,7 +140,7 @@ export default function Layout({ user, children, maxWidth = "narrow" }: LayoutPr
 
       {/* Main content */}
       <main className="flex-1 min-w-0">
-        <div className={`w-full ${maxWidthClass} mx-auto px-4 py-6 pb-24 lg:pb-6`}>
+        <div className="px-4 py-6 pb-24 lg:pb-6">
           {children}
         </div>
       </main>

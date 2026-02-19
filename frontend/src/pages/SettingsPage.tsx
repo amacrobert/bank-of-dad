@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { get } from "../api";
 import { getSettings, updateTimezone, ApiRequestError } from "../api";
-import { ParentUser, SettingsResponse } from "../types";
-import Layout from "../components/Layout";
+import { SettingsResponse } from "../types";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -21,8 +18,6 @@ const CATEGORIES: SettingsCategory[] = [
 ];
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState<ParentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("general");
 
@@ -34,25 +29,6 @@ export default function SettingsPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    get<ParentUser>("/auth/me")
-      .then((data) => {
-        if (data.user_type !== "parent") {
-          navigate("/");
-          return;
-        }
-        if (data.family_id === 0) {
-          navigate("/setup", { replace: true });
-          return;
-        }
-        setUser(data);
-      })
-      .catch(() => {
-        navigate("/");
-      });
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!user) return;
     getSettings()
       .then((data) => {
         setSettings(data);
@@ -63,7 +39,7 @@ export default function SettingsPage() {
         setLoading(false);
         setErrorMsg("Failed to load settings.");
       });
-  }, [user]);
+  }, []);
 
   const hasChanges = settings !== null && selectedTimezone !== settings.timezone;
 
@@ -86,17 +62,16 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading || !user) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="max-w-[960px] mx-auto flex items-center justify-center min-h-[300px]">
         <LoadingSpinner message="Loading settings..." />
       </div>
     );
   }
 
   return (
-    <Layout user={user} maxWidth="wide">
-      <div className="animate-fade-in-up">
+    <div className="max-w-[960px] mx-auto animate-fade-in-up">
       <div className="flex items-center gap-3 mb-6">
         <Settings className="h-6 w-6 text-forest" aria-hidden="true" />
         <h1 className="text-2xl font-bold text-bark">Settings</h1>
@@ -197,7 +172,6 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
-      </div>
-    </Layout>
+    </div>
   );
 }

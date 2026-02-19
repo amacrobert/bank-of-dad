@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TimezoneProvider } from "./context/TimezoneContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import AuthenticatedLayout from "./components/AuthenticatedLayout";
 import HomePage from "./pages/HomePage";
 import GoogleCallback from "./pages/GoogleCallback";
 import SetupPage from "./pages/SetupPage";
@@ -19,13 +20,22 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<ParentDashboard />} />
-        <Route path="/setup" element={<SetupPage />} />
         <Route path="/auth/callback" element={<GoogleCallback />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/child/dashboard" element={<ChildDashboard />} />
-        <Route path="/child/growth" element={<GrowthPage />} />
-        <Route path="/child/settings" element={<ChildSettingsPage />} />
+        <Route path="/setup" element={<SetupPage />} />
+
+        {/* Parent routes — shared Layout */}
+        <Route element={<AuthenticatedLayout userType="parent" />}>
+          <Route path="/dashboard" element={<ParentDashboard />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+
+        {/* Child routes — shared Layout */}
+        <Route element={<AuthenticatedLayout userType="child" />}>
+          <Route path="/child/dashboard" element={<ChildDashboard />} />
+          <Route path="/child/growth" element={<GrowthPage />} />
+          <Route path="/child/settings" element={<ChildSettingsPage />} />
+        </Route>
+
         <Route path="/:familySlug" element={<FamilyLogin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

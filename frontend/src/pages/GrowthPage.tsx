@@ -1,8 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { get, getBalance, getChildAllowance, getInterestSchedule } from "../api";
+import { getBalance, getChildAllowance, getInterestSchedule } from "../api";
 import {
-  ChildUser,
   BalanceResponse,
   AllowanceSchedule,
   InterestSchedule,
@@ -10,7 +8,7 @@ import {
   ProjectionConfig,
 } from "../types";
 import { calculateProjection, weeksPerPeriod } from "../utils/projection";
-import Layout from "../components/Layout";
+import { useChildUser } from "../hooks/useAuthOutletContext";
 import Card from "../components/ui/Card";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import GrowthChart from "../components/GrowthChart";
@@ -34,8 +32,7 @@ const DEFAULT_SCENARIO: ScenarioInputs = {
 };
 
 export default function GrowthPage() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState<ChildUser | null>(null);
+  const user = useChildUser();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,45 +45,32 @@ export default function GrowthPage() {
   const [scenario, setScenario] = useState<ScenarioInputs>(DEFAULT_SCENARIO);
 
   useEffect(() => {
-    get<ChildUser>("/auth/me")
-      .then((data) => {
-        if (data.user_type !== "child") {
-          navigate("/");
-          return;
+    Promise.all([
+      getBalance(user.user_id),
+      getChildAllowance(user.user_id).catch(() => null),
+      getInterestSchedule(user.user_id).catch(() => null),
+    ])
+      .then(([bal, allow, interest]) => {
+        setBalanceData(bal);
+        setAllowance(allow);
+        setInterestSchedule(interest);
+
+        // Pre-populate spending to half the allowance (converted to weekly)
+        if (allow?.status === "active" && allow.amount_cents > 0) {
+          const weeklyEquivalent = allow.amount_cents / weeksPerPeriod(allow.frequency);
+          setScenario((s) => ({
+            ...s,
+            weeklySpendingCents: Math.round(weeklyEquivalent / 2),
+          }));
         }
-        setUser(data);
-
-        // Fetch all projection data in parallel
-        Promise.all([
-          getBalance(data.user_id),
-          getChildAllowance(data.user_id).catch(() => null),
-          getInterestSchedule(data.user_id).catch(() => null),
-        ])
-          .then(([bal, allow, interest]) => {
-            setBalanceData(bal);
-            setAllowance(allow);
-            setInterestSchedule(interest);
-
-            // Pre-populate spending to half the allowance (converted to weekly)
-            if (allow?.status === "active" && allow.amount_cents > 0) {
-              const weeklyEquivalent = allow.amount_cents / weeksPerPeriod(allow.frequency);
-              setScenario((s) => ({
-                ...s,
-                weeklySpendingCents: Math.round(weeklyEquivalent / 2),
-              }));
-            }
-          })
-          .catch(() => {
-            setError("Failed to load account data.");
-          })
-          .finally(() => {
-            setLoading(false);
-          });
       })
       .catch(() => {
-        navigate("/");
+        setError("Failed to load account data.");
+      })
+      .finally(() => {
+        setLoading(false);
       });
-  }, [navigate]);
+  }, [user.user_id]);
 
   // Build projection config from fetched data + scenario
   const projectionConfig: ProjectionConfig | null = useMemo(() => {
@@ -111,9 +95,9 @@ export default function GrowthPage() {
     return calculateProjection(projectionConfig);
   }, [projectionConfig]);
 
-  if (loading || !user) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="max-w-[960px] mx-auto flex items-center justify-center min-h-[300px]">
         <LoadingSpinner message="Loading growth projector..." />
       </div>
     );
@@ -121,82 +105,78 @@ export default function GrowthPage() {
 
   if (error) {
     return (
-      <Layout user={user} maxWidth="wide">
-        <div className="animate-fade-in-up">
-          <Card>
-            <p className="text-terracotta font-medium text-center py-8">{error}</p>
-          </Card>
-        </div>
-      </Layout>
+      <div className="max-w-[960px] mx-auto animate-fade-in-up">
+        <Card>
+          <p className="text-terracotta font-medium text-center py-8">{error}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Layout user={user} maxWidth="wide">
-      <div className="animate-fade-in-up space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <TrendingUp className="h-6 w-6 text-forest" aria-hidden="true" />
-          <h1 className="text-2xl font-bold text-bark">Growth Projector</h1>
-        </div>
-
-        {/* Time Horizon Selector + Chart */}
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-bark uppercase tracking-wide">
-              Projected Balance
-            </h2>
-            <div className="flex gap-1">
-              {HORIZON_OPTIONS.map((opt) => (
-                <button
-                  key={opt.months}
-                  onClick={() => setScenario((s) => ({ ...s, horizonMonths: opt.months }))}
-                  className={`
-                    px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer
-                    ${scenario.horizonMonths === opt.months
-                      ? "bg-forest text-white"
-                      : "text-bark-light hover:bg-cream-dark"
-                    }
-                  `}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {projection && (
-            <GrowthChart dataPoints={projection.dataPoints} />
-          )}
-        </Card>
-
-        {/* Scenario Controls */}
-        {balanceData && (
-          <Card>
-            <ScenarioControls
-              scenario={scenario}
-              onChange={setScenario}
-              currentBalanceCents={balanceData.balance_cents}
-            />
-          </Card>
-        )}
-
-        {/* Plain-English Explanation */}
-        {projection && balanceData && (
-          <Card>
-            <GrowthExplanation
-              projection={projection}
-              horizonMonths={scenario.horizonMonths}
-              hasAllowance={allowance?.status === "active" && (allowance?.amount_cents ?? 0) > 0}
-              hasInterest={interestSchedule?.status === "active" && balanceData.interest_rate_bps > 0}
-              isAllowancePaused={allowance?.status === "paused"}
-              isInterestPaused={interestSchedule?.status === "paused"}
-              weeklyAllowanceCentsDisplay={allowance?.amount_cents ?? 0}
-              allowanceFrequencyDisplay={allowance?.frequency ?? "weekly"}
-              weeklySpendingCents={scenario.weeklySpendingCents}
-            />
-          </Card>
-        )}
+    <div className="max-w-[960px] mx-auto animate-fade-in-up space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <TrendingUp className="h-6 w-6 text-forest" aria-hidden="true" />
+        <h1 className="text-2xl font-bold text-bark">Growth Projector</h1>
       </div>
-    </Layout>
+
+      {/* Time Horizon Selector + Chart */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-bark uppercase tracking-wide">
+            Projected Balance
+          </h2>
+          <div className="flex gap-1">
+            {HORIZON_OPTIONS.map((opt) => (
+              <button
+                key={opt.months}
+                onClick={() => setScenario((s) => ({ ...s, horizonMonths: opt.months }))}
+                className={`
+                  px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer
+                  ${scenario.horizonMonths === opt.months
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {projection && (
+          <GrowthChart dataPoints={projection.dataPoints} />
+        )}
+      </Card>
+
+      {/* Scenario Controls */}
+      {balanceData && (
+        <Card>
+          <ScenarioControls
+            scenario={scenario}
+            onChange={setScenario}
+            currentBalanceCents={balanceData.balance_cents}
+          />
+        </Card>
+      )}
+
+      {/* Plain-English Explanation */}
+      {projection && balanceData && (
+        <Card>
+          <GrowthExplanation
+            projection={projection}
+            horizonMonths={scenario.horizonMonths}
+            hasAllowance={allowance?.status === "active" && (allowance?.amount_cents ?? 0) > 0}
+            hasInterest={interestSchedule?.status === "active" && balanceData.interest_rate_bps > 0}
+            isAllowancePaused={allowance?.status === "paused"}
+            isInterestPaused={interestSchedule?.status === "paused"}
+            weeklyAllowanceCentsDisplay={allowance?.amount_cents ?? 0}
+            allowanceFrequencyDisplay={allowance?.frequency ?? "weekly"}
+            weeklySpendingCents={scenario.weeklySpendingCents}
+          />
+        </Card>
+      )}
+    </div>
   );
 }
