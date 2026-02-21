@@ -462,6 +462,33 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	parentID := auth.GetUserID(r)
+	familyID := auth.GetFamilyID(r)
+	if familyID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No family associated with your account"})
+		return
+	}
+
+	// Log audit event before deletion (best-effort)
+	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+		EventType: "account_deleted",
+		UserType:  "parent",
+		UserID:    parentID,
+		FamilyID:  familyID,
+		IPAddress: r.RemoteAddr,
+		Details:   fmt.Sprintf("parent %d deleted entire account (family %d)", parentID, familyID),
+		CreatedAt: time.Now().UTC(),
+	})
+
+	if err := h.familyStore.DeleteAll(familyID, parentID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete account"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 var validThemes = map[string]bool{
 	"sapling":  true,
 	"piggybank": true,

@@ -208,3 +208,7 @@ export function updateTimezone(timezone: string): Promise<UpdateTimezoneResponse
   return put<UpdateTimezoneResponse>("/settings/timezone", { timezone });
 }
 
+export function deleteAccount(): Promise<void> {
+  return request<void>("/account", { method: "DELETE" });
+}
+

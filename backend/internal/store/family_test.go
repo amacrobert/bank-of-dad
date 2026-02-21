@@ -2,6 +2,7 @@ package store
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -175,4 +176,168 @@ func TestSuggestSlugs(t *testing.T) {
 	for _, s := range suggestions {
 		assert.NoError(t, ValidateSlug(s))
 	}
+}
+
+func TestDeleteAll_RemovesEverything(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+	ps := NewParentStore(db)
+	cs := NewChildStore(db)
+	ts := NewTransactionStore(db)
+	ss := NewScheduleStore(db)
+	rs := NewRefreshTokenStore(db)
+	es := NewAuthEventStore(db)
+
+	// Create family, parent, child
+	fam, err := fs.Create("delete-test")
+	require.NoError(t, err)
+
+	parent, err := ps.Create("google-del-1", "del@test.com", "Del Parent")
+	require.NoError(t, err)
+	require.NoError(t, ps.SetFamilyID(parent.ID, fam.ID))
+
+	child, err := cs.Create(fam.ID, "Kiddo", "password123", nil)
+	require.NoError(t, err)
+
+	// Create transaction
+	_, _, err = ts.Deposit(child.ID, parent.ID, 1000, "test deposit")
+	require.NoError(t, err)
+
+	// Create allowance schedule
+	dow := 1
+	_, err = ss.Create(&AllowanceSchedule{
+		ChildID:     child.ID,
+		ParentID:    parent.ID,
+		AmountCents: 500,
+		Frequency:   "weekly",
+		DayOfWeek:   &dow,
+		Status:      ScheduleStatusActive,
+	})
+	require.NoError(t, err)
+
+	// Create refresh tokens for parent and child
+	_, err = rs.Create("parent", parent.ID, fam.ID, 24*time.Hour)
+	require.NoError(t, err)
+	_, err = rs.Create("child", child.ID, fam.ID, 24*time.Hour)
+	require.NoError(t, err)
+
+	// Create auth events for parent and child
+	require.NoError(t, es.LogEvent(AuthEvent{
+		EventType: "login", UserType: "parent", UserID: parent.ID,
+		FamilyID: fam.ID, IPAddress: "127.0.0.1", CreatedAt: time.Now().UTC(),
+	}))
+	require.NoError(t, es.LogEvent(AuthEvent{
+		EventType: "login", UserType: "child", UserID: child.ID,
+		FamilyID: fam.ID, IPAddress: "127.0.0.1", CreatedAt: time.Now().UTC(),
+	}))
+
+	// Delete everything
+	err = fs.DeleteAll(fam.ID, parent.ID)
+	require.NoError(t, err)
+
+	// Verify family gone
+	found, err := fs.GetByID(fam.ID)
+	require.NoError(t, err)
+	assert.Nil(t, found)
+
+	// Verify parent gone
+	foundParent, err := ps.GetByID(parent.ID)
+	require.NoError(t, err)
+	assert.Nil(t, foundParent)
+
+	// Verify child gone
+	foundChild, err := cs.GetByID(child.ID)
+	require.NoError(t, err)
+	assert.Nil(t, foundChild)
+
+	// Verify transactions gone
+	txns, err := ts.ListByChild(child.ID)
+	require.NoError(t, err)
+	assert.Empty(t, txns)
+
+	// Verify refresh tokens gone
+	var tokenCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM refresh_tokens WHERE family_id = $1`, fam.ID).Scan(&tokenCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, tokenCount)
+
+	// Verify auth events gone
+	var eventCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM auth_events WHERE family_id = $1`, fam.ID).Scan(&eventCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, eventCount)
+}
+
+func TestDeleteAll_DoesNotAffectOtherFamilies(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+	ps := NewParentStore(db)
+	cs := NewChildStore(db)
+	ts := NewTransactionStore(db)
+
+	// Family 1 (will be deleted)
+	fam1, err := fs.Create("fam-delete")
+	require.NoError(t, err)
+	parent1, err := ps.Create("google-fam1", "fam1@test.com", "Parent One")
+	require.NoError(t, err)
+	require.NoError(t, ps.SetFamilyID(parent1.ID, fam1.ID))
+	child1, err := cs.Create(fam1.ID, "Child1", "password123", nil)
+	require.NoError(t, err)
+	_, _, err = ts.Deposit(child1.ID, parent1.ID, 1000, "deposit")
+	require.NoError(t, err)
+
+	// Family 2 (should survive)
+	fam2, err := fs.Create("fam-keep")
+	require.NoError(t, err)
+	parent2, err := ps.Create("google-fam2", "fam2@test.com", "Parent Two")
+	require.NoError(t, err)
+	require.NoError(t, ps.SetFamilyID(parent2.ID, fam2.ID))
+	child2, err := cs.Create(fam2.ID, "Child2", "password123", nil)
+	require.NoError(t, err)
+	_, _, err = ts.Deposit(child2.ID, parent2.ID, 2000, "deposit")
+	require.NoError(t, err)
+
+	// Delete family 1
+	err = fs.DeleteAll(fam1.ID, parent1.ID)
+	require.NoError(t, err)
+
+	// Family 2 still intact
+	found, err := fs.GetByID(fam2.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, found)
+
+	foundParent, err := ps.GetByID(parent2.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, foundParent)
+
+	foundChild, err := cs.GetByID(child2.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, foundChild)
+
+	txns, err := ts.ListByChild(child2.ID)
+	require.NoError(t, err)
+	assert.Len(t, txns, 1)
+}
+
+func TestDeleteAll_EmptyFamily(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+	ps := NewParentStore(db)
+
+	fam, err := fs.Create("empty-fam")
+	require.NoError(t, err)
+	parent, err := ps.Create("google-empty", "empty@test.com", "Empty Parent")
+	require.NoError(t, err)
+	require.NoError(t, ps.SetFamilyID(parent.ID, fam.ID))
+
+	err = fs.DeleteAll(fam.ID, parent.ID)
+	require.NoError(t, err)
+
+	found, err := fs.GetByID(fam.ID)
+	require.NoError(t, err)
+	assert.Nil(t, found)
+
+	foundParent, err := ps.GetByID(parent.ID)
+	require.NoError(t, err)
+	assert.Nil(t, foundParent)
 }
