@@ -91,7 +91,7 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
             <span className="font-bold text-forest">Account created for {created.first_name}!</span>
           </div>
           <div className="space-y-1 text-sm text-bark-light">
-            <p>Login URL: <strong className="text-bark">{created.login_url}</strong></p>
+            <p>Login URL: <strong className="text-bark">{window.location.host}/{created.login_url}</strong></p>
             <p>Name: <strong className="text-bark">{created.first_name}</strong></p>
             <p>Password: <strong className="text-bark">{password || "(the password you just set)"}</strong></p>
           </div>

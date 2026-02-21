@@ -61,7 +61,7 @@ export default function SlugPicker({ onSelect, disabled }: SlugPickerProps) {
       </label>
       <div className="flex items-center rounded-xl border border-sand bg-white overflow-hidden focus-within:ring-2 focus-within:ring-forest/30 focus-within:border-forest transition-all">
         <span className="px-3 py-3 bg-cream-dark text-bark-light text-sm font-medium border-r border-sand whitespace-nowrap">
-          bankofdad.com/
+          {window.location.host}/
         </span>
         <input
           id="slug-input"
