@@ -7,7 +7,8 @@ import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import TimezoneSelect from "../components/TimezoneSelect";
 import ChildrenSettings from "../components/ChildrenSettings";
-import { Settings, Globe, Users } from "lucide-react";
+import AccountSettings from "../components/AccountSettings";
+import { Settings, Globe, Users, User } from "lucide-react";
 
 interface SettingsCategory {
   key: string;
@@ -18,6 +19,7 @@ interface SettingsCategory {
 const CATEGORIES: SettingsCategory[] = [
   { key: "general", label: "General", icon: Globe },
   { key: "children", label: "Children", icon: Users },
+  { key: "account", label: "Account", icon: User },
 ];
 
 export default function SettingsPage() {
@@ -177,6 +179,8 @@ export default function SettingsPage() {
           )}
 
           {activeCategory === "children" && <ChildrenSettings />}
+
+          {activeCategory === "account" && <AccountSettings />}
         </div>
       </div>
     </div>

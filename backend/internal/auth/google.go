@@ -64,14 +64,20 @@ func (g *GoogleAuth) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	state := base64.URLEncoding.EncodeToString(b)
 
+	secure := strings.HasPrefix(g.config.RedirectURL, "https://")
+	sameSite := http.SameSiteLaxMode
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
 		Path:     "/",
 		MaxAge:   600,
 		HttpOnly: true,
-		Secure:   strings.HasPrefix(g.config.RedirectURL, "https://"),
-		SameSite: http.SameSiteNoneMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 
 	url := g.config.AuthCodeURL(state)

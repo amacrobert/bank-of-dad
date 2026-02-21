@@ -123,6 +123,51 @@ func (s *FamilyStore) SuggestSlugs(base string) []string {
 	return available
 }
 
+func (s *FamilyStore) DeleteAll(familyID, parentID int64) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+	// Delete refresh tokens for all children in the family
+	if _, err := tx.Exec(`DELETE FROM refresh_tokens WHERE user_type = 'child' AND user_id IN (SELECT id FROM children WHERE family_id = $1)`, familyID); err != nil {
+		return fmt.Errorf("delete child refresh tokens: %w", err)
+	}
+
+	// Delete auth events for all children in the family
+	if _, err := tx.Exec(`DELETE FROM auth_events WHERE user_type = 'child' AND user_id IN (SELECT id FROM children WHERE family_id = $1)`, familyID); err != nil {
+		return fmt.Errorf("delete child auth events: %w", err)
+	}
+
+	// Delete children (cascades transactions, allowance_schedules, interest_schedules)
+	if _, err := tx.Exec(`DELETE FROM children WHERE family_id = $1`, familyID); err != nil {
+		return fmt.Errorf("delete children: %w", err)
+	}
+
+	// Delete refresh tokens for the parent
+	if _, err := tx.Exec(`DELETE FROM refresh_tokens WHERE user_type = 'parent' AND user_id = $1`, parentID); err != nil {
+		return fmt.Errorf("delete parent refresh tokens: %w", err)
+	}
+
+	// Delete auth events for the parent and family-scoped events
+	if _, err := tx.Exec(`DELETE FROM auth_events WHERE (user_type = 'parent' AND user_id = $1) OR family_id = $2`, parentID, familyID); err != nil {
+		return fmt.Errorf("delete parent auth events: %w", err)
+	}
+
+	// Delete the parent
+	if _, err := tx.Exec(`DELETE FROM parents WHERE id = $1`, parentID); err != nil {
+		return fmt.Errorf("delete parent: %w", err)
+	}
+
+	// Delete the family
+	if _, err := tx.Exec(`DELETE FROM families WHERE id = $1`, familyID); err != nil {
+		return fmt.Errorf("delete family: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 func ValidateSlug(slug string) error {
 	if len(slug) < 3 || len(slug) > 30 {
 		return fmt.Errorf("slug must be between 3 and 30 characters")

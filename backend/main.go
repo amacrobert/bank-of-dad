@@ -152,6 +152,9 @@ func main() {
 	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
 	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))
 
+	// Account deletion
+	mux.Handle("DELETE /api/account", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteAccount)))
+
 	// Child-scoped allowance endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/allowance", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetChildAllowance)))
 	mux.Handle("PUT /api/children/{childId}/allowance", requireParent(http.HandlerFunc(allowanceHandler.HandleSetChildAllowance)))
