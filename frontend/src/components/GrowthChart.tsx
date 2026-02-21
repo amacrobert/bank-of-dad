@@ -13,6 +13,7 @@ import { getTheme } from "../themes";
 
 interface GrowthChartProps {
   dataPoints: ProjectionDataPoint[];
+  animationKey?: string;
 }
 
 function formatDollars(cents: number): string {
@@ -50,7 +51,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   );
 }
 
-export default function GrowthChart({ dataPoints }: GrowthChartProps) {
+export default function GrowthChart({ dataPoints, animationKey }: GrowthChartProps) {
   const { theme } = useTheme();
   const themeColor = getTheme(theme).colors.forest;
 
@@ -64,7 +65,7 @@ export default function GrowthChart({ dataPoints }: GrowthChartProps) {
   return (
     <div className="w-full h-64 sm:h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={dataPoints} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
+        <LineChart key={animationKey} data={dataPoints} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5ddd4" vertical={false} />
           <XAxis
             dataKey="date"

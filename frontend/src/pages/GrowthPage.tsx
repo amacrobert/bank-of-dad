@@ -146,7 +146,7 @@ export default function GrowthPage() {
           </div>
         </div>
         {projection && (
-          <GrowthChart dataPoints={projection.dataPoints} />
+          <GrowthChart dataPoints={projection.dataPoints} animationKey={JSON.stringify(scenario)} />
         )}
       </Card>
 
