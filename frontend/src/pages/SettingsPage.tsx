@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getSettings, updateTimezone, ApiRequestError } from "../api";
 import { SettingsResponse } from "../types";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import TimezoneSelect from "../components/TimezoneSelect";
-import { Settings, Globe } from "lucide-react";
+import ChildrenSettings from "../components/ChildrenSettings";
+import { Settings, Globe, Users } from "lucide-react";
 
 interface SettingsCategory {
   key: string;
@@ -15,11 +17,14 @@ interface SettingsCategory {
 
 const CATEGORIES: SettingsCategory[] = [
   { key: "general", label: "General", icon: Globe },
+  { key: "children", label: "Children", icon: Users },
 ];
 
 export default function SettingsPage() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "general";
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("general");
+  const [activeCategory, setActiveCategory] = useState(initialTab);
 
   // Settings state
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
@@ -170,6 +175,8 @@ export default function SettingsPage() {
               </div>
             </Card>
           )}
+
+          {activeCategory === "children" && <ChildrenSettings />}
         </div>
       </div>
     </div>

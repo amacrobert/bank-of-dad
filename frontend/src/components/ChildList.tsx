@@ -37,7 +37,7 @@ export default function ChildList({ refreshKey, onSelectChild, selectedChildId, 
     return (
       <div className="py-8 text-center">
         <p className="text-bark-light mb-1">No children added yet.</p>
-        <p className="text-sm text-bark-light/70">Add your first child below!</p>
+        <p className="text-sm text-bark-light/70">Add your first child to get started.</p>
       </div>
     );
   }

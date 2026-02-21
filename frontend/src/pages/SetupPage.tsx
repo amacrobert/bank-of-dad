@@ -4,17 +4,18 @@ import { post } from "../api";
 import { ApiRequestError } from "../api";
 import { setTokens, getRefreshToken } from "../auth";
 import SlugPicker from "../components/SlugPicker";
+import AddChildForm from "../components/AddChildForm";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import { Leaf, PartyPopper } from "lucide-react";
+import { Leaf, PartyPopper, Users } from "lucide-react";
 
 export default function SetupPage() {
   const navigate = useNavigate();
   const [selectedSlug, setSelectedSlug] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState(false);
-
+  // Step tracking: 1 = slug picker, 2 = add children, 3 = confirmation
+  const [step, setStep] = useState(1);
   const handleSubmit = async () => {
     if (!selectedSlug) return;
 
@@ -29,7 +30,7 @@ export default function SetupPage() {
           setTokens(resp.access_token, refreshToken);
         }
       }
-      setCreated(true);
+      setStep(2);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.body.message || err.body.error);
@@ -40,14 +41,21 @@ export default function SetupPage() {
     }
   };
 
-  const step = created ? 2 : 1;
+  const handleChildAdded = () => {
+    // AddChildForm handles its own success state internally.
+    // We track added children names for the list display.
+  };
+
+  const goToDashboard = () => {
+    navigate("/dashboard", { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md animate-fade-in-up">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-8">
-          {[1, 2].map((s) => (
+          {[1, 2, 3].map((s) => (
             <div
               key={s}
               className={`w-3 h-3 rounded-full transition-colors ${
@@ -57,7 +65,8 @@ export default function SetupPage() {
           ))}
         </div>
 
-        {!created ? (
+        {/* Step 1: Choose family slug */}
+        {step === 1 && (
           <Card padding="lg">
             <div className="flex justify-center mb-4">
               <div className="w-14 h-14 bg-forest/10 rounded-2xl flex items-center justify-center">
@@ -92,7 +101,44 @@ export default function SetupPage() {
               </div>
             )}
           </Card>
-        ) : (
+        )}
+
+        {/* Step 2: Add children */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <Card padding="lg">
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 bg-forest/10 rounded-2xl flex items-center justify-center">
+                  <Users className="h-7 w-7 text-forest" aria-hidden="true" />
+                </div>
+              </div>
+
+              <h1 className="text-2xl font-bold text-forest text-center mb-2">
+                Add your children
+              </h1>
+              <p className="text-bark-light text-center mb-2">
+                Create accounts for your kids so they can log in and track their savings.
+              </p>
+            </Card>
+
+            <AddChildForm onChildAdded={handleChildAdded} />
+
+            <div className="space-y-3">
+              <Button onClick={() => setStep(3)} className="w-full">
+                Continue to Dashboard
+              </Button>
+              <button
+                onClick={() => setStep(3)}
+                className="w-full text-center text-sm text-bark-light hover:text-bark transition-colors cursor-pointer"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Confirmation */}
+        {step === 3 && (
           <Card padding="lg">
             <div className="text-center">
               <div className="flex justify-center mb-4">
@@ -100,11 +146,11 @@ export default function SetupPage() {
                   <PartyPopper className="h-8 w-8 text-amber" aria-hidden="true" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-forest mb-2">You're all set!</h2>
+              <h2 className="text-2xl font-bold text-forest mb-2">You&apos;re all set!</h2>
               <p className="text-bark-light mb-6">
-                Your family bank is ready. Start adding your kids!
+                Your family bank is ready. Head to the dashboard to get started!
               </p>
-              <Button onClick={() => navigate("/dashboard", { replace: true })} className="w-full">
+              <Button onClick={goToDashboard} className="w-full">
                 Go to Dashboard
               </Button>
             </div>

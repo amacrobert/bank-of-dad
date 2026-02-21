@@ -49,6 +49,7 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
 
   return (
     <Card padding="md">
+      <h3 className="text-base font-bold text-bark mb-3">Add a new child</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="First Name"
