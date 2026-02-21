@@ -492,7 +492,7 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 var validThemes = map[string]bool{
 	"sapling":  true,
 	"piggybank": true,
-	"rainbow":  true,
+	"sparkle":  true,
 }
 
 func (h *Handlers) HandleUpdateTheme(w http.ResponseWriter, r *http.Request) {
@@ -513,7 +513,7 @@ func (h *Handlers) HandleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !validThemes[req.Theme] {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid theme. Must be one of: sapling, piggybank, rainbow"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid theme. Must be one of: sapling, piggybank, sparkle"})
 		return
 	}
 

@@ -491,14 +491,14 @@ func TestUpdateTheme(t *testing.T) {
 	require.NotNil(t, updated.Theme)
 	assert.Equal(t, "piggybank", *updated.Theme)
 
-	// Update to rainbow
-	err = cs.UpdateTheme(child.ID, "rainbow")
+	// Update to sparkle
+	err = cs.UpdateTheme(child.ID, "sparkle")
 	require.NoError(t, err)
 
 	updated, err = cs.GetByID(child.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.Theme)
-	assert.Equal(t, "rainbow", *updated.Theme)
+	assert.Equal(t, "sparkle", *updated.Theme)
 
 	// Update to sapling
 	err = cs.UpdateTheme(child.ID, "sapling")
@@ -514,7 +514,7 @@ func TestUpdateTheme_NonexistentChild(t *testing.T) {
 	db := testDB(t)
 	cs := NewChildStore(db)
 
-	err := cs.UpdateTheme(99999, "rainbow")
+	err := cs.UpdateTheme(99999, "sparkle")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -528,14 +528,14 @@ func TestGetByFamilyAndName_ReturnsTheme(t *testing.T) {
 	child, err := cs.Create(fam.ID, "Sarah", "pass123456", nil)
 	require.NoError(t, err)
 
-	err = cs.UpdateTheme(child.ID, "rainbow")
+	err = cs.UpdateTheme(child.ID, "sparkle")
 	require.NoError(t, err)
 
 	found, err := cs.GetByFamilyAndName(fam.ID, "Sarah")
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.NotNil(t, found.Theme)
-	assert.Equal(t, "rainbow", *found.Theme)
+	assert.Equal(t, "sparkle", *found.Theme)
 }
 
 func TestListByFamily_ReturnsTheme(t *testing.T) {

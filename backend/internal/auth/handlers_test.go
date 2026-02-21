@@ -64,7 +64,7 @@ func TestHandleGetMe_ChildIncludesTheme(t *testing.T) {
 	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
 	require.NoError(t, err)
 
-	err = childStore.UpdateTheme(child.ID, "rainbow")
+	err = childStore.UpdateTheme(child.ID, "sparkle")
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/auth/me", nil)
@@ -81,7 +81,7 @@ func TestHandleGetMe_ChildIncludesTheme(t *testing.T) {
 
 	assert.Equal(t, "child", resp["user_type"])
 	assert.Equal(t, "Alice", resp["first_name"])
-	assert.Equal(t, "rainbow", resp["theme"])
+	assert.Equal(t, "sparkle", resp["theme"])
 	assert.Equal(t, "test-family", resp["family_slug"])
 }
 

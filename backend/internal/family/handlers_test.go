@@ -182,7 +182,7 @@ func TestHandleUpdateTheme_NonChildUser(t *testing.T) {
 	parent, err := ps.Create("g-123", "p@test.com", "Parent")
 	require.NoError(t, err)
 
-	body := strings.NewReader(`{"theme":"rainbow"}`)
+	body := strings.NewReader(`{"theme":"sparkle"}`)
 	req := httptest.NewRequest("PUT", "/api/child/settings/theme", body)
 	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
 	rr := httptest.NewRecorder()
