@@ -48,7 +48,7 @@ export default function AuthenticatedLayout({ userType }: Props) {
 
   return (
     <Layout user={user}>
-      <Outlet context={{ user }} />
+      <Outlet context={{ user, setUser }} />
     </Layout>
   );
 }

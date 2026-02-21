@@ -223,6 +223,25 @@ func (s *ChildStore) UpdateTheme(childID int64, theme string) error {
 	return nil
 }
 
+// UpdateAvatar sets the child's avatar emoji (or clears it if avatar is nil).
+func (s *ChildStore) UpdateAvatar(childID int64, avatar *string) error {
+	result, err := s.db.Exec(
+		`UPDATE children SET avatar = $1, updated_at = NOW() WHERE id = $2`,
+		avatar, childID,
+	)
+	if err != nil {
+		return fmt.Errorf("update avatar: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update avatar rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("child not found")
+	}
+	return nil
+}
+
 // Delete permanently removes a child and all associated data in a single
 // atomic transaction. Cascading foreign keys handle transactions, allowance
 // schedules, and interest schedules. Sessions and auth events are deleted

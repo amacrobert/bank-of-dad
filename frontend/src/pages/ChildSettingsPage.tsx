@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { updateChildTheme, ApiRequestError } from "../api";
+import { updateChildTheme, updateChildAvatar, ApiRequestError } from "../api";
 import { THEME_SLUGS, getTheme } from "../themes";
 import { useTheme } from "../context/ThemeContext";
+import { useChildUser, useSetUser } from "../hooks/useAuthOutletContext";
+import { ChildUser } from "../types";
 import Card from "../components/ui/Card";
+import AvatarPicker from "../components/AvatarPicker";
 import { Settings, Palette, Check } from "lucide-react";
 
 interface SettingsCategory {
@@ -16,11 +19,38 @@ const CATEGORIES: SettingsCategory[] = [
 ];
 
 export default function ChildSettingsPage() {
+  const user = useChildUser();
+  const setUser = useSetUser();
   const { theme: currentTheme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState("appearance");
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarSuccessMsg, setAvatarSuccessMsg] = useState("");
+  const [avatarErrorMsg, setAvatarErrorMsg] = useState("");
+
+  const handleSelectAvatar = async (avatar: string | null) => {
+    if (avatarSaving) return;
+
+    setAvatarSaving(true);
+    setAvatarSuccessMsg("");
+    setAvatarErrorMsg("");
+
+    try {
+      await updateChildAvatar(avatar);
+      setUser((prev) => prev ? { ...prev, avatar } as ChildUser : prev);
+      setAvatarSuccessMsg("Avatar updated!");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setAvatarErrorMsg(err.body.message || err.body.error || "Failed to save avatar.");
+      } else {
+        setAvatarErrorMsg("Failed to save avatar.");
+      }
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
 
   const handleSelectTheme = async (slug: string) => {
     if (slug === currentTheme || saving) return;
@@ -106,77 +136,100 @@ export default function ChildSettingsPage() {
         </nav>
 
         {/* Settings content area */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-6">
           {activeCategory === "appearance" && (
-            <Card>
-              <h2 className="text-lg font-bold text-bark mb-2">Theme</h2>
-              <p className="text-sm text-bark-light mb-5">Choose a visual theme for your experience.</p>
+            <>
+              {/* Avatar picker */}
+              <Card>
+                <h2 className="text-lg font-bold text-bark mb-2">Avatar</h2>
+                <p className="text-sm text-bark-light mb-4">Pick an emoji to represent you.</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {THEME_SLUGS.map((slug) => {
-                  const themeDef = getTheme(slug);
-                  const isActive = currentTheme === slug;
-                  return (
-                    <button
-                      key={slug}
-                      onClick={() => handleSelectTheme(slug)}
-                      disabled={saving}
-                      className={`
-                        relative rounded-xl border-2 p-4 transition-all cursor-pointer
-                        ${isActive
-                          ? "border-current shadow-md"
-                          : "border-sand hover:border-current hover:shadow-sm"
-                        }
-                        ${saving ? "opacity-60 cursor-wait" : ""}
-                      `}
-                      style={{
-                        borderColor: isActive ? themeDef.colors.forest : undefined,
-                        color: themeDef.colors.forest,
-                      }}
-                    >
-                      {/* Active indicator */}
-                      {isActive && (
-                        <div
-                          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: themeDef.colors.forest }}
-                        >
-                          <Check className="h-3 w-3 text-white" />
-                        </div>
-                      )}
+                <div className={avatarSaving ? "opacity-60 pointer-events-none" : ""}>
+                  <AvatarPicker
+                    selected={user.avatar ?? null}
+                    onSelect={handleSelectAvatar}
+                  />
+                </div>
 
-                      {/* Theme preview */}
-                      <div
-                        className="w-full h-20 rounded-lg mb-3 border border-sand/50"
+                {avatarSuccessMsg && (
+                  <p className="mt-4 text-sm font-medium text-forest">{avatarSuccessMsg}</p>
+                )}
+                {avatarErrorMsg && (
+                  <p className="mt-4 text-sm font-medium text-terracotta">{avatarErrorMsg}</p>
+                )}
+              </Card>
+
+              {/* Theme picker */}
+              <Card>
+                <h2 className="text-lg font-bold text-bark mb-2">Theme</h2>
+                <p className="text-sm text-bark-light mb-5">Choose a visual theme for your experience.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {THEME_SLUGS.map((slug) => {
+                    const themeDef = getTheme(slug);
+                    const isActive = currentTheme === slug;
+                    return (
+                      <button
+                        key={slug}
+                        onClick={() => handleSelectTheme(slug)}
+                        disabled={saving}
+                        className={`
+                          relative rounded-xl border-2 p-4 transition-all cursor-pointer
+                          ${isActive
+                            ? "border-current shadow-md"
+                            : "border-sand hover:border-current hover:shadow-sm"
+                          }
+                          ${saving ? "opacity-60 cursor-wait" : ""}
+                        `}
                         style={{
-                          backgroundColor: themeDef.colors.cream,
-                          backgroundImage: themeDef.backgroundSvg,
-                          backgroundRepeat: "repeat",
+                          borderColor: isActive ? themeDef.colors.forest : undefined,
+                          color: themeDef.colors.forest,
                         }}
                       >
-                        {/* Accent color bar */}
+                        {/* Active indicator */}
+                        {isActive && (
+                          <div
+                            className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: themeDef.colors.forest }}
+                          >
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+
+                        {/* Theme preview */}
                         <div
-                          className="h-2 rounded-t-lg"
-                          style={{ backgroundColor: themeDef.colors.forest }}
-                        />
-                      </div>
+                          className="w-full h-20 rounded-lg mb-3 border border-sand/50"
+                          style={{
+                            backgroundColor: themeDef.colors.cream,
+                            backgroundImage: themeDef.backgroundSvg,
+                            backgroundRepeat: "repeat",
+                          }}
+                        >
+                          {/* Accent color bar */}
+                          <div
+                            className="h-2 rounded-t-lg"
+                            style={{ backgroundColor: themeDef.colors.forest }}
+                          />
+                        </div>
 
-                      {/* Theme name */}
-                      <span className="text-sm font-semibold" style={{ color: themeDef.colors.forest }}>
-                        {themeDef.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        {/* Theme name */}
+                        <span className="text-sm font-semibold" style={{ color: themeDef.colors.forest }}>
+                          {themeDef.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Status messages */}
-              {successMsg && (
-                <p className="mt-4 text-sm font-medium text-forest">{successMsg}</p>
-              )}
-              {errorMsg && (
-                <p className="mt-4 text-sm font-medium text-terracotta">{errorMsg}</p>
-              )}
-            </Card>
+                {/* Status messages */}
+                {successMsg && (
+                  <p className="mt-4 text-sm font-medium text-forest">{successMsg}</p>
+                )}
+                {errorMsg && (
+                  <p className="mt-4 text-sm font-medium text-terracotta">{errorMsg}</p>
+                )}
+              </Card>
+            </>
           )}
         </div>
       </div>

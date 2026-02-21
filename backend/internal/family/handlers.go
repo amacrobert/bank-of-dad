@@ -489,6 +489,40 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) HandleUpdateAvatar(w http.ResponseWriter, r *http.Request) {
+	userType := auth.GetUserType(r)
+	if userType != "child" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Only child users can update their avatar"})
+		return
+	}
+
+	childID := auth.GetUserID(r)
+
+	var req struct {
+		Avatar *string `json:"avatar"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Treat empty string as clearing the avatar
+	avatar := req.Avatar
+	if avatar != nil && *avatar == "" {
+		avatar = nil
+	}
+
+	if err := h.childStore.UpdateAvatar(childID, avatar); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update avatar"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Avatar updated",
+		"avatar":  avatar,
+	})
+}
+
 var validThemes = map[string]bool{
 	"sapling":     true,
 	"piggybank":   true,
