@@ -197,6 +197,15 @@ export function updateChildTheme(theme: string): Promise<UpdateChildThemeRespons
   return put<UpdateChildThemeResponse>("/child/settings/theme", { theme });
 }
 
+export interface UpdateChildAvatarResponse {
+  message: string;
+  avatar: string | null;
+}
+
+export function updateChildAvatar(avatar: string | null): Promise<UpdateChildAvatarResponse> {
+  return put<UpdateChildAvatarResponse>("/child/settings/avatar", { avatar });
+}
+
 // Settings API functions (013-parent-settings)
 import { SettingsResponse, UpdateTimezoneResponse } from "./types";
 
