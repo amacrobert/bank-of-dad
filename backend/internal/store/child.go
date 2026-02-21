@@ -99,7 +99,7 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	rows, err := s.db.Query(
 		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
-		 FROM children WHERE family_id = $1 ORDER BY first_name`, familyID,
+		 FROM children WHERE family_id = $1 ORDER BY id`, familyID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list children: %w", err)

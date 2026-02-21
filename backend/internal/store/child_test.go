@@ -89,17 +89,18 @@ func TestListByFamily(t *testing.T) {
 	cs := NewChildStore(db)
 	fam := createTestFamily(t, db)
 
-	_, err := cs.Create(fam.ID, "Alice", "pass123456", nil)
+	// Create in reverse-alphabetical order to verify creation order, not name order
+	_, err := cs.Create(fam.ID, "Zara", "pass123456", nil)
 	require.NoError(t, err)
-	_, err = cs.Create(fam.ID, "Bob", "pass123456", nil)
+	_, err = cs.Create(fam.ID, "Alice", "pass123456", nil)
 	require.NoError(t, err)
 
 	children, err := cs.ListByFamily(fam.ID)
 	require.NoError(t, err)
 	assert.Len(t, children, 2)
-	// Should be sorted alphabetically
-	assert.Equal(t, "Alice", children[0].FirstName)
-	assert.Equal(t, "Bob", children[1].FirstName)
+	// Should be sorted by creation order (id), not alphabetically
+	assert.Equal(t, "Zara", children[0].FirstName)
+	assert.Equal(t, "Alice", children[1].FirstName)
 }
 
 func TestCheckPassword(t *testing.T) {
