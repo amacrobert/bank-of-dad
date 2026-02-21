@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { get } from "../api";
-import { AuthUser, ParentUser } from "../types";
+import { AuthUser, ChildUser, ParentUser } from "../types";
+import { useTheme } from "../context/ThemeContext";
 import Layout from "./Layout";
 import LoadingSpinner from "./ui/LoadingSpinner";
 
@@ -11,6 +12,7 @@ interface Props {
 
 export default function AuthenticatedLayout({ userType }: Props) {
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +28,9 @@ export default function AuthenticatedLayout({ userType }: Props) {
           return;
         }
         setUser(data);
+        if (data.user_type === "child") {
+          setTheme((data as ChildUser).theme || "sapling");
+        }
         setLoading(false);
       })
       .catch(() => {
