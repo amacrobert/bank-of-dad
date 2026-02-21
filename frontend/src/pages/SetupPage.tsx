@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { post } from "../api";
+import { get, post } from "../api";
 import { ApiRequestError } from "../api";
 import { setTokens, getRefreshToken } from "../auth";
+import { ParentUser } from "../types";
 import SlugPicker from "../components/SlugPicker";
 import AddChildForm from "../components/AddChildForm";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { Leaf, PartyPopper, Users } from "lucide-react";
 
 export default function SetupPage() {
@@ -14,8 +16,22 @@ export default function SetupPage() {
   const [selectedSlug, setSelectedSlug] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   // Step tracking: 1 = slug picker, 2 = add children, 3 = confirmation
   const [step, setStep] = useState(1);
+
+  useEffect(() => {
+    get<ParentUser>("/auth/me")
+      .then((data) => {
+        if (data.family_id > 0) {
+          setStep(2);
+        }
+      })
+      .catch(() => {
+        // If the call fails, stay on step 1
+      })
+      .finally(() => setLoading(false));
+  }, []);
   const handleSubmit = async () => {
     if (!selectedSlug) return;
 
@@ -49,6 +65,14 @@ export default function SetupPage() {
   const goToDashboard = () => {
     navigate("/dashboard", { replace: true });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-8">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-8">
