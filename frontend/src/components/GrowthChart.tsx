@@ -8,6 +8,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { ProjectionDataPoint } from "../types";
+import { useTheme } from "../context/ThemeContext";
+import { getTheme } from "../themes";
 
 interface GrowthChartProps {
   dataPoints: ProjectionDataPoint[];
@@ -49,6 +51,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 }
 
 export default function GrowthChart({ dataPoints }: GrowthChartProps) {
+  const { theme } = useTheme();
+  const themeColor = getTheme(theme).colors.forest;
+
   // Show a subset of x-axis labels to avoid crowding
   const tickCount = dataPoints.length <= 14 ? dataPoints.length : 6;
   const tickInterval = Math.max(1, Math.floor((dataPoints.length - 1) / (tickCount - 1)));
@@ -80,10 +85,10 @@ export default function GrowthChart({ dataPoints }: GrowthChartProps) {
           <Line
             type="monotone"
             dataKey="balanceCents"
-            stroke="#2d6a4f"
+            stroke={themeColor}
             strokeWidth={2.5}
             dot={false}
-            activeDot={{ r: 4, fill: "#2d6a4f", stroke: "#fff", strokeWidth: 2 }}
+            activeDot={{ r: 4, fill: themeColor, stroke: "#fff", strokeWidth: 2 }}
           />
         </LineChart>
       </ResponsiveContainer>
