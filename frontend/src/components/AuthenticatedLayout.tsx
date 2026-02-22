@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { get } from "../api";
+import { setFamilySlug } from "../utils/familyPreference";
 import { AuthUser, ChildUser, ParentUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import Layout from "./Layout";
@@ -28,6 +29,9 @@ export default function AuthenticatedLayout({ userType }: Props) {
           return;
         }
         setUser(data);
+        if (data.family_slug) {
+          setFamilySlug(data.family_slug);
+        }
         if (data.user_type === "child") {
           setTheme((data as ChildUser).theme || "sapling");
         }
