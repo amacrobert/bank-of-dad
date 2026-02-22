@@ -35,6 +35,7 @@ frontend/build/
 # Claude & skills
 .claude/
 _bmad/
+_bmad-output/
 
 # Git
 .worktrees/
