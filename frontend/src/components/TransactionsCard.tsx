@@ -58,10 +58,10 @@ function formatUpcomingAmount(cents: number, estimated: boolean): string {
 // --- Recent helpers ---
 
 const typeConfig: Record<string, { icon: typeof ArrowDownCircle; color: string; amountColor: string }> = {
-  deposit: { icon: ArrowDownCircle, color: "text-forest", amountColor: "text-[#2D5A3D]" },
-  withdrawal: { icon: ArrowUpCircle, color: "text-terracotta", amountColor: "text-terracotta" },
-  allowance: { icon: Calendar, color: "text-forest", amountColor: "text-[#2D5A3D]" },
-  interest: { icon: TrendingUp, color: "text-amber", amountColor: "text-[#2D5A3D]" },
+  deposit: { icon: ArrowDownCircle, color: "text-[#2D5A3D]", amountColor: "text-[#2D5A3D]" },
+  withdrawal: { icon: ArrowUpCircle, color: "text-[#C4704B]", amountColor: "text-[#C4704B]" },
+  allowance: { icon: Calendar, color: "text-[#2D5A3D]", amountColor: "text-[#2D5A3D]" },
+  interest: { icon: TrendingUp, color: "text-[#D4A84B]", amountColor: "text-[#2D5A3D]" },
 };
 
 function formatRecentDate(dateStr: string, timeZone: string): string {
