@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSettings } from "../api";
-import { isLoggedIn } from "../auth";
+import { isLoggedIn, getUserType } from "../auth";
 
 interface TimezoneContextValue {
   timezone: string;
@@ -17,7 +17,7 @@ export function TimezoneProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!isLoggedIn() || getUserType() !== "parent") {
       setLoading(false);
       return;
     }

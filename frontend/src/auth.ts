@@ -24,6 +24,17 @@ export function isLoggedIn(): boolean {
   return getAccessToken() !== null;
 }
 
+export function getUserType(): "parent" | "child" | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.user_type || null;
+  } catch {
+    return null;
+  }
+}
+
 // Promise-based lock to prevent concurrent refresh attempts
 let refreshPromise: Promise<boolean> | null = null;
 
