@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { get, post, ApiRequestError } from "../api";
 import { setTokens } from "../auth";
+import { setFamilySlug, clearFamilySlug } from "../utils/familyPreference";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { FamilyCheck, FamilyChild, FamilyChildrenResponse } from "../types";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import Input from "../components/ui/Input";
@@ -53,6 +55,7 @@ export default function FamilyLogin() {
         password,
       });
       setTokens(resp.access_token, resp.refresh_token);
+      if (familySlug) setFamilySlug(familySlug);
       navigate("/child/dashboard", { replace: true });
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -173,15 +176,25 @@ export default function FamilyLogin() {
                 No accounts have been set up yet.
               </p>
             )}
+
+            {/* Parent login */}
+            <div className="mt-6 pt-5 border-t border-sand space-y-3">
+              <p className="text-sm text-bark-light text-center">Parent login</p>
+              <div className="flex justify-center">
+                <GoogleSignInButton size="default" />
+              </div>
+              <p className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { clearFamilySlug(); navigate("/"); }}
+                  className="text-xs text-bark-light hover:underline cursor-pointer"
+                >
+                  Not your bank?
+                </button>
+              </p>
+            </div>
           </>
         )}
-
-        <p className="text-center mt-4 text-sm text-bark-light">
-          Are you a parent?{" "}
-          <Link to="/" className="text-forest font-semibold hover:underline">
-            Log in here
-          </Link>
-        </p>
       </div>
     </div>
   );

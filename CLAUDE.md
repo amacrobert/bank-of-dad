@@ -23,6 +23,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-29
 - PostgreSQL 17 — add `theme TEXT` column to existing `children` table (017-child-visual-themes)
 - TypeScript 5.3.3 + React 18.2.0 + react-router-dom, lucide-react, Vite (018-child-management-settings)
 - N/A — no schema changes; existing PostgreSQL backend + REST API unchanged (018-child-management-settings)
+- TypeScript 5.3.3 + React 18.2.0 + react-router-dom, lucide-react, Vite (existing — no new deps) (020-remember-family-login)
+- Browser `localStorage` (no server-side persistence) (020-remember-family-login)
 
 - Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend) + `golang.org/x/oauth2` (Google OAuth), `golang.org/x/crypto/bcrypt` (password hashing), `modernc.org/sqlite` (database), `react-router-dom` (frontend routing), `testify` (Go test assertions) (001-user-auth)
 
@@ -42,9 +44,9 @@ npm test && npm run lint
 Go 1.21 (backend), TypeScript 5.3 + React 18.2 (frontend): Follow standard conventions
 
 ## Recent Changes
+- 020-remember-family-login: Added TypeScript 5.3.3 + React 18.2.0 + react-router-dom, lucide-react, Vite (existing — no new deps)
 - 018-child-management-settings: Added TypeScript 5.3.3 + React 18.2.0 + react-router-dom, lucide-react, Vite
 - 017-child-visual-themes: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `jackc/pgx/v5`, `testify` (backend); react-router-dom, lucide-react, Vite (frontend)
-- 016-savings-growth-projector: Added TypeScript 5.3.3 + React 18.2.0 (frontend only — no backend changes) + Recharts (new), react-router-dom, lucide-react, Vite (existing)
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -13,7 +13,10 @@ import {
   UserPlus,
   ArrowDownCircle,
 } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import Card from "../components/ui/Card";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { getFamilySlug } from "../utils/familyPreference";
 
 // ---------------------------------------------------------------------------
 // useInView — fires once when element enters viewport
@@ -96,25 +99,6 @@ const GoogleSvg = () => (
   </svg>
 );
 
-function GoogleSignInButton({ size = "default" }: { size?: "compact" | "default" | "large" }) {
-  const base =
-    "inline-flex items-center justify-center gap-2.5 bg-white rounded-xl border border-sand shadow-[0_2px_8px_rgba(61,46,31,0.08)] text-bark font-semibold hover:bg-cream-dark hover:shadow-[0_4px_12px_rgba(61,46,31,0.12)] active:scale-[0.97] transition-all duration-200";
-
-  const sizeClass =
-    size === "compact"
-      ? "px-4 py-2 text-sm"
-      : size === "large"
-        ? "px-10 py-4 text-lg"
-        : "px-8 py-3 text-base";
-
-  return (
-    <a href={googleLoginUrl} className={`${base} ${sizeClass}`}>
-      <GoogleSvg />
-      Sign in with Google
-    </a>
-  );
-}
-
 function GoogleSignInButtonDark({ size = "large" }: { size?: "default" | "large" }) {
   const base =
     "inline-flex items-center justify-center gap-2.5 bg-white rounded-xl border border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)] text-bark font-semibold hover:bg-cream hover:shadow-[0_6px_24px_rgba(0,0,0,0.25)] active:scale-[0.97] transition-all duration-200";
@@ -189,6 +173,11 @@ function MockParentDashboard() {
 // HomePage
 // ===========================================================================
 export default function HomePage() {
+  const savedSlug = getFamilySlug();
+  if (savedSlug) {
+    return <Navigate to={`/${savedSlug}`} replace />;
+  }
+
   return (
     <div className="min-h-screen bg-cream">
       {/* ----------------------------------------------------------------- */}
