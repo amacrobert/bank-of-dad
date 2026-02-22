@@ -32,8 +32,9 @@ frontend/build/
 # Logs
 *.log
 
-# Claude
-.claude/settings.local.json
+# Claude & skills
+.claude/
+_bmad/
 
 # Git
 .worktrees/
