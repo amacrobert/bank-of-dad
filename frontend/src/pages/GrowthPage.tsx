@@ -8,17 +8,20 @@ import {
   BalanceResponse,
   AllowanceSchedule,
   InterestSchedule,
-  ScenarioInputs,
+  ScenarioConfig,
   ProjectionConfig,
 } from "../types";
 import { calculateProjection, weeksPerPeriod } from "../utils/projection";
+import { buildDefaultScenarios, mapScenarioConfigToInputs } from "../utils/scenarioHelpers";
+import { generateScenarioTitle } from "../utils/scenarioTitle";
+import { serializeScenarios, deserializeScenarios } from "../utils/scenarioUrl";
+import { ScenarioLine } from "../components/GrowthChart";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import ChildSelectorBar from "../components/ChildSelectorBar";
 import GrowthChart from "../components/GrowthChart";
 import ScenarioControls from "../components/ScenarioControls";
-import GrowthExplanation from "../components/GrowthExplanation";
 import { TrendingUp, Users } from "lucide-react";
 
 const HORIZON_OPTIONS = [
@@ -28,13 +31,6 @@ const HORIZON_OPTIONS = [
   { months: 24, label: "2yr" },
   { months: 60, label: "5yr" },
 ] as const;
-
-const DEFAULT_SCENARIO: ScenarioInputs = {
-  weeklySpendingCents: 0,
-  oneTimeDepositCents: 0,
-  oneTimeWithdrawalCents: 0,
-  horizonMonths: 12,
-};
 
 export default function GrowthPage() {
   const { user } = useOutletContext<{ user: AuthUser }>();
@@ -51,7 +47,8 @@ export default function GrowthPage() {
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
 
   // Scenario state
-  const [scenario, setScenario] = useState<ScenarioInputs>(DEFAULT_SCENARIO);
+  const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
+  const [horizonMonths, setHorizonMonths] = useState(12);
 
   // Parent-mode state
   const [children, setChildren] = useState<Child[]>([]);
@@ -92,7 +89,8 @@ export default function GrowthPage() {
     setBalanceData(null);
     setAllowance(null);
     setInterestSchedule(null);
-    setScenario(DEFAULT_SCENARIO);
+    setScenarios([]);
+    setHorizonMonths(12);
     setError("");
     setLoading(true);
 
@@ -111,13 +109,15 @@ export default function GrowthPage() {
         setAllowance(allow);
         setInterestSchedule(interest);
 
-        // Pre-populate spending to half the allowance (converted to weekly)
-        if (allow?.status === "active" && allow.amount_cents > 0) {
-          const weeklyEquivalent = allow.amount_cents / weeksPerPeriod(allow.frequency);
-          setScenario((s) => ({
-            ...s,
-            weeklySpendingCents: Math.round(weeklyEquivalent / 2),
-          }));
+        // Try to restore scenarios from URL params; fall back to defaults
+        const fromUrl = deserializeScenarios(new URLSearchParams(window.location.search));
+        if (fromUrl) {
+          setScenarios(fromUrl.scenarios);
+          setHorizonMonths(fromUrl.horizonMonths);
+        } else {
+          const allowAmountCents = allow?.status === "active" ? allow.amount_cents : 0;
+          const allowFrequency = allow?.status === "active" ? allow.frequency : null;
+          setScenarios(buildDefaultScenarios(allowAmountCents, allowFrequency));
         }
       })
       .catch(() => {
@@ -128,28 +128,13 @@ export default function GrowthPage() {
       });
   }, [childId]);
 
-  // Build projection config from fetched data + scenario
-  const projectionConfig: ProjectionConfig | null = useMemo(() => {
-    if (!balanceData) return null;
-
-    const isAllowanceActive = allowance?.status === "active";
-    const isInterestActive = interestSchedule?.status === "active";
-
-    return {
-      currentBalanceCents: balanceData.balance_cents,
-      interestRateBps: balanceData.interest_rate_bps,
-      interestFrequency: isInterestActive ? interestSchedule!.frequency : null,
-      allowanceAmountCents: isAllowanceActive ? allowance!.amount_cents : 0,
-      allowanceFrequency: isAllowanceActive ? allowance!.frequency : null,
-      scenario,
-    };
-  }, [balanceData, allowance, interestSchedule, scenario]);
-
-  // Calculate projection
-  const projection = useMemo(() => {
-    if (!projectionConfig) return null;
-    return calculateProjection(projectionConfig);
-  }, [projectionConfig]);
+  // Sync scenario state to URL (T025)
+  useEffect(() => {
+    if (scenarios.length === 0) return;
+    const qs = serializeScenarios(scenarios, horizonMonths);
+    const newUrl = `${window.location.pathname}?${qs}`;
+    window.history.replaceState(null, "", newUrl);
+  }, [scenarios, horizonMonths]);
 
   // Parent: render selector bar first (always visible), then handle empty/no-selection states
   if (isParent) {
@@ -206,6 +191,9 @@ export default function GrowthPage() {
             <p className="text-bark-light text-center py-4">
               Select a child to view their growth projector.
             </p>
+            <p className="text-bark-light text-center py-4">
+              Children have access to this tool in their accounts, so they may explore on their own.
+            </p>
           </Card>
         )}
 
@@ -223,9 +211,10 @@ export default function GrowthPage() {
 
         {selectedChild && !loading && !error && (
           <ProjectorContent
-            scenario={scenario}
-            setScenario={setScenario}
-            projection={projection}
+            scenarios={scenarios}
+            setScenarios={setScenarios}
+            horizonMonths={horizonMonths}
+            setHorizonMonths={setHorizonMonths}
             balanceData={balanceData}
             allowance={allowance}
             interestSchedule={interestSchedule}
@@ -261,9 +250,10 @@ export default function GrowthPage() {
         <h1 className="text-2xl font-bold text-bark">Growth Projector</h1>
       </div>
       <ProjectorContent
-        scenario={scenario}
-        setScenario={setScenario}
-        projection={projection}
+        scenarios={scenarios}
+        setScenarios={setScenarios}
+        horizonMonths={horizonMonths}
+        setHorizonMonths={setHorizonMonths}
         balanceData={balanceData}
         allowance={allowance}
         interestSchedule={interestSchedule}
@@ -273,22 +263,67 @@ export default function GrowthPage() {
 }
 
 interface ProjectorContentProps {
-  scenario: ScenarioInputs;
-  setScenario: React.Dispatch<React.SetStateAction<ScenarioInputs>>;
-  projection: ReturnType<typeof calculateProjection> | null;
+  scenarios: ScenarioConfig[];
+  setScenarios: React.Dispatch<React.SetStateAction<ScenarioConfig[]>>;
+  horizonMonths: number;
+  setHorizonMonths: React.Dispatch<React.SetStateAction<number>>;
   balanceData: BalanceResponse | null;
   allowance: AllowanceSchedule | null;
   interestSchedule: InterestSchedule | null;
 }
 
 function ProjectorContent({
-  scenario,
-  setScenario,
-  projection,
+  scenarios,
+  setScenarios,
+  horizonMonths,
+  setHorizonMonths,
   balanceData,
   allowance,
   interestSchedule,
 }: ProjectorContentProps) {
+  const isAllowanceActive = allowance?.status === "active";
+  const isInterestActive = interestSchedule?.status === "active";
+  const hasAllowance = isAllowanceActive && (allowance?.amount_cents ?? 0) > 0;
+  const weeklyAllowanceCents = hasAllowance
+    ? Math.round(allowance!.amount_cents / weeksPerPeriod(allowance!.frequency))
+    : 0;
+
+  // Compute projection for each scenario and build chart data
+  const scenarioLines: ScenarioLine[] = useMemo(() => {
+    if (!balanceData || scenarios.length === 0) return [];
+
+    return scenarios.map((sc) => {
+      const scenarioInputs = mapScenarioConfigToInputs(sc, horizonMonths);
+      const config: ProjectionConfig = {
+        currentBalanceCents: balanceData.balance_cents,
+        interestRateBps: balanceData.interest_rate_bps,
+        interestFrequency: isInterestActive ? interestSchedule!.frequency : null,
+        allowanceAmountCents: isAllowanceActive ? allowance!.amount_cents : 0,
+        allowanceFrequency: isAllowanceActive ? allowance!.frequency : null,
+        scenario: scenarioInputs,
+      };
+      const result = calculateProjection(config);
+      const label = generateScenarioTitle({
+        hasAllowance,
+        weeklyAllowanceCents,
+        weeklyAmountCents: sc.weeklyAmountCents,
+        weeklyDirection: sc.weeklyDirection,
+        oneTimeAmountCents: sc.oneTimeAmountCents,
+        oneTimeDirection: sc.oneTimeDirection,
+      });
+      return {
+        id: sc.id,
+        dataPoints: result.dataPoints,
+        color: sc.color,
+        label,
+      };
+    });
+  }, [scenarios, horizonMonths, balanceData, allowance, interestSchedule, isAllowanceActive, isInterestActive, hasAllowance, weeklyAllowanceCents]);
+
+  const handleScenariosChange = (updated: ScenarioConfig[]) => {
+    setScenarios(updated);
+  };
+
   return (
     <>
       {/* Time Horizon Selector + Chart */}
@@ -301,10 +336,10 @@ function ProjectorContent({
             {HORIZON_OPTIONS.map((opt) => (
               <button
                 key={opt.months}
-                onClick={() => setScenario((s) => ({ ...s, horizonMonths: opt.months }))}
+                onClick={() => setHorizonMonths(opt.months)}
                 className={`
                   px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer
-                  ${scenario.horizonMonths === opt.months
+                  ${horizonMonths === opt.months
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -315,8 +350,11 @@ function ProjectorContent({
             ))}
           </div>
         </div>
-        {projection && (
-          <GrowthChart dataPoints={projection.dataPoints} animationKey={JSON.stringify(scenario)} />
+        {scenarioLines.length > 0 && (
+          <GrowthChart
+            scenarios={scenarioLines}
+            animationKey={`horizon-${horizonMonths}`}
+          />
         )}
       </Card>
 
@@ -324,26 +362,11 @@ function ProjectorContent({
       {balanceData && (
         <Card>
           <ScenarioControls
-            scenario={scenario}
-            onChange={setScenario}
+            scenarios={scenarios}
+            onChange={handleScenariosChange}
             currentBalanceCents={balanceData.balance_cents}
-          />
-        </Card>
-      )}
-
-      {/* Plain-English Explanation */}
-      {projection && balanceData && (
-        <Card>
-          <GrowthExplanation
-            projection={projection}
-            horizonMonths={scenario.horizonMonths}
-            hasAllowance={allowance?.status === "active" && (allowance?.amount_cents ?? 0) > 0}
-            hasInterest={interestSchedule?.status === "active" && balanceData.interest_rate_bps > 0}
-            isAllowancePaused={allowance?.status === "paused"}
-            isInterestPaused={interestSchedule?.status === "paused"}
-            weeklyAllowanceCentsDisplay={allowance?.amount_cents ?? 0}
-            allowanceFrequencyDisplay={allowance?.frequency ?? "weekly"}
-            weeklySpendingCents={scenario.weeklySpendingCents}
+            hasAllowance={hasAllowance}
+            weeklyAllowanceCents={weeklyAllowanceCents}
           />
         </Card>
       )}

@@ -64,6 +64,7 @@ export function calculateProjection(config: ProjectionConfig): ProjectionResult 
   let totalInterest = 0;
   let totalAllowance = 0;
   let totalSpending = 0;
+  let totalSavings = 0;
   let depletionWeek: number | null = null;
 
   const dataPoints: ProjectionDataPoint[] = [];
@@ -92,6 +93,12 @@ export function calculateProjection(config: ProjectionConfig): ProjectionResult 
         totalInterest += interest;
       }
       nextInterestWeek += interestInterval;
+    }
+
+    // Apply weekly savings
+    if (scenario.weeklySavingsCents > 0) {
+      balance += scenario.weeklySavingsCents;
+      totalSavings += scenario.weeklySavingsCents;
     }
 
     // Apply weekly spending
@@ -128,6 +135,7 @@ export function calculateProjection(config: ProjectionConfig): ProjectionResult 
     totalInterestCents: totalInterest,
     totalAllowanceCents: totalAllowance,
     totalSpendingCents: totalSpending,
+    totalSavingsCents: totalSavings,
     startingBalanceCents,
     depletionWeek,
   };

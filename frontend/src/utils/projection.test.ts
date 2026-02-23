@@ -11,6 +11,7 @@ function makeConfig(overrides: Partial<ProjectionConfig> = {}): ProjectionConfig
     allowanceFrequency: null,
     scenario: {
       weeklySpendingCents: 0,
+      weeklySavingsCents: 0,
       oneTimeDepositCents: 0,
       oneTimeWithdrawalCents: 0,
       horizonMonths: 12,
@@ -189,6 +190,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 5000, // $50
         scenario: {
           weeklySpendingCents: 2000, // $20/week
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 12,
@@ -211,6 +213,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 5000, // $50
         scenario: {
           weeklySpendingCents: 1000, // $10/week
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 12,
@@ -240,6 +243,7 @@ describe("calculateProjection", () => {
         allowanceFrequency: "weekly",
         scenario: {
           weeklySpendingCents: 1000, // $10/week (net -$5/week)
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 12,
@@ -259,6 +263,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 10000, // $100
         scenario: {
           weeklySpendingCents: 0,
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 5000, // $50
           oneTimeWithdrawalCents: 0,
           horizonMonths: 12,
@@ -275,6 +280,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 10000, // $100
         scenario: {
           weeklySpendingCents: 0,
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 3000, // $30
           horizonMonths: 12,
@@ -291,6 +297,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 5000, // $50
         scenario: {
           weeklySpendingCents: 0,
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 10000, // $100 > $50 balance
           horizonMonths: 12,
@@ -336,6 +343,7 @@ describe("calculateProjection", () => {
       const config = makeConfig({
         scenario: {
           weeklySpendingCents: 0,
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 3,
@@ -351,6 +359,7 @@ describe("calculateProjection", () => {
       const config = makeConfig({
         scenario: {
           weeklySpendingCents: 0,
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 60,
@@ -380,6 +389,7 @@ describe("calculateProjection", () => {
         currentBalanceCents: 100000, // $1000 so we don't deplete
         scenario: {
           weeklySpendingCents: 500, // $5/week
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 0,
           oneTimeWithdrawalCents: 0,
           horizonMonths: 12,
@@ -402,6 +412,7 @@ describe("calculateProjection", () => {
         allowanceFrequency: "weekly",
         scenario: {
           weeklySpendingCents: 300, // $3/week
+          weeklySavingsCents: 0,
           oneTimeDepositCents: 2000, // $20
           oneTimeWithdrawalCents: 1000, // $10
           horizonMonths: 12,
@@ -409,11 +420,104 @@ describe("calculateProjection", () => {
       });
       const result = calculateProjection(config);
 
-      // Final = starting + interest + allowance - spending
+      // Final = starting + interest + allowance + savings - spending
       const expectedFinal =
         result.startingBalanceCents +
         result.totalInterestCents +
-        result.totalAllowanceCents -
+        result.totalAllowanceCents +
+        result.totalSavingsCents -
+        result.totalSpendingCents;
+      expect(result.finalBalanceCents).toBe(expectedFinal);
+    });
+  });
+
+  // (k) Weekly savings support
+  describe("weekly savings", () => {
+    it("adds weekly savings to balance each week", () => {
+      const config = makeConfig({
+        currentBalanceCents: 10000, // $100
+        scenario: {
+          weeklySpendingCents: 0,
+          weeklySavingsCents: 500, // $5/week
+          oneTimeDepositCents: 0,
+          oneTimeWithdrawalCents: 0,
+          horizonMonths: 12,
+        },
+      });
+      const result = calculateProjection(config);
+
+      // 52 weeks * $5 = $260 in savings
+      expect(result.totalSavingsCents).toBe(52 * 500);
+      // Final = $100 + $260 = $360
+      expect(result.finalBalanceCents).toBe(10000 + 52 * 500);
+    });
+
+    it("stacks savings with allowance deposits", () => {
+      const config = makeConfig({
+        currentBalanceCents: 10000, // $100
+        allowanceAmountCents: 1000, // $10/week
+        allowanceFrequency: "weekly",
+        scenario: {
+          weeklySpendingCents: 0,
+          weeklySavingsCents: 500, // $5/week extra
+          oneTimeDepositCents: 0,
+          oneTimeWithdrawalCents: 0,
+          horizonMonths: 12,
+        },
+      });
+      const result = calculateProjection(config);
+
+      expect(result.totalAllowanceCents).toBe(52 * 1000);
+      expect(result.totalSavingsCents).toBe(52 * 500);
+      // Final = $100 + $520 (allowance) + $260 (savings)
+      expect(result.finalBalanceCents).toBe(10000 + 52 * 1000 + 52 * 500);
+    });
+
+    it("compounds correctly with interest and savings", () => {
+      const config = makeConfig({
+        currentBalanceCents: 100000, // $1000
+        interestRateBps: 500, // 5%
+        interestFrequency: "weekly",
+        scenario: {
+          weeklySpendingCents: 0,
+          weeklySavingsCents: 1000, // $10/week
+          oneTimeDepositCents: 0,
+          oneTimeWithdrawalCents: 0,
+          horizonMonths: 12,
+        },
+      });
+      const result = calculateProjection(config);
+
+      // Should have both interest and savings
+      expect(result.totalInterestCents).toBeGreaterThan(0);
+      expect(result.totalSavingsCents).toBe(52 * 1000);
+      // Final should be more than just savings ($1000 + $520 = $1520)
+      expect(result.finalBalanceCents).toBeGreaterThan(152000);
+    });
+
+    it("includes savings in component breakdown integrity", () => {
+      const config = makeConfig({
+        currentBalanceCents: 10000,
+        interestRateBps: 500,
+        interestFrequency: "weekly",
+        allowanceAmountCents: 1000,
+        allowanceFrequency: "weekly",
+        scenario: {
+          weeklySpendingCents: 0,
+          weeklySavingsCents: 200, // $2/week
+          oneTimeDepositCents: 2000,
+          oneTimeWithdrawalCents: 0,
+          horizonMonths: 12,
+        },
+      });
+      const result = calculateProjection(config);
+
+      // Final = starting + interest + allowance + savings - spending
+      const expectedFinal =
+        result.startingBalanceCents +
+        result.totalInterestCents +
+        result.totalAllowanceCents +
+        result.totalSavingsCents -
         result.totalSpendingCents;
       expect(result.finalBalanceCents).toBe(expectedFinal);
     });
