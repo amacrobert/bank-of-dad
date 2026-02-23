@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { getSettings, updateTimezone, ApiRequestError } from "../api";
-import { SettingsResponse } from "../types";
+import { SettingsResponse, Child } from "../types";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -22,11 +22,23 @@ const CATEGORIES: SettingsCategory[] = [
   { key: "account", label: "Account", icon: User },
 ];
 
+const VALID_CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
+
 export default function SettingsPage() {
-  const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") || "general";
+  const { category, childName } = useParams<{ category: string; childName?: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState(initialTab);
+
+  // If the route is /settings/children/:childName, category param won't be set —
+  // derive it as "children" in that case.
+  const activeCategory = childName ? "children" : (category ?? "general");
+
+  // Redirect invalid categories
+  useEffect(() => {
+    if (!childName && category && !VALID_CATEGORY_KEYS.includes(category)) {
+      navigate("/settings/general", { replace: true });
+    }
+  }, [category, childName, navigate]);
 
   // Settings state
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
@@ -69,6 +81,14 @@ export default function SettingsPage() {
     }
   };
 
+  const handleChildSelect = useCallback((child: Child | null) => {
+    if (child) {
+      navigate(`/settings/children/${child.first_name.toLowerCase()}`);
+    } else {
+      navigate("/settings/children");
+    }
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="max-w-[960px] mx-auto flex items-center justify-center min-h-[300px]">
@@ -95,7 +115,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
+                  onClick={() => navigate(`/settings/${cat.key}`)}
                   className={`
                     flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap
                     transition-colors cursor-pointer
@@ -120,7 +140,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
+                  onClick={() => navigate(`/settings/${cat.key}`)}
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                     transition-colors text-left cursor-pointer
@@ -178,7 +198,12 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {activeCategory === "children" && <ChildrenSettings />}
+          {activeCategory === "children" && (
+            <ChildrenSettings
+              selectedChildName={childName}
+              onChildSelect={handleChildSelect}
+            />
+          )}
 
           {activeCategory === "account" && <AccountSettings />}
         </div>

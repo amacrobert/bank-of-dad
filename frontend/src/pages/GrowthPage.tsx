@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useParams } from "react-router-dom";
 import { get, getBalance, getChildAllowance, getInterestSchedule } from "../api";
 import {
   AuthUser,
@@ -39,6 +39,7 @@ const DEFAULT_SCENARIO: ScenarioInputs = {
 export default function GrowthPage() {
   const { user } = useOutletContext<{ user: AuthUser }>();
   const navigate = useNavigate();
+  const { childName } = useParams<{ childName?: string }>();
   const isParent = user.user_type === "parent";
 
   const [loading, setLoading] = useState(true);
@@ -54,8 +55,22 @@ export default function GrowthPage() {
 
   // Parent-mode state
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [childrenLoading, setChildrenLoading] = useState(true);
+
+  // Derive selected child from URL param
+  const selectedChild = useMemo(() => {
+    if (!isParent || !childName || children.length === 0) return null;
+    return children.find(
+      (c) => c.first_name.toLowerCase() === childName.toLowerCase()
+    ) ?? null;
+  }, [isParent, childName, children]);
+
+  // Redirect if child name in URL is invalid
+  useEffect(() => {
+    if (isParent && childName && children.length > 0 && !selectedChild) {
+      navigate("/growth", { replace: true });
+    }
+  }, [isParent, childName, children, selectedChild, navigate]);
 
   // Fetch child list for parent mode
   useEffect(() => {
@@ -157,7 +172,7 @@ export default function GrowthPage() {
               <p className="text-bark-light mb-4">
                 Add your first child in Settings to view their growth projector.
               </p>
-              <Button onClick={() => navigate("/settings?tab=children")}>
+              <Button onClick={() => navigate("/settings/children")}>
                 Go to Settings &rarr; Children
               </Button>
             </div>
@@ -176,7 +191,13 @@ export default function GrowthPage() {
         <ChildSelectorBar
           children={children}
           selectedChildId={selectedChild?.id ?? null}
-          onSelectChild={setSelectedChild}
+          onSelectChild={(child) => {
+            if (child) {
+              navigate(`/growth/${child.first_name.toLowerCase()}`);
+            } else {
+              navigate("/growth");
+            }
+          }}
           loading={childrenLoading}
         />
 

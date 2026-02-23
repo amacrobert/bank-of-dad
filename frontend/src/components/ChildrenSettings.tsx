@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { get } from "../api";
 import { Child, ChildListResponse } from "../types";
 import Card from "./ui/Card";
@@ -6,11 +6,33 @@ import ChildSelectorBar from "./ChildSelectorBar";
 import AddChildForm from "./AddChildForm";
 import ChildAccountSettings from "./ChildAccountSettings";
 
-export default function ChildrenSettings() {
+interface ChildrenSettingsProps {
+  selectedChildName?: string;
+  onChildSelect: (child: Child | null) => void;
+}
+
+export default function ChildrenSettings({
+  selectedChildName,
+  onChildSelect,
+}: ChildrenSettingsProps) {
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Derive selected child from name prop
+  const selectedChild = useMemo(() => {
+    if (!selectedChildName || children.length === 0) return null;
+    return children.find(
+      (c) => c.first_name.toLowerCase() === selectedChildName.toLowerCase()
+    ) ?? null;
+  }, [selectedChildName, children]);
+
+  // Redirect if child name is invalid
+  useEffect(() => {
+    if (selectedChildName && children.length > 0 && !selectedChild) {
+      onChildSelect(null);
+    }
+  }, [selectedChildName, children, selectedChild, onChildSelect]);
 
   useEffect(() => {
     setLoading(true);
@@ -18,19 +40,10 @@ export default function ChildrenSettings() {
       .then((data) => {
         const list = data.children || [];
         setChildren(list);
-        // If a child was selected, update with fresh data or deselect if removed
-        if (selectedChild) {
-          const updated = list.find((c) => c.id === selectedChild.id);
-          if (updated) {
-            setSelectedChild(updated);
-          } else {
-            setSelectedChild(null);
-          }
-        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [childRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [childRefreshKey]);
 
   const handleChildAdded = () => {
     setChildRefreshKey((k) => k + 1);
@@ -41,7 +54,7 @@ export default function ChildrenSettings() {
   };
 
   const handleChildDeleted = () => {
-    setSelectedChild(null);
+    onChildSelect(null);
     setChildRefreshKey((k) => k + 1);
   };
 
@@ -52,7 +65,7 @@ export default function ChildrenSettings() {
       <ChildSelectorBar
         children={children}
         selectedChildId={selectedChild?.id ?? null}
-        onSelectChild={setSelectedChild}
+        onSelectChild={onChildSelect}
         loading={loading}
       />
 
