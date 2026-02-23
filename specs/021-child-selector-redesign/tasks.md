@@ -25,7 +25,7 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Create ChildSelectorBar component with chip rendering, selection toggle, and loading state in `frontend/src/components/ChildSelectorBar.tsx`
+- [x] T001 Create ChildSelectorBar component with chip rendering, selection toggle, and loading state in `frontend/src/components/ChildSelectorBar.tsx`
   - Props: `children: Child[]`, `selectedChildId: number | null`, `onSelectChild: (child: Child | null) => void`, `loading?: boolean`
   - Render each child as a horizontal chip button with: avatar (emoji or first-letter initial), first name (truncated with ellipsis via `truncate` class), balance (small `BalanceDisplay`), and lock icon (`lucide-react Lock`) if `is_locked`
   - Selected chip: `ring-2 ring-forest bg-forest/5` (matches existing ChildList pattern)
@@ -50,7 +50,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T002 [US1] Refactor ParentDashboard to replace two-column grid with ChildSelectorBar above full-width content in `frontend/src/pages/ParentDashboard.tsx`
+- [x] T002 [US1] Refactor ParentDashboard to replace two-column grid with ChildSelectorBar above full-width content in `frontend/src/pages/ParentDashboard.tsx`
   - Remove `md:grid md:grid-cols-[340px_1fr] md:gap-6` two-column layout
   - Add child data fetching (move from ChildList): `get<ChildListResponse>("/children")` with `refreshKey` dependency
   - Render ChildSelectorBar with fetched children, selectedChild state, and loading state
@@ -61,7 +61,7 @@
   - Update selectedChild handling: when `onSelectChild` receives `null`, clear selection (toggle-off)
   - When child is updated via ManageChild, refresh children list to get updated balance
 
-- [ ] T003 [US1] Remove close button and header bar from ManageChild in `frontend/src/components/ManageChild.tsx`
+- [x] T003 [US1] Remove close button and header bar from ManageChild in `frontend/src/components/ManageChild.tsx`
   - Remove the `onClose` prop from ManageChildProps interface
   - Remove the header div containing the X close button (`<button onClick={onClose}>`)
   - Keep the "Manage {child.first_name}" heading but simplify it (no flex justify-between needed)
@@ -79,7 +79,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T004 [US2] Refactor ChildrenSettings to replace two-column grid with stacked layout using ChildSelectorBar in `frontend/src/components/ChildrenSettings.tsx`
+- [x] T004 [US2] Refactor ChildrenSettings to replace two-column grid with stacked layout using ChildSelectorBar in `frontend/src/components/ChildrenSettings.tsx`
   - Remove `md:grid md:grid-cols-[300px_1fr] md:gap-6` two-column layout
   - Add child data fetching: `get<ChildListResponse>("/children")` with `refreshKey` dependency
   - Layout: AddChildForm (full width) → ChildSelectorBar (full width) → ChildAccountSettings (full width, when selected)
@@ -101,14 +101,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T005 [US3] Refine ChildSelectorBar chip layout for single-child and large-family edge cases in `frontend/src/components/ChildSelectorBar.tsx`
+- [x] T005 [US3] Refine ChildSelectorBar chip layout for single-child and large-family edge cases in `frontend/src/components/ChildSelectorBar.tsx`
   - Ensure chips are left-aligned (not centered) so 1-child families don't look awkward (use `justify-start` on flex container)
   - Verify chip `max-width` and `truncate` handle long names (20+ chars) gracefully (FR-011)
   - Ensure fade indicators only appear when there IS overflow (use scroll position detection or CSS-only approach)
   - Verify the selector row height stays fixed regardless of number of children (single row, no wrapping: `flex-nowrap`)
   - Confirm `gap` between chips provides comfortable spacing at all sizes
 
-- [ ] T006 [US3] Ensure 0-children state is handled correctly on both pages
+- [x] T006 [US3] Ensure 0-children state is handled correctly on both pages
   - ParentDashboard (`frontend/src/pages/ParentDashboard.tsx`): when `children.length === 0`, hide ChildSelectorBar entirely and show existing empty state card guiding parent to Settings > Children
   - ChildrenSettings (`frontend/src/components/ChildrenSettings.tsx`): when `children.length === 0`, hide ChildSelectorBar (AddChildForm is still visible above)
 
@@ -124,7 +124,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T007 [US4] Verify ChildSelectorBar reusability: confirm both pages import from the same component path and use consistent props pattern in `frontend/src/components/ChildSelectorBar.tsx`, `frontend/src/pages/ParentDashboard.tsx`, `frontend/src/components/ChildrenSettings.tsx`
+- [x] T007 [US4] Verify ChildSelectorBar reusability: confirm both pages import from the same component path and use consistent props pattern in `frontend/src/components/ChildSelectorBar.tsx`, `frontend/src/pages/ParentDashboard.tsx`, `frontend/src/components/ChildrenSettings.tsx`
   - Both pages must import `ChildSelectorBar` from the same file
   - Both pages must pass: `children`, `selectedChildId`, `onSelectChild`, `loading`
   - No page-specific branching or props inside ChildSelectorBar
@@ -138,12 +138,12 @@
 
 **Purpose**: Cleanup and validation across all user stories
 
-- [ ] T008 Remove unused ChildList references and clean up deprecated code in `frontend/src/components/ChildList.tsx`
+- [x] T008 Remove unused ChildList references and clean up deprecated code in `frontend/src/components/ChildList.tsx`
   - Verify ChildList is no longer imported by any file (ParentDashboard, ChildrenSettings were the only consumers)
   - If no remaining imports, delete `frontend/src/components/ChildList.tsx`
   - If still imported elsewhere, keep file but remove from modified pages
 
-- [ ] T009 Run TypeScript type check and lint to validate all changes in `frontend/`
+- [x] T009 Run TypeScript type check and lint to validate all changes in `frontend/`
   - Run `cd frontend && npx tsc --noEmit` — fix any type errors
   - Run `cd frontend && npm run lint` — fix any lint warnings
   - Run `cd frontend && npm run build` — verify production build succeeds
