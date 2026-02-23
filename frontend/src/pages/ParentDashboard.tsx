@@ -1,20 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useParentUser } from "../hooks/useAuthOutletContext";
+import { get } from "../api";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import ChildList from "../components/ChildList";
+import ChildSelectorBar from "../components/ChildSelectorBar";
 import ManageChild from "../components/ManageChild";
-import { Child } from "../types";
+import { Child, ChildListResponse } from "../types";
 import { Link as LinkIcon, Copy, Check, Users } from "lucide-react";
 
 export default function ParentDashboard() {
   const user = useParentUser();
   const navigate = useNavigate();
   const [childRefreshKey, setChildRefreshKey] = useState(0);
+  const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [copied, setCopied] = useState(false);
-  const [childCount, setChildCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    get<ChildListResponse>("/children")
+      .then((data) => {
+        const list = data.children || [];
+        setChildren(list);
+        // If a child was selected, update it with fresh data
+        if (selectedChild) {
+          const updated = list.find((c) => c.id === selectedChild.id);
+          if (updated) {
+            setSelectedChild(updated);
+          } else {
+            setSelectedChild(null);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [childRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopyFamilyUrl = () => {
     const fullUrl = `${window.location.origin}/${user.family_slug}`;
@@ -54,7 +76,7 @@ export default function ParentDashboard() {
       </div>
 
       {/* Empty state when no children */}
-      {childCount === 0 && (
+      {!loading && children.length === 0 && (
         <Card padding="lg">
           <div className="text-center py-8">
             <div className="flex justify-center mb-4">
@@ -73,38 +95,31 @@ export default function ParentDashboard() {
         </Card>
       )}
 
-      {/* Two-column layout on desktop (only show when children exist or still loading) */}
-      {childCount !== 0 && (
-        <div className="md:grid md:grid-cols-[340px_1fr] md:gap-6">
-          {/* Left column: child list */}
-          <div className="space-y-4 mb-6 md:mb-0">
-            <Card padding="md">
-              <ChildList
-                refreshKey={childRefreshKey}
-                onSelectChild={setSelectedChild}
-                selectedChildId={selectedChild?.id}
-                onLoaded={(count) => setChildCount(count)}
-              />
-            </Card>
-          </div>
+      {/* Child selector + full-width content */}
+      {(loading || children.length > 0) && (
+        <div className="space-y-4">
+          <ChildSelectorBar
+            children={children}
+            selectedChildId={selectedChild?.id ?? null}
+            onSelectChild={setSelectedChild}
+            loading={loading}
+          />
 
-          {/* Right column: manage child or empty state */}
-          <div>
-            {selectedChild ? (
-              <ManageChild
-                key={selectedChild.id}
-                child={selectedChild}
-                onUpdated={handleChildUpdated}
-                onClose={() => setSelectedChild(null)}
-              />
-            ) : (
-              <Card padding="lg" className="hidden md:flex items-center justify-center min-h-[300px]">
-                <p className="text-bark-light text-center">
+          {selectedChild ? (
+            <ManageChild
+              key={selectedChild.id}
+              child={selectedChild}
+              onUpdated={handleChildUpdated}
+            />
+          ) : (
+            !loading && (
+              <Card padding="lg">
+                <p className="text-bark-light text-center py-4">
                   Select a child to manage their finances.
                 </p>
               </Card>
-            )}
-          </div>
+            )
+          )}
         </div>
       )}
     </div>

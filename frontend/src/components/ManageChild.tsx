@@ -9,15 +9,14 @@ import WithdrawForm from "./WithdrawForm";
 import InterestForm from "./InterestForm";
 import TransactionsCard from "./TransactionsCard";
 import ChildAllowanceForm from "./ChildAllowanceForm";
-import { AlertTriangle, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
   onUpdated: () => void;
-  onClose: () => void;
 }
 
-export default function ManageChild({ child, onUpdated, onClose }: ManageChildProps) {
+export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [currentBalance, setCurrentBalance] = useState(child.balance_cents);
@@ -59,17 +58,7 @@ export default function ManageChild({ child, onUpdated, onClose }: ManageChildPr
 
   return (
     <div className="animate-fade-in-up space-y-4">
-      {/* Header with close */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-forest">Manage {child.first_name}</h3>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-xl text-bark-light hover:text-bark hover:bg-cream-dark transition-colors cursor-pointer"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+      <h3 className="text-xl font-bold text-forest">Manage {child.first_name}</h3>
 
       {child.is_locked && (
         <div className="flex items-center gap-2 p-3 bg-terracotta/10 border border-terracotta/20 rounded-xl">
