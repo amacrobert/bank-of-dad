@@ -190,6 +190,7 @@ export interface InterestSchedule {
 
 export interface ScenarioInputs {
   weeklySpendingCents: number;
+  weeklySavingsCents: number;
   oneTimeDepositCents: number;
   oneTimeWithdrawalCents: number;
   horizonMonths: number;
@@ -207,6 +208,7 @@ export interface ProjectionResult {
   totalInterestCents: number;
   totalAllowanceCents: number;
   totalSpendingCents: number;
+  totalSavingsCents: number;
   startingBalanceCents: number;
   depletionWeek: number | null;
 }
@@ -219,3 +221,34 @@ export interface ProjectionConfig {
   allowanceFrequency: Frequency | null;
   scenario: ScenarioInputs;
 }
+
+// Growth Projector Scenarios Feature (023-growth-scenarios)
+
+export type WeeklyDirection = 'spending' | 'saving';
+export type OneTimeDirection = 'deposit' | 'withdrawal';
+
+export interface ScenarioConfig {
+  id: string;
+  weeklyAmountCents: number;
+  weeklyDirection: WeeklyDirection;
+  oneTimeAmountCents: number;
+  oneTimeDirection: OneTimeDirection;
+  color: string;
+}
+
+export interface ScenarioTitleContext {
+  hasAllowance: boolean;
+  weeklyAllowanceCents: number;
+  weeklyAmountCents: number;
+  weeklyDirection: WeeklyDirection;
+  oneTimeAmountCents: number;
+  oneTimeDirection: OneTimeDirection;
+}
+
+export const SCENARIO_COLORS = [
+  '#2563eb', // Blue
+  '#dc2626', // Red
+  '#16a34a', // Green
+  '#9333ea', // Purple
+  '#ea580c', // Orange
+] as const;
