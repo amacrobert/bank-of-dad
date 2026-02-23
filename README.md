@@ -1,6 +1,10 @@
 # Bank of Dad
 
-A family banking app that teaches kids about money. Parents manage allowances, deposits, withdrawals, and interest rates. Kids log in to check their balance and transaction history. Allowances are scheduled automatically, and compound interest accrues on a configurable schedule.
+A family banking app that teaches kids the power of saving.
+
+**[https://bankofdad.xyz](https://bankofdad.xyz)**
+
+Parents manage allowances, deposits, withdrawals, and interest rates. Kids log in to check their balance and transaction history. Allowances are scheduled automatically, and compound interest accrues on a configurable schedule.
 
 ## Project Structure
 
