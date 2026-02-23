@@ -26,6 +26,7 @@ function App() {
         {/* Parent routes — shared Layout */}
         <Route element={<AuthenticatedLayout userType="parent" />}>
           <Route path="/dashboard" element={<ParentDashboard />} />
+          <Route path="/growth" element={<GrowthPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
 
