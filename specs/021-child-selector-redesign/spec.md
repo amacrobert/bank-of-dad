@@ -21,6 +21,7 @@ A parent visits the Dashboard and sees a compact, horizontal child selector abov
 2. **Given** the Dashboard is showing the child selector, **When** the parent clicks a child's chip, **Then** that chip becomes visually highlighted and the content area below shows the selected child's management panel at full width.
 3. **Given** a child is selected on the Dashboard, **When** the parent clicks a different child's chip, **Then** the highlight moves to the new chip and the content area updates to show the newly selected child's data.
 4. **Given** no child is selected, **When** the parent views the content area, **Then** a helpful empty state message is displayed prompting them to select a child.
+5. **Given** a child is currently selected on the Dashboard, **When** the parent clicks that same child's chip again, **Then** the chip is deselected and the content area returns to the empty state.
 
 ---
 
@@ -42,7 +43,7 @@ A parent navigates to Settings > Children and sees the "Add a new child" form at
 
 ### User Story 3 - Child selector handles varying family sizes gracefully (Priority: P2)
 
-The child selector pattern visually accommodates families of all sizes from 0 to 12 children without degrading the layout. For small families (1–4), chips are displayed inline. For larger families (5–12), the selector scrolls horizontally or wraps to a second row, ensuring all children remain accessible without overwhelming the page.
+The child selector pattern visually accommodates families of all sizes from 0 to 12 children without degrading the layout. Chips are displayed in a single horizontal row. For larger families where chips exceed the available width, the row scrolls horizontally with visual indicators (fade or arrows) signaling overflow, ensuring all children remain accessible without pushing content down.
 
 **Why this priority**: The selector must work well across all realistic family sizes. A pattern that only looks good for 2–3 children would fail to generalize and would need to be redesigned again.
 
@@ -51,7 +52,7 @@ The child selector pattern visually accommodates families of all sizes from 0 to
 **Acceptance Scenarios**:
 
 1. **Given** a parent has 1 child, **When** the selector renders, **Then** the single chip is displayed without awkward centering or excessive whitespace.
-2. **Given** a parent has 6 children, **When** the selector renders, **Then** all 6 children are accessible via horizontal scrolling or wrapping, with a visual indicator that more children exist if scrolling is needed.
+2. **Given** a parent has 6 children, **When** the selector renders, **Then** all 6 children are accessible via horizontal scrolling within a single row, with fade or arrow indicators signaling that more children exist off-screen.
 3. **Given** a parent has 12 children, **When** the selector renders, **Then** all 12 children remain accessible and the selector does not push the main content unreasonably far down the page.
 4. **Given** a parent has 0 children, **When** the Dashboard loads, **Then** the child selector is not shown and a helpful empty state guides the parent to add children from Settings.
 
@@ -88,17 +89,18 @@ The child selector is implemented as a shared, reusable component that can be dr
 - **FR-002**: System MUST replace the vertical child list sidebar on Settings > Children with a horizontal child selector bar positioned between the "Add a new child" form and the child account settings.
 - **FR-003**: Each child in the selector MUST be represented as a compact chip showing their avatar (emoji or initial) and first name.
 - **FR-004**: The selected child's chip MUST be visually distinct from unselected chips (e.g., highlighted background, border, or elevation change).
-- **FR-005**: The child selector MUST support 0 to 12 children without layout degradation — using horizontal scrolling or row wrapping for larger families.
+- **FR-005**: The child selector MUST render as a single horizontal row. When children overflow the available width, the selector MUST scroll horizontally with visual fade or arrow indicators to signal additional children.
 - **FR-006**: When a child is selected, the content area below the selector MUST use the full available width (no side-by-side columns for child list and detail).
 - **FR-007**: The child selector MUST be a single, shared component reusable across any parent-facing page.
 - **FR-008**: The selector MUST show a locked indicator for children whose accounts are locked.
 - **FR-009**: The selector MUST update dynamically when children are added or removed without requiring a full page reload.
 - **FR-010**: On mobile screens, the selector MUST remain usable with appropriately sized touch targets and horizontal scrolling when needed.
 - **FR-011**: Child names exceeding the chip's display width MUST be truncated with an ellipsis.
+- **FR-012**: Clicking the currently-selected child's chip MUST deselect it, returning the view to the empty/unselected state.
 
 ### Key Entities
 
-- **Child Chip**: A compact, selectable UI element representing one child — displays avatar and name. No new data entities are introduced; the selector operates on the existing Child data model.
+- **Child Chip**: A compact, selectable UI element representing one child — displays avatar and name, and balance. No new data entities are introduced; the selector operates on the existing Child data model.
 
 ## Success Criteria *(mandatory)*
 
@@ -110,9 +112,15 @@ The child selector is implemented as a shared, reusable component that can be dr
 - **SC-004**: Both the Dashboard and Settings > Children pages use the same shared selector component with identical visual treatment and interaction behavior.
 - **SC-005**: On mobile viewports (< 768px), all child chips remain accessible via horizontal scroll with touch-friendly tap targets (minimum 44px height).
 
+## Clarifications
+
+### Session 2026-02-23
+
+- Q: What overflow strategy should the selector use for 5+ children? → A: Horizontal scroll — single row with fade/arrow indicators for overflow.
+- Q: Can the parent deselect a child by clicking the already-selected chip? → A: Yes, toggle-off allowed — clicking the selected chip deselects it, returning to the empty state.
+
 ## Assumptions
 
-- The child selector does not need to display the child's balance — balance information is shown in the detail content area after selection. This keeps chips compact.
 - The current ChildList component and its data-fetching logic can be adapted into the new chip-based selector rather than built from scratch.
 - The visual style of chips will follow the existing design language (cream/forest/sand color palette, rounded corners, subtle shadows).
 - Pre-selecting the first child on page load is not required — the empty/unselected state with a prompt is acceptable and consistent with current behavior.
