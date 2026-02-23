@@ -63,6 +63,20 @@ export default function Layout({ user, children }: LayoutProps) {
                 Dashboard
               </button>
               <button
+                onClick={() => navigate("/growth")}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname === "/growth"
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                <TrendingUp className="h-4 w-4" aria-hidden="true" />
+                Growth
+              </button>
+              <button
                 onClick={() => navigate("/settings")}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
@@ -156,6 +170,13 @@ export default function Layout({ user, children }: LayoutProps) {
               >
                 <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Dashboard</span>
+              </button>
+              <button
+                onClick={() => navigate("/growth")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/growth" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <TrendingUp className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Growth</span>
               </button>
               <button
                 onClick={() => navigate("/settings")}
