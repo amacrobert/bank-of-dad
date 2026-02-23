@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TimezoneProvider } from "./context/TimezoneContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import AuthenticatedLayout from "./components/AuthenticatedLayout";
@@ -25,9 +25,11 @@ function App() {
 
         {/* Parent routes — shared Layout */}
         <Route element={<AuthenticatedLayout userType="parent" />}>
-          <Route path="/dashboard" element={<ParentDashboard />} />
-          <Route path="/growth" element={<GrowthPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/dashboard/:childName?" element={<ParentDashboard />} />
+          <Route path="/growth/:childName?" element={<GrowthPage />} />
+          <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+          <Route path="/settings/children/:childName" element={<SettingsPage />} />
+          <Route path="/settings/:category" element={<SettingsPage />} />
         </Route>
 
         {/* Child routes — shared Layout */}

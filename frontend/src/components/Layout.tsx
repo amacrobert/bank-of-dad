@@ -53,7 +53,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/dashboard"
+                  ${location.pathname.startsWith("/dashboard")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -67,7 +67,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/growth"
+                  ${location.pathname.startsWith("/growth")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -81,7 +81,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/settings"
+                  ${location.pathname.startsWith("/settings")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -98,7 +98,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/child/dashboard"
+                  ${location.pathname.startsWith("/child/dashboard")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -112,7 +112,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/child/growth"
+                  ${location.pathname.startsWith("/child/growth")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -126,7 +126,7 @@ export default function Layout({ user, children }: LayoutProps) {
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
                   transition-colors text-left cursor-pointer
-                  ${location.pathname === "/child/settings"
+                  ${location.pathname.startsWith("/child/settings")
                     ? "bg-forest text-white"
                     : "text-bark-light hover:bg-cream-dark"
                   }
@@ -166,21 +166,21 @@ export default function Layout({ user, children }: LayoutProps) {
             <>
               <button
                 onClick={() => navigate("/dashboard")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/dashboard" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/dashboard") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Dashboard</span>
               </button>
               <button
                 onClick={() => navigate("/growth")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/growth" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/growth") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <TrendingUp className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Growth</span>
               </button>
               <button
                 onClick={() => navigate("/settings")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/settings") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <Settings className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Settings</span>
@@ -190,21 +190,21 @@ export default function Layout({ user, children }: LayoutProps) {
             <>
               <button
                 onClick={() => navigate("/child/dashboard")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/child/dashboard" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/dashboard") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <Home className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Home</span>
               </button>
               <button
                 onClick={() => navigate("/child/growth")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/child/growth" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/growth") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <TrendingUp className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Growth</span>
               </button>
               <button
                 onClick={() => navigate("/child/settings")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname === "/child/settings" ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/settings") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
                 <Settings className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Settings</span>

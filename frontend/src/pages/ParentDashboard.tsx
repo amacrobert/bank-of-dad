@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useParentUser } from "../hooks/useAuthOutletContext";
 import { get } from "../api";
 import Card from "../components/ui/Card";
@@ -12,11 +12,26 @@ import { Link as LinkIcon, Copy, Check, Users } from "lucide-react";
 export default function ParentDashboard() {
   const user = useParentUser();
   const navigate = useNavigate();
+  const { childName } = useParams<{ childName?: string }>();
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Derive selected child from URL param
+  const selectedChild = useMemo(() => {
+    if (!childName || children.length === 0) return null;
+    return children.find(
+      (c) => c.first_name.toLowerCase() === childName.toLowerCase()
+    ) ?? null;
+  }, [childName, children]);
+
+  // Redirect if child name in URL is invalid
+  useEffect(() => {
+    if (childName && children.length > 0 && !selectedChild) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [childName, children, selectedChild, navigate]);
 
   useEffect(() => {
     setLoading(true);
@@ -24,19 +39,10 @@ export default function ParentDashboard() {
       .then((data) => {
         const list = data.children || [];
         setChildren(list);
-        // If a child was selected, update it with fresh data
-        if (selectedChild) {
-          const updated = list.find((c) => c.id === selectedChild.id);
-          if (updated) {
-            setSelectedChild(updated);
-          } else {
-            setSelectedChild(null);
-          }
-        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [childRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [childRefreshKey]);
 
   const handleCopyFamilyUrl = () => {
     const fullUrl = `${window.location.origin}/${user.family_slug}`;
@@ -88,7 +94,7 @@ export default function ParentDashboard() {
             <p className="text-bark-light mb-4">
               Add your first child to start managing their finances.
             </p>
-            <Button onClick={() => navigate("/settings?tab=children")}>
+            <Button onClick={() => navigate("/settings/children")}>
               Go to Settings &rarr; Children
             </Button>
           </div>
@@ -101,7 +107,13 @@ export default function ParentDashboard() {
           <ChildSelectorBar
             children={children}
             selectedChildId={selectedChild?.id ?? null}
-            onSelectChild={setSelectedChild}
+            onSelectChild={(child) => {
+              if (child) {
+                navigate(`/dashboard/${child.first_name.toLowerCase()}`);
+              } else {
+                navigate("/dashboard");
+              }
+            }}
             loading={loading}
           />
 
