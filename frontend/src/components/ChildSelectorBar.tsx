@@ -83,20 +83,27 @@ export default function ChildSelectorBar({
               onClick={() => handleClick(child)}
               aria-pressed={isSelected}
               className={`
-                flex items-center gap-2 px-3 py-2 rounded-xl
-                min-h-[44px] flex-shrink-0 max-w-[200px]
-                transition-all duration-200 cursor-pointer
+                relative flex flex-col items-center justify-center
+                w-[100px] aspect-square p-3 rounded-xl
+                flex-shrink-0 transition-all duration-200 cursor-pointer
                 ${isSelected
                   ? "bg-forest/5 ring-2 ring-forest"
-                  : "bg-white border border-sand hover:bg-cream-dark"
+                  : "bg-white border border-sand hover:border-forest hover:bg-sage-light/20"
                 }
               `}
             >
+              {/* Lock indicator */}
+              {child.is_locked && (
+                <div className="absolute top-1.5 right-1.5">
+                  <Lock className="h-3 w-3 text-terracotta" aria-label="Account locked" />
+                </div>
+              )}
+
               {/* Avatar */}
               <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
+                w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
                 ${child.avatar
-                  ? "text-xl"
+                  ? "text-2xl"
                   : `text-sm font-bold ${isSelected ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
                 }
                 ${child.avatar && !isSelected ? "bg-cream" : ""}
@@ -105,19 +112,14 @@ export default function ChildSelectorBar({
                 {child.avatar || child.first_name.charAt(0).toUpperCase()}
               </div>
 
-              {/* Name + balance + lock */}
-              <div className="min-w-0 text-left">
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-bark text-sm truncate">
-                    {child.first_name}
-                  </span>
-                  {child.is_locked && (
-                    <Lock className="h-3 w-3 text-terracotta flex-shrink-0" aria-label="Account locked" />
-                  )}
-                </div>
-                <div className="-mt-0.5">
-                  <BalanceDisplay balanceCents={child.balance_cents} size="small" />
-                </div>
+              {/* Name */}
+              <span className="font-semibold text-bark text-xs text-center truncate w-full mt-1">
+                {child.first_name}
+              </span>
+
+              {/* Balance */}
+              <div className="-mt-0.5">
+                <BalanceDisplay balanceCents={child.balance_cents} size="small" />
               </div>
             </button>
           );
