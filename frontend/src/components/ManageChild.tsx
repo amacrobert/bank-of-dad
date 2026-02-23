@@ -112,23 +112,25 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
 
       <TransactionsCard childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} transactions={transactions} />
 
-      <ChildAllowanceForm
-        childId={child.id}
-        childName={child.first_name}
-        allowance={allowance}
-        onUpdated={setAllowance}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ChildAllowanceForm
+          childId={child.id}
+          childName={child.first_name}
+          allowance={allowance}
+          onUpdated={setAllowance}
+        />
 
-      <InterestForm
-        childId={child.id}
-        childName={child.first_name}
-        currentRateBps={interestRateBps}
-        schedule={interestSchedule}
-        onUpdated={(rateBps, schedule) => {
-          setInterestRateBps(rateBps);
-          setInterestSchedule(schedule);
-        }}
-      />
+        <InterestForm
+          childId={child.id}
+          childName={child.first_name}
+          currentRateBps={interestRateBps}
+          schedule={interestSchedule}
+          onUpdated={(rateBps, schedule) => {
+            setInterestRateBps(rateBps);
+            setInterestSchedule(schedule);
+          }}
+        />
+      </div>
     </div>
   );
 }
