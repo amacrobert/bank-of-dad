@@ -84,7 +84,7 @@ export default function ChildSelectorBar({
               aria-pressed={isSelected}
               className={`
                 relative flex flex-col items-center justify-center
-                w-[100px] aspect-square p-3 rounded-xl
+                w-[120px] aspect-square p-3 rounded-xl
                 flex-shrink-0 transition-all duration-200 cursor-pointer
                 ${isSelected
                   ? "bg-forest/5 ring-2 ring-forest"
