@@ -32,6 +32,16 @@ describe("generateScenarioTitle", () => {
       ).toBe("If I save **none** of my $20 allowance");
     });
 
+    it("spending > allowance → spend whole allowance plus extra", () => {
+      expect(
+        generateScenarioTitle(
+          ctx({ weeklyAmountCents: 2500, weeklyDirection: "spending" })
+        )
+      ).toBe(
+        "If I spend my whole $20 allowance plus another **$5** per week"
+      );
+    });
+
     it("0 < spending < allowance → save partial amount", () => {
       expect(
         generateScenarioTitle(
@@ -48,6 +58,14 @@ describe("generateScenarioTitle", () => {
       ).toBe(
         "If I save **all** of my $20 allowance plus an additional **$5** per week"
       );
+    });
+
+    it("saving=0 → save all (no 'plus additional' text)", () => {
+      expect(
+        generateScenarioTitle(
+          ctx({ weeklyAmountCents: 0, weeklyDirection: "saving" })
+        )
+      ).toBe("If I save **all** of my $20 allowance");
     });
   });
 
@@ -74,6 +92,21 @@ describe("generateScenarioTitle", () => {
         )
       ).toBe(
         "If I save **none** of my $20 allowance, and deposit **$50** now"
+      );
+    });
+
+    it("spending > allowance → spend whole allowance plus extra, and deposit", () => {
+      expect(
+        generateScenarioTitle(
+          ctx({
+            weeklyAmountCents: 2500,
+            weeklyDirection: "spending",
+            oneTimeAmountCents: 5000,
+            oneTimeDirection: "deposit",
+          })
+        )
+      ).toBe(
+        "If I spend my whole $20 allowance plus another **$5** per week, and deposit **$50** now"
       );
     });
 
@@ -131,6 +164,21 @@ describe("generateScenarioTitle", () => {
         )
       ).toBe(
         "If I save **none** of my $20 allowance, but withdraw **$50** now"
+      );
+    });
+
+    it("spending > allowance → spend whole allowance plus extra, but withdraw", () => {
+      expect(
+        generateScenarioTitle(
+          ctx({
+            weeklyAmountCents: 2500,
+            weeklyDirection: "spending",
+            oneTimeAmountCents: 5000,
+            oneTimeDirection: "withdrawal",
+          })
+        )
+      ).toBe(
+        "If I spend my whole $20 allowance plus another **$5** per week, but withdraw **$50** now"
       );
     });
 
