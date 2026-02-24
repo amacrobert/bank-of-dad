@@ -210,12 +210,12 @@ function ScenarioRow({
       <div className="flex-1 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="text-base text-bark leading-snug">
-            <p>{renderBoldMarkdown(title)}</p>
+            <p className="text-lg pb-2">{renderBoldMarkdown(title)},</p>
             {outcome && (
               <p className={
                 outcome.finalBalanceCents >= currentBalanceCents
-                  ? "text-[#2D5A3D] font-medium"
-                  : "text-terracotta font-medium"
+                  ? "text-[#2D5A3D] font-medium pb-1"
+                  : "text-terracotta font-medium pb-1"
               }>
                 {renderBoldMarkdown(buildOutcomeSuffix(outcome, horizonMonths))}
               </p>
@@ -250,7 +250,7 @@ function ScenarioRow({
                 value={localWeekly}
                 onChange={(e) => setLocalWeekly(e.target.value)}
                 onBlur={handleWeeklyBlur}
-                className="w-24 h-9 px-3 py-1.5 rounded-r-xl rounded-l-none border border-sand bg-white text-bark text-sm placeholder:text-bark-light/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest"
+                className="w-24 h-9 px-3 py-1.5 rounded-r-lg rounded-l-none border border-sand bg-white text-bark text-sm placeholder:text-bark-light/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-forest/30 focus:border-forest"
               />
             </div>
             <span className="text-sm text-bark-light">weekly</span>
