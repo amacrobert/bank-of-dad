@@ -9,6 +9,7 @@ import {
   Calendar,
   Clock,
   Lock,
+  CheckCircle,
   UserPlus,
   ArrowDownCircle,
 } from "lucide-react";
@@ -137,6 +138,35 @@ function MockChildDashboard() {
             <span className={`font-semibold ${tx.color}`}>{tx.amount}</span>
           </div>
         ))}
+      </div>
+    </Card>
+  );
+}
+
+function MockParentDashboard() {
+  return (
+    <Card className="max-w-xs mx-auto" padding="md">
+      <p className="text-sm font-semibold text-bark-light mb-3">Your Family Bank</p>
+      <div className="space-y-3">
+        {[
+          { name: "Emma", balance: "$124.50", color: "bg-sage-light" },
+          { name: "Jack", balance: "$87.25", color: "bg-amber-light" },
+        ].map((child) => (
+          <div key={child.name} className="flex items-center gap-3">
+            <div
+              className={`w-8 h-8 ${child.color} rounded-full flex items-center justify-center text-xs font-bold text-forest`}
+            >
+              {child.name[0]}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-bark">{child.name}</p>
+            </div>
+            <p className="text-sm font-bold text-forest">{child.balance}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-sand text-xs text-bark-light">
+        Next allowance: Tomorrow
       </div>
     </Card>
   );
@@ -366,6 +396,82 @@ export default function HomePage() {
               </AnimatedSection>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* App Experience Preview                                             */}
+      {/* ----------------------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+        <AnimatedSection className="text-center mb-14">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-forest mb-3">
+            Built for the whole family
+          </h2>
+          <p className="text-bark-light text-lg max-w-lg mx-auto">
+            Separate views for parents and kids, each designed for what they need
+          </p>
+        </AnimatedSection>
+
+        {/* Parent view */}
+        <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
+          <AnimatedSection direction="left">
+            <div className="inline-flex items-center gap-1.5 bg-sage-light/30 text-forest font-medium text-sm px-3 py-1 rounded-full mb-4">
+              <Shield className="h-4 w-4" aria-hidden="true" />
+              Parent View
+            </div>
+            <h3 className="text-2xl font-bold text-bark mb-4">
+              Your family dashboard
+            </h3>
+            <ul className="space-y-3">
+              {[
+                "See all your children's balances at a glance",
+                "Make deposits and withdrawals in seconds",
+                "Set up automatic allowances and interest",
+                "View full transaction history for each child",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <CheckCircle className="h-5 w-5 text-forest shrink-0 mt-0.5" aria-hidden="true" />
+                  <span className="text-bark-light leading-relaxed">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </AnimatedSection>
+          <AnimatedSection direction="right" className="flex justify-center">
+            <div aria-hidden="true">
+              <MockParentDashboard />
+            </div>
+          </AnimatedSection>
+        </div>
+
+        {/* Child view */}
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <AnimatedSection direction="left" className="md:order-2">
+            <div className="inline-flex items-center gap-1.5 bg-amber-light/30 text-bark font-medium text-sm px-3 py-1 rounded-full mb-4">
+              <Sparkles className="h-4 w-4 text-amber" aria-hidden="true" />
+              Child View
+            </div>
+            <h3 className="text-2xl font-bold text-bark mb-4">
+              Their own banking experience
+            </h3>
+            <ul className="space-y-3">
+              {[
+                "See their balance and recent transactions",
+                "Watch savings grow with compound interest",
+                "Learn how money works by doing, not just reading",
+                "Simple, kid-friendly interface they can use on their own",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <CheckCircle className="h-5 w-5 text-amber shrink-0 mt-0.5" aria-hidden="true" />
+                  <span className="text-bark-light leading-relaxed">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </AnimatedSection>
+          <AnimatedSection direction="right" className="md:order-1 flex justify-center">
+            <div aria-hidden="true">
+              <MockChildDashboard />
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 
