@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, ReactNode } from "react";
+import { useRef, useState, useEffect, useMemo, ReactNode } from "react";
 import {
   Shield,
   Coins,
@@ -13,6 +13,9 @@ import {
   UserPlus,
   ArrowDownCircle,
 } from "lucide-react";
+import { calculateProjection } from "../utils/projection";
+import GrowthChart, { ScenarioLine } from "../components/GrowthChart";
+import { ProjectionConfig } from "../types";
 import { Navigate } from "react-router-dom";
 import Card from "../components/ui/Card";
 import GoogleSignInButton from "../components/GoogleSignInButton";
@@ -173,6 +176,36 @@ function MockParentDashboard() {
 // HomePage
 // ===========================================================================
 export default function HomePage() {
+  const scenarioLines: ScenarioLine[] = useMemo(() => {
+    const base: Omit<ProjectionConfig, "scenario"> = {
+      currentBalanceCents: 5000,       // $50 starting balance
+      interestRateBps: 500,            // 5% annual
+      interestFrequency: "monthly",
+      allowanceAmountCents: 500,       // $5/week
+      allowanceFrequency: "weekly",
+    };
+
+    const configs: { id: string; label: string; color: string; weeklySpendingCents: number }[] = [
+      { id: "save-all",  label: "Save everything",         color: "#16a34a", weeklySpendingCents: 0 },
+      { id: "save-half", label: "Save half, spend half",   color: "#2563eb", weeklySpendingCents: 250 },
+      { id: "spend-all", label: "Spend it all",            color: "#D4A84B", weeklySpendingCents: 500 },
+    ];
+
+    return configs.map((c) => {
+      const result = calculateProjection({
+        ...base,
+        scenario: {
+          weeklySpendingCents: c.weeklySpendingCents,
+          weeklySavingsCents: 0,
+          oneTimeDepositCents: 0,
+          oneTimeWithdrawalCents: 0,
+          horizonMonths: 12,
+        },
+      });
+      return { id: c.id, label: c.label, color: c.color, dataPoints: result.dataPoints };
+    });
+  }, []);
+
   const savedSlug = getFamilySlug();
   if (savedSlug) {
     return <Navigate to={`/${savedSlug}`} replace />;
@@ -438,6 +471,45 @@ export default function HomePage() {
             <div aria-hidden="true">
               <MockChildDashboard />
             </div>
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Growth Chart Showcase                                              */}
+      {/* ----------------------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <AnimatedSection direction="left">
+            <div className="inline-flex items-center gap-1.5 bg-sage-light/30 text-forest font-medium text-sm px-3 py-1 rounded-full mb-4">
+              <TrendingUp className="h-4 w-4" aria-hidden="true" />
+              Growth Projector
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-forest mb-4">
+              See their savings grow
+            </h2>
+            <p className="text-bark-light text-lg leading-relaxed mb-6">
+              What happens if I save all my allowance? What if I spend half?
+              The growth projector lets kids explore these questions with real
+              numbers — turning saving from a chore into a challenge they want
+              to win.
+            </p>
+            <div className="space-y-2.5">
+              {scenarioLines.map((s) => (
+                <div key={s.id} className="flex items-center gap-2.5">
+                  <span
+                    className="inline-block w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  <span className="text-sm font-medium text-bark">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </AnimatedSection>
+          <AnimatedSection direction="right">
+            <Card padding="lg">
+              <GrowthChart scenarios={scenarioLines} />
+            </Card>
           </AnimatedSection>
         </div>
       </section>
