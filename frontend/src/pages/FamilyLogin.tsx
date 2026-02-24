@@ -82,7 +82,7 @@ export default function FamilyLogin() {
           <AlertCircle className="h-12 w-12 text-terracotta mx-auto mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold text-forest mb-2">Family not found</h1>
           <p className="text-bark-light mb-6">There is no family bank at this URL.</p>
-          <a href="/">
+          <a href="/" onClick={() => clearFamilySlug()}>
             <Button variant="secondary">Go to Bank of Dad</Button>
           </a>
         </div>
