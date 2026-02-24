@@ -9,6 +9,7 @@ import {
   AllowanceSchedule,
   InterestSchedule,
   ScenarioConfig,
+  ScenarioOutcome,
   ProjectionConfig,
 } from "../types";
 import { calculateProjection, weeksPerPeriod } from "../utils/projection";
@@ -288,11 +289,15 @@ function ProjectorContent({
     ? Math.round(allowance!.amount_cents / weeksPerPeriod(allowance!.frequency))
     : 0;
 
-  // Compute projection for each scenario and build chart data
-  const scenarioLines: ScenarioLine[] = useMemo(() => {
-    if (!balanceData || scenarios.length === 0) return [];
+  // Compute projection for each scenario and build chart data + outcomes
+  const { scenarioLines, outcomes } = useMemo(() => {
+    if (!balanceData || scenarios.length === 0)
+      return { scenarioLines: [] as ScenarioLine[], outcomes: {} as Record<string, ScenarioOutcome> };
 
-    return scenarios.map((sc) => {
+    const lines: ScenarioLine[] = [];
+    const outcomeMap: Record<string, ScenarioOutcome> = {};
+
+    for (const sc of scenarios) {
       const scenarioInputs = mapScenarioConfigToInputs(sc, horizonMonths);
       const config: ProjectionConfig = {
         currentBalanceCents: balanceData.balance_cents,
@@ -311,13 +316,24 @@ function ProjectorContent({
         oneTimeAmountCents: sc.oneTimeAmountCents,
         oneTimeDirection: sc.oneTimeDirection,
       });
-      return {
+      lines.push({
         id: sc.id,
         dataPoints: result.dataPoints,
         color: sc.color,
         label,
+      });
+      outcomeMap[sc.id] = {
+        finalBalanceCents: result.finalBalanceCents,
+        totalAllowanceCents: result.totalAllowanceCents,
+        totalSavingsCents: result.totalSavingsCents,
+        totalInterestCents: result.totalInterestCents,
+        totalSpendingCents: result.totalSpendingCents,
+        oneTimeWithdrawalCents: sc.oneTimeDirection === "withdrawal" ? sc.oneTimeAmountCents : 0,
+        depletionWeek: result.depletionWeek,
       };
-    });
+    }
+
+    return { scenarioLines: lines, outcomes: outcomeMap };
   }, [scenarios, horizonMonths, balanceData, allowance, interestSchedule, isAllowanceActive, isInterestActive, hasAllowance, weeklyAllowanceCents]);
 
   const handleScenariosChange = (updated: ScenarioConfig[]) => {
@@ -367,6 +383,8 @@ function ProjectorContent({
             currentBalanceCents={balanceData.balance_cents}
             hasAllowance={hasAllowance}
             weeklyAllowanceCents={weeklyAllowanceCents}
+            outcomes={outcomes}
+            horizonMonths={horizonMonths}
           />
         </Card>
       )}

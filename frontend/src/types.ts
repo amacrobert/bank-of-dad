@@ -222,6 +222,16 @@ export interface ProjectionConfig {
   scenario: ScenarioInputs;
 }
 
+export interface ScenarioOutcome {
+  finalBalanceCents: number;
+  totalAllowanceCents: number;
+  totalSavingsCents: number;
+  totalInterestCents: number;
+  totalSpendingCents: number;
+  oneTimeWithdrawalCents: number;
+  depletionWeek: number | null;
+}
+
 // Growth Projector Scenarios Feature (023-growth-scenarios)
 
 export type WeeklyDirection = 'spending' | 'saving';

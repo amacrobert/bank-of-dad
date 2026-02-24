@@ -23,14 +23,18 @@ export function generateScenarioTitle(ctx: ScenarioTitleContext): string {
   let oneTimePart = "";
 
   if (hasAllowance) {
-    if (weeklyDirection === "saving") {
+    if (weeklyDirection === "saving" && hasWeekly) {
       // Saving on top of full allowance
       weeklyPart = `save **all** of my ${allowanceStr} allowance plus an additional **${formatDollars(weeklyAmountCents)}** per week`;
     } else if (!hasWeekly) {
       // Spending 0 = saving all
       weeklyPart = `save **all** of my ${allowanceStr} allowance`;
-    } else if (weeklyAmountCents >= weeklyAllowanceCents) {
-      // Spending all
+    } else if (weeklyAmountCents > weeklyAllowanceCents) {
+      // Spending more than allowance
+      const excessCents = weeklyAmountCents - weeklyAllowanceCents;
+      weeklyPart = `spend my whole ${allowanceStr} allowance plus another **${formatDollars(excessCents)}** per week`;
+    } else if (weeklyAmountCents === weeklyAllowanceCents) {
+      // Spending exactly all
       weeklyPart = `save **none** of my ${allowanceStr} allowance`;
     } else {
       // Spending some, saving the rest
