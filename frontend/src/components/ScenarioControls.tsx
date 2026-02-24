@@ -202,7 +202,7 @@ function ScenarioRow({
   });
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 border-b border-gray-200 pb-4">
       <span
         className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
         style={{ backgroundColor: scenario.color }}
@@ -326,7 +326,7 @@ export default function ScenarioControls({
       <h3 className="text-sm font-bold text-bark uppercase tracking-wide">
         What if...
       </h3>
-      <div className="space-y-6">
+      <div className="space-y-5">
         {scenarios.map((s) => (
           <ScenarioRow
             key={s.id}
