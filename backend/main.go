@@ -17,6 +17,7 @@ import (
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/settings"
 	"bank-of-dad/internal/store"
+	"bank-of-dad/internal/subscription"
 )
 
 func main() {
@@ -68,6 +69,8 @@ func main() {
 	allowanceHandler := allowance.NewHandler(scheduleStore, childStore, familyStore)
 	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore, familyStore)
 	settingsHandlers := settings.NewHandlers(familyStore)
+	webhookEventStore := store.NewWebhookEventStore(db)
+	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopScheduler := make(chan struct{})
@@ -152,6 +155,12 @@ func main() {
 	// Settings (013-parent-settings)
 	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
 	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))
+
+	// Subscription (024-stripe-subscription)
+	mux.Handle("GET /api/subscription", requireParent(http.HandlerFunc(subscriptionHandlers.HandleGetSubscription)))
+	mux.Handle("POST /api/subscription/checkout", requireParent(http.HandlerFunc(subscriptionHandlers.HandleCreateCheckout)))
+	mux.Handle("POST /api/subscription/portal", requireParent(http.HandlerFunc(subscriptionHandlers.HandleCreatePortal)))
+	mux.HandleFunc("POST /api/stripe/webhook", subscriptionHandlers.HandleStripeWebhook)
 
 	// Account deletion
 	mux.Handle("DELETE /api/account", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteAccount)))
