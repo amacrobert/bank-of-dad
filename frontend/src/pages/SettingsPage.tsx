@@ -8,7 +8,8 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 import TimezoneSelect from "../components/TimezoneSelect";
 import ChildrenSettings from "../components/ChildrenSettings";
 import AccountSettings from "../components/AccountSettings";
-import { Settings, Globe, Users, User } from "lucide-react";
+import { Settings, Globe, Users, User, CreditCard } from "lucide-react";
+import SubscriptionSettings from "../components/SubscriptionSettings";
 
 interface SettingsCategory {
   key: string;
@@ -19,6 +20,7 @@ interface SettingsCategory {
 const CATEGORIES: SettingsCategory[] = [
   { key: "general", label: "General", icon: Globe },
   { key: "children", label: "Children", icon: Users },
+  { key: "subscription", label: "Subscription", icon: CreditCard },
   { key: "account", label: "Account", icon: User },
 ];
 
@@ -204,6 +206,8 @@ export default function SettingsPage() {
               onChildSelect={handleChildSelect}
             />
           )}
+
+          {activeCategory === "subscription" && <SubscriptionSettings />}
 
           {activeCategory === "account" && <AccountSettings />}
         </div>

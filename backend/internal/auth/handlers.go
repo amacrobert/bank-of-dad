@@ -41,10 +41,12 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	familyID := GetFamilyID(r)
 
 	var familySlug string
+	var accountType string
 	if familyID != 0 {
 		fam, err := h.familyStore.GetByID(familyID)
 		if err == nil && fam != nil {
 			familySlug = fam.Slug
+			accountType = fam.AccountType
 		}
 	}
 
@@ -62,6 +64,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 			"display_name": parent.DisplayName,
 			"email":        parent.Email,
 			"family_slug":  familySlug,
+			"account_type": accountType,
 		})
 		return
 	}
