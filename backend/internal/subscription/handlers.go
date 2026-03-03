@@ -250,11 +250,26 @@ func (h *Handlers) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 // since stripe-go v82 moved current_period_end to the item level in the Go struct
 // but the Stripe API still sends it at the subscription level in webhook events.
 type subscriptionRaw struct {
-	ID               string `json:"id"`
-	Status           string `json:"status"`
-	CurrentPeriodEnd int64  `json:"current_period_end"`
-	CancelAtPeriodEnd bool  `json:"cancel_at_period_end"`
-	Customer         string `json:"customer"`
+	ID                string `json:"id"`
+	Status            string `json:"status"`
+	CurrentPeriodEnd  int64  `json:"current_period_end"`
+	CancelAtPeriodEnd bool   `json:"cancel_at_period_end"`
+	Customer          string `json:"customer"`
+	Items             struct {
+		Data []struct {
+			CurrentPeriodEnd int64 `json:"current_period_end"`
+		} `json:"data"`
+	} `json:"items"`
+}
+
+func (s *subscriptionRaw) getPeriodEnd() int64 {
+	if s.CurrentPeriodEnd != 0 {
+		return s.CurrentPeriodEnd
+	}
+	if len(s.Items.Data) > 0 && s.Items.Data[0].CurrentPeriodEnd != 0 {
+		return s.Items.Data[0].CurrentPeriodEnd
+	}
+	return 0
 }
 
 // checkoutSessionRaw parses the checkout.session.completed event data.
@@ -326,7 +341,7 @@ func (h *Handlers) handleSubscriptionUpdated(event stripe.Event) {
 		return
 	}
 
-	periodEnd := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
+	periodEnd := time.Unix(sub.getPeriodEnd(), 0).UTC()
 	if err := h.familyStore.UpdateSubscriptionStatus(sub.ID, sub.Status, periodEnd, sub.CancelAtPeriodEnd); err != nil {
 		log.Printf("customer.subscription.updated: family not found for subscription %s: %v", sub.ID, err)
 	}

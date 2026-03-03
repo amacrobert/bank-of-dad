@@ -192,6 +192,44 @@ func TestHandleSubscriptionUpdated(t *testing.T) {
 	assert.Equal(t, time.Unix(newPeriodEnd, 0).UTC(), info.SubscriptionCurrentPeriodEnd.Time.UTC())
 }
 
+// handleSubscriptionUpdated falls back to items-level current_period_end
+func TestHandleSubscriptionUpdated_ItemsLevelPeriodEnd(t *testing.T) {
+	h, familyStore, _ := newTestHandlers(t)
+
+	fam, err := familyStore.Create("sub-wh-items")
+	require.NoError(t, err)
+
+	periodEnd := mustParseTime("2026-03-26T00:00:00Z")
+	require.NoError(t, familyStore.UpdateSubscriptionFromCheckout(fam.ID, "cus_wh_items1", "sub_wh_items1", "active", periodEnd))
+
+	// Simulate webhook where current_period_end is 0 at subscription level
+	// but present in items.data[0].current_period_end
+	itemPeriodEnd := int64(1777420800) // 2026-04-26T00:00:00Z
+	eventData := json.RawMessage(`{
+		"id": "sub_wh_items1",
+		"status": "active",
+		"current_period_end": 0,
+		"cancel_at_period_end": true,
+		"customer": "cus_wh_items1",
+		"items": {
+			"data": [{"current_period_end": ` + strconv.FormatInt(itemPeriodEnd, 10) + `}]
+		}
+	}`)
+
+	event := stripe.Event{
+		Type: "customer.subscription.updated",
+		Data: &stripe.EventData{Raw: eventData},
+	}
+
+	h.handleSubscriptionUpdated(event)
+
+	info, err := familyStore.GetSubscriptionByFamilyID(fam.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "active", info.SubscriptionStatus.String)
+	assert.True(t, info.SubscriptionCancelAtPeriodEnd)
+	assert.Equal(t, time.Unix(itemPeriodEnd, 0).UTC(), info.SubscriptionCurrentPeriodEnd.Time.UTC())
+}
+
 // handleSubscriptionDeleted clears all subscription fields
 func TestHandleSubscriptionDeleted(t *testing.T) {
 	h, familyStore, _ := newTestHandlers(t)
