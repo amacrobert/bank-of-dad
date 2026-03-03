@@ -1,11 +1,16 @@
 interface BalanceDisplayProps {
   balanceCents: number;
   size?: "small" | "medium" | "large";
+  breakdown?: {
+    availableCents: number;
+    savedCents: number;
+  };
 }
 
 export default function BalanceDisplay({
   balanceCents,
   size = "medium",
+  breakdown,
 }: BalanceDisplayProps) {
   const dollars = Math.floor(Math.abs(balanceCents) / 100);
   const cents = Math.abs(balanceCents) % 100;
@@ -21,16 +26,23 @@ export default function BalanceDisplay({
   const s = sizeConfig[size];
 
   return (
-    <span className="inline-flex items-baseline font-bold text-forest tabular-nums">
-      <span className={s.sign}>
-        {sign}$
+    <div className="inline-flex flex-col items-center">
+      <span className="inline-flex items-baseline font-bold text-forest tabular-nums">
+        <span className={s.sign}>
+          {sign}$
+        </span>
+        <span className={s.dollar}>
+          {dollars.toLocaleString()}
+        </span>
+        <span className={`${s.cent} relative -top-[0.15em] ml-0.5 text-forest/70`}>
+          {cents.toString().padStart(2, "0")}
+        </span>
       </span>
-      <span className={s.dollar}>
-        {dollars.toLocaleString()}
-      </span>
-      <span className={`${s.cent} relative -top-[0.15em] ml-0.5 text-forest/70`}>
-        {cents.toString().padStart(2, "0")}
-      </span>
-    </span>
+      {breakdown && breakdown.savedCents > 0 && (
+        <span className="text-sm text-bark-light mt-1">
+          Available: ${(breakdown.availableCents / 100).toFixed(2)} · Saved: ${(breakdown.savedCents / 100).toFixed(2)}
+        </span>
+      )}
+    </div>
   );
 }

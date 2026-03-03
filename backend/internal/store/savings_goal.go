@@ -2,8 +2,16 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+)
+
+var (
+	ErrGoalNotFound             = errors.New("goal not found or not active")
+	ErrInsufficientAvailable    = errors.New("amount exceeds available balance")
+	ErrDeallocationExceedsSaved = errors.New("de-allocation exceeds saved amount")
+	ErrZeroAllocation           = errors.New("allocation amount must be non-zero")
 )
 
 // SavingsGoal represents a child's savings target.
@@ -138,4 +146,281 @@ func (s *SavingsGoalStore) CountActiveByChild(childID int64) (int, error) {
 		return 0, fmt.Errorf("count active goals: %w", err)
 	}
 	return count, nil
+}
+
+// Allocate atomically allocates (positive) or de-allocates (negative) funds to/from a goal.
+// Returns the updated goal. If saved_cents >= target_cents after allocation, marks the goal completed.
+func (s *SavingsGoalStore) Allocate(goalID, childID, amountCents int64) (*SavingsGoal, error) {
+	if amountCents == 0 {
+		return nil, ErrZeroAllocation
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Lock and fetch the goal
+	var goalChildID int64
+	var savedCents, targetCents int64
+	var status string
+	err = tx.QueryRow(
+		`SELECT child_id, saved_cents, target_cents, status FROM savings_goals WHERE id = $1 FOR UPDATE`,
+		goalID,
+	).Scan(&goalChildID, &savedCents, &targetCents, &status)
+	if err == sql.ErrNoRows {
+		return nil, ErrGoalNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock goal: %w", err)
+	}
+	if status != "active" {
+		return nil, ErrGoalNotFound
+	}
+	if goalChildID != childID {
+		return nil, ErrGoalNotFound
+	}
+
+	if amountCents > 0 {
+		// Positive allocation: check available balance
+		var availableBalance int64
+		err = tx.QueryRow(
+			`SELECT c.balance_cents - COALESCE(SUM(sg.saved_cents), 0)
+			 FROM children c
+			 LEFT JOIN savings_goals sg ON sg.child_id = c.id AND sg.status = 'active'
+			 WHERE c.id = $1
+			 GROUP BY c.balance_cents`,
+			childID,
+		).Scan(&availableBalance)
+		if err != nil {
+			return nil, fmt.Errorf("check available balance: %w", err)
+		}
+		if amountCents > availableBalance {
+			return nil, ErrInsufficientAvailable
+		}
+	} else {
+		// Negative (de-allocation): check saved_cents >= abs(amount)
+		if -amountCents > savedCents {
+			return nil, ErrDeallocationExceedsSaved
+		}
+	}
+
+	// Update saved_cents
+	newSavedCents := savedCents + amountCents
+	_, err = tx.Exec(
+		`UPDATE savings_goals SET saved_cents = $1, updated_at = NOW() WHERE id = $2`,
+		newSavedCents, goalID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update saved_cents: %w", err)
+	}
+
+	// Check for goal completion
+	if newSavedCents >= targetCents {
+		_, err = tx.Exec(
+			`UPDATE savings_goals SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+			goalID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("complete goal: %w", err)
+		}
+	}
+
+	// Insert allocation record
+	_, err = tx.Exec(
+		`INSERT INTO goal_allocations (goal_id, child_id, amount_cents) VALUES ($1, $2, $3)`,
+		goalID, childID, amountCents,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("insert allocation: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit allocation: %w", err)
+	}
+
+	return s.GetByID(goalID)
+}
+
+// UpdateGoalParams contains the optional fields for updating a savings goal.
+type UpdateGoalParams struct {
+	Name          *string
+	TargetCents   *int64
+	Emoji         *string
+	EmojiSet      bool // if true and Emoji is nil, clears the emoji
+	TargetDate    *time.Time
+	TargetDateSet bool // if true and TargetDate is nil, clears the date
+}
+
+// Update partially updates an active savings goal.
+// If target_cents is reduced to <= saved_cents, auto-completes the goal.
+func (s *SavingsGoalStore) Update(goalID, childID int64, params *UpdateGoalParams) (*SavingsGoal, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Lock and verify goal
+	var currentChildID int64
+	var savedCents int64
+	var status string
+	err = tx.QueryRow(
+		`SELECT child_id, saved_cents, status FROM savings_goals WHERE id = $1 FOR UPDATE`,
+		goalID,
+	).Scan(&currentChildID, &savedCents, &status)
+	if err == sql.ErrNoRows {
+		return nil, ErrGoalNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock goal for update: %w", err)
+	}
+	if status != "active" || currentChildID != childID {
+		return nil, ErrGoalNotFound
+	}
+
+	// Build dynamic update
+	setClauses := []string{"updated_at = NOW()"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if params.Name != nil {
+		setClauses = append(setClauses, fmt.Sprintf("name = $%d", argIdx))
+		args = append(args, *params.Name)
+		argIdx++
+	}
+	if params.TargetCents != nil {
+		setClauses = append(setClauses, fmt.Sprintf("target_cents = $%d", argIdx))
+		args = append(args, *params.TargetCents)
+		argIdx++
+	}
+	if params.EmojiSet {
+		setClauses = append(setClauses, fmt.Sprintf("emoji = $%d", argIdx))
+		args = append(args, params.Emoji)
+		argIdx++
+	}
+	if params.TargetDateSet {
+		setClauses = append(setClauses, fmt.Sprintf("target_date = $%d", argIdx))
+		args = append(args, params.TargetDate)
+		argIdx++
+	}
+
+	// Execute update
+	query := fmt.Sprintf("UPDATE savings_goals SET %s WHERE id = $%d",
+		joinStrings(setClauses, ", "), argIdx)
+	args = append(args, goalID)
+
+	_, err = tx.Exec(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("update goal: %w", err)
+	}
+
+	// Check for auto-completion after target reduction
+	if params.TargetCents != nil && savedCents >= *params.TargetCents {
+		_, err = tx.Exec(
+			`UPDATE savings_goals SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+			goalID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("auto-complete goal: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit update: %w", err)
+	}
+
+	return s.GetByID(goalID)
+}
+
+// Delete removes an active savings goal and returns the released saved_cents.
+func (s *SavingsGoalStore) Delete(goalID, childID int64) (int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Lock and verify
+	var currentChildID int64
+	var savedCents int64
+	var status string
+	err = tx.QueryRow(
+		`SELECT child_id, saved_cents, status FROM savings_goals WHERE id = $1 FOR UPDATE`,
+		goalID,
+	).Scan(&currentChildID, &savedCents, &status)
+	if err == sql.ErrNoRows {
+		return 0, ErrGoalNotFound
+	}
+	if err != nil {
+		return 0, fmt.Errorf("lock goal for delete: %w", err)
+	}
+	if status != "active" || currentChildID != childID {
+		return 0, ErrGoalNotFound
+	}
+
+	// Delete the goal (cascades to goal_allocations)
+	_, err = tx.Exec(`DELETE FROM savings_goals WHERE id = $1`, goalID)
+	if err != nil {
+		return 0, fmt.Errorf("delete goal: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit delete: %w", err)
+	}
+
+	return savedCents, nil
+}
+
+// joinStrings joins strings with a separator (avoids importing strings package).
+func joinStrings(ss []string, sep string) string {
+	result := ""
+	for i, s := range ss {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
+}
+
+// GetAvailableBalance returns the child's balance minus the sum of active goals' saved_cents.
+func (s *SavingsGoalStore) GetAvailableBalance(childID int64) (int64, error) {
+	var available int64
+	err := s.db.QueryRow(
+		`SELECT c.balance_cents - COALESCE(SUM(sg.saved_cents), 0)
+		 FROM children c
+		 LEFT JOIN savings_goals sg ON sg.child_id = c.id AND sg.status = 'active'
+		 WHERE c.id = $1
+		 GROUP BY c.balance_cents`,
+		childID,
+	).Scan(&available)
+	if err != nil {
+		return 0, fmt.Errorf("get available balance: %w", err)
+	}
+	return available, nil
+}
+
+// ListAllocationsByGoal returns all allocations for a goal, newest first.
+func (s *SavingsGoalStore) ListAllocationsByGoal(goalID int64) ([]*GoalAllocation, error) {
+	rows, err := s.db.Query(
+		`SELECT id, goal_id, child_id, amount_cents, created_at
+		 FROM goal_allocations WHERE goal_id = $1 ORDER BY created_at DESC`,
+		goalID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list allocations: %w", err)
+	}
+	defer rows.Close()
+
+	var allocations []*GoalAllocation
+	for rows.Next() {
+		var a GoalAllocation
+		if err := rows.Scan(&a.ID, &a.GoalID, &a.ChildID, &a.AmountCents, &a.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan allocation: %w", err)
+		}
+		allocations = append(allocations, &a)
+	}
+	return allocations, rows.Err()
 }

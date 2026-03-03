@@ -17,7 +17,10 @@ export default function GoalProgressRing({
   const offset = circumference - (clamped / 100) * circumference;
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className={`relative inline-flex items-center justify-center ${milestone ? "animate-pulse-subtle" : ""}`}
+      style={{ width: size, height: size }}
+    >
       <svg width={size} height={size} className="transform -rotate-90">
         {/* Background track */}
         <circle
@@ -39,8 +42,10 @@ export default function GoalProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="transition-[stroke-dashoffset] duration-600 ease-out"
-          style={milestone ? { filter: "drop-shadow(0 0 4px var(--color-forest, #2d5a3d))" } : undefined}
+          style={{
+            transition: "stroke-dashoffset 0.6s ease-out",
+            ...(milestone ? { filter: "drop-shadow(0 0 4px var(--color-forest, #2d5a3d))" } : {}),
+          }}
         />
       </svg>
       <span className="absolute text-xs font-bold text-forest tabular-nums">

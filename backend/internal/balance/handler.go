@@ -23,15 +23,17 @@ type Handler struct {
 	childStore            *store.ChildStore
 	interestStore         *store.InterestStore
 	interestScheduleStore *store.InterestScheduleStore
+	goalStore             *store.SavingsGoalStore
 }
 
 // NewHandler creates a new balance handler.
-func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore) *Handler {
+func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore, goalStore *store.SavingsGoalStore) *Handler {
 	return &Handler{
 		txStore:               txStore,
 		childStore:            childStore,
 		interestStore:         interestStore,
 		interestScheduleStore: interestScheduleStore,
+		goalStore:             goalStore,
 	}
 }
 
@@ -270,12 +272,15 @@ func formatMoney(amount float64) string {
 
 // BalanceResponse represents a balance query response.
 type BalanceResponse struct {
-	ChildID             int64   `json:"child_id"`
-	FirstName           string  `json:"first_name"`
-	BalanceCents        int64   `json:"balance_cents"`
-	InterestRateBps     int     `json:"interest_rate_bps"`
-	InterestRateDisplay string  `json:"interest_rate_display"`
-	NextInterestAt      *string `json:"next_interest_at,omitempty"`
+	ChildID               int64   `json:"child_id"`
+	FirstName             string  `json:"first_name"`
+	BalanceCents          int64   `json:"balance_cents"`
+	InterestRateBps       int     `json:"interest_rate_bps"`
+	InterestRateDisplay   string  `json:"interest_rate_display"`
+	NextInterestAt        *string `json:"next_interest_at,omitempty"`
+	AvailableBalanceCents *int64  `json:"available_balance_cents,omitempty"`
+	TotalSavedCents       *int64  `json:"total_saved_cents,omitempty"`
+	ActiveGoalsCount      *int    `json:"active_goals_count,omitempty"`
 }
 
 // TransactionListResponse represents a list of transactions.
@@ -352,14 +357,30 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, BalanceResponse{
+	resp := BalanceResponse{
 		ChildID:             child.ID,
 		FirstName:           child.FirstName,
 		BalanceCents:        child.BalanceCents,
 		InterestRateBps:     rateBps,
 		InterestRateDisplay: fmt.Sprintf("%.2f%%", float64(rateBps)/100.0),
 		NextInterestAt:      nextInterestAt,
-	})
+	}
+
+	// Include savings goal information if goalStore is available
+	if h.goalStore != nil {
+		availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+		if err == nil {
+			totalSaved := child.BalanceCents - availableBalance
+			resp.AvailableBalanceCents = &availableBalance
+			resp.TotalSavedCents = &totalSaved
+		}
+		activeCount, err := h.goalStore.CountActiveByChild(childID)
+		if err == nil {
+			resp.ActiveGoalsCount = &activeCount
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // HandleGetTransactions handles GET /api/children/{id}/transactions

@@ -247,12 +247,125 @@ func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
 }
 
+// AllocateRequest represents an allocate/de-allocate request body.
+type AllocateRequest struct {
+	AmountCents int64 `json:"amount_cents"`
+}
+
+// AllocateResponse represents the response after allocating funds to a goal.
+type AllocateResponse struct {
+	Goal                  *store.SavingsGoal `json:"goal"`
+	AvailableBalanceCents int64              `json:"available_balance_cents"`
+	Completed             bool               `json:"completed"`
+}
+
+// AllocationsListResponse represents a list of goal allocations.
+type AllocationsListResponse struct {
+	Allocations []*store.GoalAllocation `json:"allocations"`
+}
+
 // HandleAllocate handles POST /api/children/{id}/savings-goals/{goalId}/allocate
 func (h *Handler) HandleAllocate(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	childID, err := parseChildID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	goalID, err := parseGoalID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_goal_id", Message: "Invalid goal ID."})
+		return
+	}
+
+	if status, errResp := h.verifyChildOwner(r, childID); errResp != nil {
+		writeJSON(w, status, errResp)
+		return
+	}
+
+	var req AllocateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_request", Message: "Invalid request body."})
+		return
+	}
+
+	if req.AmountCents == 0 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_amount", Message: "Amount must be non-zero."})
+		return
+	}
+
+	goal, err := h.goalStore.Allocate(goalID, childID, req.AmountCents)
+	if err != nil {
+		switch err {
+		case store.ErrGoalNotFound:
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
+		case store.ErrInsufficientAvailable:
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "insufficient_balance", Message: "Amount exceeds available balance."})
+		case store.ErrDeallocationExceedsSaved:
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "exceeds_saved", Message: "De-allocation amount exceeds saved amount."})
+		case store.ErrZeroAllocation:
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_amount", Message: "Amount must be non-zero."})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to allocate funds."})
+		}
+		return
+	}
+
+	// Get updated available balance
+	availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get available balance."})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, AllocateResponse{
+		Goal:                  goal,
+		AvailableBalanceCents: availableBalance,
+		Completed:             goal.Status == "completed",
+	})
 }
 
 // HandleListAllocations handles GET /api/children/{id}/savings-goals/{goalId}/allocations
 func (h *Handler) HandleListAllocations(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	childID, err := parseChildID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	goalID, err := parseGoalID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_goal_id", Message: "Invalid goal ID."})
+		return
+	}
+
+	if status, errResp := h.verifyChildAccess(r, childID); errResp != nil {
+		writeJSON(w, status, errResp)
+		return
+	}
+
+	// Verify the goal belongs to this child
+	goal, err := h.goalStore.GetByID(goalID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup goal."})
+		return
+	}
+	if goal == nil || goal.ChildID != childID {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found."})
+		return
+	}
+
+	allocations, err := h.goalStore.ListAllocationsByGoal(goalID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to list allocations."})
+		return
+	}
+
+	if allocations == nil {
+		allocations = []*store.GoalAllocation{}
+	}
+
+	writeJSON(w, http.StatusOK, AllocationsListResponse{
+		Allocations: allocations,
+	})
 }

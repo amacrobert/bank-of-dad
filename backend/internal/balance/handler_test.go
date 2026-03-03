@@ -29,6 +29,7 @@ func TestHandleDeposit_Success(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 1000, "note": "Weekly allowance"}`
@@ -63,6 +64,7 @@ func TestHandleDeposit_MultipleDeposits(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// First deposit
@@ -102,6 +104,7 @@ func TestHandleDeposit_WithoutNote(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 500}`
@@ -135,6 +138,7 @@ func TestHandleDeposit_InvalidAmount_Zero(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 0}`
@@ -164,6 +168,7 @@ func TestHandleDeposit_InvalidAmount_Negative(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": -100}`
@@ -193,6 +198,7 @@ func TestHandleDeposit_InvalidAmount_ExceedsMax(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// Max is 99999999 cents ($999,999.99)
@@ -223,6 +229,7 @@ func TestHandleDeposit_InvalidJSON(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{invalid json}`
@@ -247,6 +254,7 @@ func TestHandleDeposit_NoteTooLong(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// Note longer than 500 characters
@@ -282,6 +290,7 @@ func TestHandleDeposit_NoteWhitespaceOnly(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// Whitespace-only note should be treated as empty
@@ -317,6 +326,7 @@ func TestHandleDeposit_Unauthorized_ChildCannotDeposit(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 1000}`
@@ -345,6 +355,7 @@ func TestHandleDeposit_Forbidden_WrongFamily(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 1000}`
@@ -369,6 +380,7 @@ func TestHandleDeposit_NotFound_ChildDoesNotExist(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 1000}`
@@ -392,6 +404,7 @@ func TestHandleDeposit_InvalidChildID(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	body := `{"amount_cents": 1000}`
@@ -416,7 +429,7 @@ func TestHandleWithdraw_Success(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// First deposit some money
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 5000, "Initial deposit")
@@ -453,7 +466,7 @@ func TestHandleWithdraw_InsufficientFunds(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Deposit only $10
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 1000, "")
@@ -489,6 +502,7 @@ func TestHandleWithdraw_InsufficientFunds_ZeroBalance(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// Try to withdraw from $0 balance
@@ -519,7 +533,7 @@ func TestHandleWithdraw_ExactBalance(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Deposit exactly $25.00
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 2500, "")
@@ -550,7 +564,7 @@ func TestHandleWithdraw_ChildCannotWithdraw(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give the child some money
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 1000, "")
@@ -576,7 +590,7 @@ func TestHandleWithdraw_WrongFamily(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family1.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give the child some money
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 1000, "")
@@ -605,7 +619,7 @@ func TestHandleGetBalance_ChildViewsOwn(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give the child some money
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 2500, "")
@@ -635,7 +649,7 @@ func TestHandleGetBalance_ParentViewsChild(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give the child some money
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 5000, "")
@@ -669,7 +683,7 @@ func TestHandleGetTransactions_ChildViewsOwn(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Create some transactions
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 1000, "First deposit")
@@ -702,7 +716,7 @@ func TestHandleGetTransactions_ParentViewsChild(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Create a transaction
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 1000, "Allowance")
@@ -736,7 +750,7 @@ func TestHandleGetBalance_ChildCannotViewSibling(t *testing.T) {
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give child2 some money
 	_, _, err := txStore.Deposit(child2.ID, parent.ID, 5000, "")
@@ -761,7 +775,7 @@ func TestHandleGetTransactions_ChildCannotViewSibling(t *testing.T) {
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Give child2 some money
 	_, _, err := txStore.Deposit(child2.ID, parent.ID, 1000, "")
@@ -789,7 +803,7 @@ func TestHandleGetTransactions_OrderedNewestFirst(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	// Create transactions in order
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 100, "First")
@@ -831,6 +845,7 @@ func TestHandleGetTransactions_EmptyHistory(t *testing.T) {
 		store.NewChildStore(db),
 		store.NewInterestStore(db),
 		store.NewInterestScheduleStore(db),
+		nil,
 	)
 
 	// No transactions exist
@@ -862,7 +877,7 @@ func TestHandleGetBalance_IncludesInterestRate(t *testing.T) {
 
 	txStore := store.NewTransactionStore(db)
 	interestStore := store.NewInterestStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), interestStore, store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), interestStore, store.NewInterestScheduleStore(db), nil)
 
 	// Give the child money and set interest rate
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
@@ -896,7 +911,7 @@ func TestHandleGetBalance_DefaultInterestRateZero(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	txStore := store.NewTransactionStore(db)
-	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db))
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), nil)
 
 	_, _, err := txStore.Deposit(child.ID, parent.ID, 5000, "")
 	require.NoError(t, err)

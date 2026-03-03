@@ -110,6 +110,24 @@ body {
   animation: scale-in 0.5s ease-out both;
 }
 
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--dx, 20vw), var(--dy, -40vh)) rotate(720deg); }
+}
+
+.animate-confetti-fall {
+  animation: confetti-fall 2s ease-out both;
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
