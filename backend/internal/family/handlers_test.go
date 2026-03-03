@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/testutil"
@@ -295,4 +296,79 @@ func TestHandleUpdateAvatar_NonChildUser(t *testing.T) {
 	h.HandleUpdateAvatar(rr, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
+}
+
+// HandleDeleteAccount subscription guard tests
+
+func setupDeleteAccountTest(t *testing.T) (*Handlers, *store.FamilyStore, *store.ParentStore, *store.Family, *store.Parent) {
+	t.Helper()
+	db := testutil.SetupTestDB(t)
+	familyStore := store.NewFamilyStore(db)
+	parentStore := store.NewParentStore(db)
+	childStore := store.NewChildStore(db)
+	eventStore := store.NewAuthEventStore(db)
+	h := NewHandlers(familyStore, parentStore, childStore, eventStore, []byte("test-key"))
+
+	fam, err := familyStore.Create("del-test-family")
+	require.NoError(t, err)
+
+	parent, err := parentStore.Create("g-del-1", "del@test.com", "Del Parent")
+	require.NoError(t, err)
+
+	err = parentStore.SetFamilyID(parent.ID, fam.ID)
+	require.NoError(t, err)
+
+	return h, familyStore, parentStore, fam, parent
+}
+
+func TestHandleDeleteAccount_ActiveSubscriptionBlocks(t *testing.T) {
+	h, familyStore, _, fam, parent := setupDeleteAccountTest(t)
+
+	// Set up active, un-cancelled subscription
+	err := familyStore.UpdateSubscriptionFromCheckout(fam.ID, "cus_123", "sub_123", "active", time.Now().Add(30*24*time.Hour))
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("DELETE", "/api/account", nil)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleDeleteAccount(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
+
+	var resp map[string]string
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Contains(t, resp["error"], "cancel your subscription")
+}
+
+func TestHandleDeleteAccount_CancellingSubscriptionAllows(t *testing.T) {
+	h, familyStore, _, fam, parent := setupDeleteAccountTest(t)
+
+	// Set up active subscription that is cancelling at period end
+	err := familyStore.UpdateSubscriptionFromCheckout(fam.ID, "cus_234", "sub_234", "active", time.Now().Add(30*24*time.Hour))
+	require.NoError(t, err)
+	err = familyStore.UpdateSubscriptionStatus("sub_234", "active", time.Now().Add(30*24*time.Hour), true)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("DELETE", "/api/account", nil)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleDeleteAccount(rr, req)
+
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+}
+
+func TestHandleDeleteAccount_NoSubscriptionAllows(t *testing.T) {
+	h, _, _, fam, parent := setupDeleteAccountTest(t)
+
+	// No subscription set up — free account
+	req := httptest.NewRequest("DELETE", "/api/account", nil)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleDeleteAccount(rr, req)
+
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 }

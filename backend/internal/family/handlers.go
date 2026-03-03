@@ -470,6 +470,21 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for active subscription that hasn't been cancelled
+	info, err := h.familyStore.GetSubscriptionByFamilyID(familyID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to check subscription status"})
+		return
+	}
+	if info != nil && info.SubscriptionStatus.Valid &&
+		info.SubscriptionStatus.String == "active" &&
+		!info.SubscriptionCancelAtPeriodEnd {
+		writeJSON(w, http.StatusConflict, map[string]string{
+			"error": "You must cancel your subscription before deleting your account. Go to Subscription settings to manage your plan.",
+		})
+		return
+	}
+
 	// Log audit event before deletion (best-effort)
 	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "account_deleted",
