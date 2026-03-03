@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getBalance, getTransactions } from "../api";
 import { Transaction } from "../types";
 import { useChildUser } from "../hooks/useAuthOutletContext";
@@ -6,7 +7,7 @@ import Card from "../components/ui/Card";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import BalanceDisplay from "../components/BalanceDisplay";
 import TransactionsCard from "../components/TransactionsCard";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Target } from "lucide-react";
 
 export default function ChildDashboard() {
   const user = useChildUser();
@@ -58,6 +59,22 @@ export default function ChildDashboard() {
           </div>
         )}
       </Card>
+
+      {/* Savings Goals link */}
+      {!loadingData && (
+        <Link to="/child/goals">
+          <Card padding="sm" className="flex items-center gap-3 hover:border-forest/30 transition-colors cursor-pointer">
+            <div className="p-2 bg-sage-light/30 rounded-lg">
+              <Target className="h-5 w-5 text-forest" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-bark">Savings Goals</p>
+              <p className="text-xs text-bark-light">Set targets and track your progress</p>
+            </div>
+            <span className="text-bark-light text-sm">&rarr;</span>
+          </Card>
+        </Link>
+      )}
 
       {/* Transactions */}
       {!loadingData && (

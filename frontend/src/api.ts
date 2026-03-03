@@ -221,6 +221,33 @@ export function createPortalSession(): Promise<{ portal_url: string }> {
   return post<{ portal_url: string }>("/subscription/portal");
 }
 
+// Savings Goals API functions (025-savings-goals)
+import { SavingsGoalsResponse, SavingsGoal, AllocateResponse, DeleteGoalResponse } from "./types";
+
+export function getSavingsGoals(childId: number): Promise<SavingsGoalsResponse> {
+  return get<SavingsGoalsResponse>(`/children/${childId}/savings-goals`);
+}
+
+export function createSavingsGoal(childId: number, data: { name: string; target_cents: number; emoji?: string; target_date?: string }): Promise<SavingsGoal> {
+  return post<SavingsGoal>(`/children/${childId}/savings-goals`, data);
+}
+
+export function updateSavingsGoal(childId: number, goalId: number, data: { name?: string; target_cents?: number; emoji?: string; target_date?: string }): Promise<SavingsGoal> {
+  return put<SavingsGoal>(`/children/${childId}/savings-goals/${goalId}`, data);
+}
+
+export function deleteSavingsGoal(childId: number, goalId: number): Promise<DeleteGoalResponse> {
+  return request<DeleteGoalResponse>(`/children/${childId}/savings-goals/${goalId}`, { method: "DELETE" });
+}
+
+export function allocateToGoal(childId: number, goalId: number, amountCents: number): Promise<AllocateResponse> {
+  return post<AllocateResponse>(`/children/${childId}/savings-goals/${goalId}/allocate`, { amount_cents: amountCents });
+}
+
+export function getGoalAllocations(childId: number, goalId: number): Promise<{ allocations: import("./types").GoalAllocation[] }> {
+  return get<{ allocations: import("./types").GoalAllocation[] }>(`/children/${childId}/savings-goals/${goalId}/allocations`);
+}
+
 // Settings API functions (013-parent-settings)
 import { SettingsResponse, UpdateTimezoneResponse } from "./types";
 
