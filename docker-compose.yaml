@@ -29,6 +29,8 @@ services:
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-http://localhost:8001/api/auth/google/callback}
       - DATABASE_URL=postgres://bankofdad:bankofdad@postgres:5432/bankofdad?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - SERVER_PORT=8001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8000}
     depends_on:

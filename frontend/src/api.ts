@@ -206,6 +206,21 @@ export function updateChildAvatar(avatar: string | null): Promise<UpdateChildAva
   return put<UpdateChildAvatarResponse>("/child/settings/avatar", { avatar });
 }
 
+// Subscription API functions (024-stripe-subscription)
+import { SubscriptionResponse } from "./types";
+
+export function getSubscription(): Promise<SubscriptionResponse> {
+  return get<SubscriptionResponse>("/subscription");
+}
+
+export function createCheckoutSession(priceLookupKey: string): Promise<{ checkout_url: string }> {
+  return post<{ checkout_url: string }>("/subscription/checkout", { price_lookup_key: priceLookupKey });
+}
+
+export function createPortalSession(): Promise<{ portal_url: string }> {
+  return post<{ portal_url: string }>("/subscription/portal");
+}
+
 // Settings API functions (013-parent-settings)
 import { SettingsResponse, UpdateTimezoneResponse } from "./types";
 

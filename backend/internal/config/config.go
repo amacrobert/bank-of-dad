@@ -14,6 +14,8 @@ type Config struct {
 	JWTSecret          []byte
 	ServerPort         string
 	FrontendURL        string
+	StripeSecretKey    string
+	StripeWebhookSecret string
 }
 
 func Load() (*Config, error) {
@@ -48,6 +50,15 @@ func Load() (*Config, error) {
 	}
 	if cfg.GoogleRedirectURL == "" {
 		cfg.GoogleRedirectURL = fmt.Sprintf("http://localhost:%s/api/auth/google/callback", cfg.ServerPort)
+	}
+
+	cfg.StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
+	if cfg.StripeSecretKey == "" {
+		return nil, fmt.Errorf("STRIPE_SECRET_KEY environment variable is required")
+	}
+	cfg.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+	if cfg.StripeWebhookSecret == "" {
+		return nil, fmt.Errorf("STRIPE_WEBHOOK_SECRET environment variable is required")
 	}
 
 	return cfg, nil

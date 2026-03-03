@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+// SubscriptionInfo holds the subscription-related fields from the families table.
+type SubscriptionInfo struct {
+	AccountType                  string
+	StripeCustomerID             sql.NullString
+	StripeSubscriptionID         sql.NullString
+	SubscriptionStatus           sql.NullString
+	SubscriptionCurrentPeriodEnd sql.NullTime
+	SubscriptionCancelAtPeriodEnd bool
+}
+
 var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
 
 type Family struct {
@@ -15,6 +25,12 @@ type Family struct {
 	Slug      string
 	Timezone  string
 	CreatedAt time.Time
+	AccountType                  string
+	StripeCustomerID             sql.NullString
+	StripeSubscriptionID         sql.NullString
+	SubscriptionStatus           sql.NullString
+	SubscriptionCurrentPeriodEnd sql.NullTime
+	SubscriptionCancelAtPeriodEnd bool
 }
 
 type FamilyStore struct {
@@ -40,8 +56,8 @@ func (s *FamilyStore) Create(slug string) (*Family, error) {
 func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at FROM families WHERE id = $1`, id,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt)
+		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE id = $1`, id,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -54,8 +70,8 @@ func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 func (s *FamilyStore) GetBySlug(slug string) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at FROM families WHERE slug = $1`, slug,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt)
+		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE slug = $1`, slug,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -166,6 +182,108 @@ func (s *FamilyStore) DeleteAll(familyID, parentID int64) error {
 	}
 
 	return tx.Commit()
+}
+
+// GetSubscriptionByFamilyID returns the subscription info for a family.
+func (s *FamilyStore) GetSubscriptionByFamilyID(familyID int64) (*SubscriptionInfo, error) {
+	var info SubscriptionInfo
+	err := s.db.QueryRow(
+		`SELECT account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE id = $1`, familyID,
+	).Scan(&info.AccountType, &info.StripeCustomerID, &info.StripeSubscriptionID, &info.SubscriptionStatus, &info.SubscriptionCurrentPeriodEnd, &info.SubscriptionCancelAtPeriodEnd)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get subscription by family id: %w", err)
+	}
+	return &info, nil
+}
+
+// GetFamilyByStripeCustomerID looks up a family by its Stripe Customer ID.
+func (s *FamilyStore) GetFamilyByStripeCustomerID(customerID string) (*Family, error) {
+	var f Family
+	err := s.db.QueryRow(
+		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_customer_id = $1`, customerID,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get family by stripe customer id: %w", err)
+	}
+	return &f, nil
+}
+
+// GetFamilyByStripeSubscriptionID looks up a family by its Stripe Subscription ID.
+func (s *FamilyStore) GetFamilyByStripeSubscriptionID(subscriptionID string) (*Family, error) {
+	var f Family
+	err := s.db.QueryRow(
+		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_subscription_id = $1`, subscriptionID,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get family by stripe subscription id: %w", err)
+	}
+	return &f, nil
+}
+
+// UpdateSubscriptionFromCheckout updates the family's subscription fields after a successful Stripe Checkout.
+func (s *FamilyStore) UpdateSubscriptionFromCheckout(familyID int64, stripeCustomerID, stripeSubscriptionID, status string, periodEnd time.Time) error {
+	result, err := s.db.Exec(
+		`UPDATE families SET account_type = 'plus', stripe_customer_id = $1, stripe_subscription_id = $2, subscription_status = $3, subscription_current_period_end = $4 WHERE id = $5`,
+		stripeCustomerID, stripeSubscriptionID, status, periodEnd, familyID,
+	)
+	if err != nil {
+		return fmt.Errorf("update subscription from checkout: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update subscription from checkout rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("family not found: %d", familyID)
+	}
+	return nil
+}
+
+// UpdateSubscriptionStatus syncs subscription status from a Stripe webhook event.
+func (s *FamilyStore) UpdateSubscriptionStatus(stripeSubscriptionID, status string, periodEnd time.Time, cancelAtPeriodEnd bool) error {
+	result, err := s.db.Exec(
+		`UPDATE families SET subscription_status = $1, subscription_current_period_end = $2, subscription_cancel_at_period_end = $3 WHERE stripe_subscription_id = $4`,
+		status, periodEnd, cancelAtPeriodEnd, stripeSubscriptionID,
+	)
+	if err != nil {
+		return fmt.Errorf("update subscription status: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update subscription status rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("subscription not found: %s", stripeSubscriptionID)
+	}
+	return nil
+}
+
+// ClearSubscription resets a family back to free and NULLs all subscription fields.
+func (s *FamilyStore) ClearSubscription(stripeSubscriptionID string) error {
+	result, err := s.db.Exec(
+		`UPDATE families SET account_type = 'free', stripe_customer_id = NULL, stripe_subscription_id = NULL, subscription_status = NULL, subscription_current_period_end = NULL, subscription_cancel_at_period_end = FALSE WHERE stripe_subscription_id = $1`,
+		stripeSubscriptionID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear subscription: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("clear subscription rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("subscription not found: %s", stripeSubscriptionID)
+	}
+	return nil
 }
 
 func ValidateSlug(slug string) error {

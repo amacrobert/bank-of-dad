@@ -5,6 +5,7 @@ export interface ParentUser {
   display_name: string;
   email: string;
   family_slug: string;
+  account_type?: string;
 }
 
 export interface ChildUser {
@@ -230,6 +231,15 @@ export interface ScenarioOutcome {
   totalSpendingCents: number;
   oneTimeWithdrawalCents: number;
   depletionWeek: number | null;
+}
+
+// Subscription Feature (024-stripe-subscription)
+
+export interface SubscriptionResponse {
+  account_type: string;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
 }
 
 // Growth Projector Scenarios Feature (023-growth-scenarios)

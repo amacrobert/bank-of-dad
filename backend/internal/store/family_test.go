@@ -341,3 +341,88 @@ func TestDeleteAll_EmptyFamily(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, foundParent)
 }
+
+// --- Subscription store tests (024-stripe-subscription) ---
+
+func TestGetSubscriptionByFamilyID_NewFamily(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("sub-test-free")
+	require.NoError(t, err)
+
+	info, err := fs.GetSubscriptionByFamilyID(fam.ID)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.Equal(t, "free", info.AccountType)
+	assert.False(t, info.StripeCustomerID.Valid)
+	assert.False(t, info.StripeSubscriptionID.Valid)
+	assert.False(t, info.SubscriptionStatus.Valid)
+	assert.False(t, info.SubscriptionCurrentPeriodEnd.Valid)
+	assert.False(t, info.SubscriptionCancelAtPeriodEnd)
+}
+
+func TestUpdateSubscriptionFromCheckout(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("sub-checkout")
+	require.NoError(t, err)
+
+	periodEnd := time.Date(2026, 3, 26, 0, 0, 0, 0, time.UTC)
+	err = fs.UpdateSubscriptionFromCheckout(fam.ID, "cus_test123", "sub_test456", "active", periodEnd)
+	require.NoError(t, err)
+
+	info, err := fs.GetSubscriptionByFamilyID(fam.ID)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.Equal(t, "plus", info.AccountType)
+	assert.Equal(t, "cus_test123", info.StripeCustomerID.String)
+	assert.Equal(t, "sub_test456", info.StripeSubscriptionID.String)
+	assert.Equal(t, "active", info.SubscriptionStatus.String)
+	assert.True(t, info.SubscriptionCurrentPeriodEnd.Valid)
+	assert.Equal(t, periodEnd, info.SubscriptionCurrentPeriodEnd.Time.UTC())
+	assert.False(t, info.SubscriptionCancelAtPeriodEnd)
+}
+
+func TestGetFamilyByStripeCustomerID(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("sub-cust-lookup")
+	require.NoError(t, err)
+
+	periodEnd := time.Date(2026, 3, 26, 0, 0, 0, 0, time.UTC)
+	err = fs.UpdateSubscriptionFromCheckout(fam.ID, "cus_lookup123", "sub_lookup456", "active", periodEnd)
+	require.NoError(t, err)
+
+	found, err := fs.GetFamilyByStripeCustomerID("cus_lookup123")
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, fam.ID, found.ID)
+
+	notFound, err := fs.GetFamilyByStripeCustomerID("cus_nonexistent")
+	require.NoError(t, err)
+	assert.Nil(t, notFound)
+}
+
+func TestGetFamilyByStripeSubscriptionID(t *testing.T) {
+	db := testDB(t)
+	fs := NewFamilyStore(db)
+
+	fam, err := fs.Create("sub-sid-lookup")
+	require.NoError(t, err)
+
+	periodEnd := time.Date(2026, 3, 26, 0, 0, 0, 0, time.UTC)
+	err = fs.UpdateSubscriptionFromCheckout(fam.ID, "cus_sid123", "sub_sid456", "active", periodEnd)
+	require.NoError(t, err)
+
+	found, err := fs.GetFamilyByStripeSubscriptionID("sub_sid456")
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, fam.ID, found.ID)
+
+	notFound, err := fs.GetFamilyByStripeSubscriptionID("sub_nonexistent")
+	require.NoError(t, err)
+	assert.Nil(t, notFound)
+}

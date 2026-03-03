@@ -26,10 +26,10 @@ func setupAuthTestDB(t *testing.T) *sql.DB {
 	db, err := store.Open(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		db.Exec(`TRUNCATE interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+		db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 		db.Close()
 	})
-	_, err = db.Exec(`TRUNCATE interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+	_, err = db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 	require.NoError(t, err)
 	return db
 }

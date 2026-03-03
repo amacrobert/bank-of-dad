@@ -30,7 +30,7 @@ func SetupTestDB(t *testing.T) *sql.DB {
 
 	t.Cleanup(func() {
 		// Truncate all tables in dependency order
-		_, err := db.Exec(`TRUNCATE interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+		_, err := db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 		if err != nil {
 			t.Logf("cleanup truncate error: %v", err)
 		}
@@ -38,7 +38,7 @@ func SetupTestDB(t *testing.T) *sql.DB {
 	})
 
 	// Truncate before each test to ensure clean state
-	_, err = db.Exec(`TRUNCATE interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+	_, err = db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 	require.NoError(t, err)
 
 	return db
