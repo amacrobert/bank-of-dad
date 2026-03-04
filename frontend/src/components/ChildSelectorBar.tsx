@@ -10,6 +10,7 @@ interface ChildSelectorBarProps {
   onSelectChild: (child: Child | null) => void;
   loading?: boolean;
   onAddChild?: () => void;
+  selectable?: boolean;
 }
 
 export default function ChildSelectorBar({
@@ -18,6 +19,7 @@ export default function ChildSelectorBar({
   onSelectChild,
   loading = false,
   onAddChild,
+  selectable = true,
 }: ChildSelectorBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
@@ -97,19 +99,24 @@ export default function ChildSelectorBar({
         )}
         {children.map((child) => {
           const isSelected = selectedChildId === child.id;
+          const Tag = selectable ? "button" : "div";
+          const interactiveProps = selectable
+            ? { onClick: () => handleClick(child), "aria-pressed": isSelected }
+            : {};
           return (
-            <button
+            <Tag
               key={child.id}
-              onClick={() => handleClick(child)}
-              aria-pressed={isSelected}
+              {...interactiveProps}
               className={`
                 relative flex flex-col items-center justify-center
                 w-[120px] aspect-square p-3 rounded-xl
-                flex-shrink-0 transition-all duration-200 cursor-pointer
-                ${isSelected
+                flex-shrink-0 transition-all duration-200
+                ${selectable ? "cursor-pointer" : ""}
+                ${isSelected && selectable
                   ? "bg-forest/5 ring-2 ring-forest"
-                  : "bg-white border border-sand hover:border-forest hover:bg-sage-light/20"
+                  : "bg-white border border-sand"
                 }
+                ${selectable && !(isSelected) ? "hover:border-forest hover:bg-sage-light/20" : ""}
               `}
             >
               {/* Lock indicator */}
@@ -124,10 +131,10 @@ export default function ChildSelectorBar({
                 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
                 ${child.avatar
                   ? "text-2xl"
-                  : `text-sm font-bold ${isSelected ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
+                  : `text-sm font-bold ${isSelected && selectable ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
                 }
-                ${child.avatar && !isSelected ? "bg-cream" : ""}
-                ${child.avatar && isSelected ? "bg-forest/10" : ""}
+                ${child.avatar && !(isSelected && selectable) ? "bg-cream" : ""}
+                ${child.avatar && isSelected && selectable ? "bg-forest/10" : ""}
               `}>
                 {child.avatar || child.first_name.charAt(0).toUpperCase()}
               </div>
@@ -141,7 +148,7 @@ export default function ChildSelectorBar({
               <div className="-mt-0.5">
                 <BalanceDisplay balanceCents={child.balance_cents} size="small" />
               </div>
-            </button>
+            </Tag>
           );
         })}
       </div>
