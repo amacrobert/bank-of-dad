@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { getSavingsGoals, createSavingsGoal, allocateToGoal, updateSavingsGoal, deleteSavingsGoal } from "../api";
 import { SavingsGoal, AllocateResponse } from "../types";
 import { useChildUser } from "../hooks/useAuthOutletContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import GoalCard from "../components/GoalCard";
 import GoalForm from "../components/GoalForm";
@@ -118,18 +118,16 @@ export default function SavingsGoalsPage() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-forest">My Savings Goals</h2>
-        {!showForm && (
-          <Button
-            variant="primary"
-            onClick={() => setShowForm(true)}
-            disabled={activeGoals.length >= 5}
-            className="!min-h-[40px] !px-4 !py-2 text-sm"
-            title={activeGoals.length >= 5 ? "Maximum of 5 active goals" : undefined}
-          >
-            <Plus className="h-4 w-4" />
-            Add Goal
-          </Button>
-        )}
+        <Button
+          variant="primary"
+          onClick={() => setShowForm(true)}
+          disabled={activeGoals.length >= 5}
+          className="!min-h-[40px] !px-4 !py-2 text-sm"
+          title={activeGoals.length >= 5 ? "Maximum of 5 active goals" : undefined}
+        >
+          <Plus className="h-4 w-4" />
+          Add Goal
+        </Button>
       </div>
 
       {/* Available balance */}
@@ -138,28 +136,28 @@ export default function SavingsGoalsPage() {
       </p>
 
       {/* Create form */}
-      {showForm && (
-        <Card padding="md">
-          <GoalForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
-        </Card>
-      )}
+      <Modal open={showForm} onClose={() => setShowForm(false)}>
+        <GoalForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
+      </Modal>
 
       {/* Edit form */}
-      {editingGoal && (
-        <Card padding="md">
-          <h3 className="text-sm font-semibold text-bark-light mb-3">Edit Goal</h3>
-          <GoalForm
-            onSubmit={handleEditSubmit}
-            onCancel={() => setEditingGoal(null)}
-            initialGoal={editingGoal}
-          />
-        </Card>
-      )}
+      <Modal open={!!editingGoal} onClose={() => setEditingGoal(null)}>
+        {editingGoal && (
+          <>
+            <h3 className="text-sm font-semibold text-bark-light mb-3">Edit Goal</h3>
+            <GoalForm
+              onSubmit={handleEditSubmit}
+              onCancel={() => setEditingGoal(null)}
+              initialGoal={editingGoal}
+            />
+          </>
+        )}
+      </Modal>
 
-      {/* Delete confirmation modal — portaled to body to escape transform containing block */}
-      {deletingGoal && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeletingGoal(null)}>
-          <Card padding="md" className="border-terracotta/30 bg-terracotta/5 mx-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+      {/* Delete confirmation modal */}
+      <Modal open={!!deletingGoal} onClose={() => setDeletingGoal(null)} maxWidth="max-w-sm">
+        {deletingGoal && (
+          <div className="border-terracotta/30 bg-terracotta/5 -m-6 p-6 rounded-2xl">
             <p className="text-sm text-bark mb-3">
               Delete "{deletingGoal.name}"? {deletingGoal.saved_cents > 0 && deletingGoal.status === "active" && (
                 <span className="font-semibold">
@@ -179,10 +177,9 @@ export default function SavingsGoalsPage() {
                 Cancel
               </Button>
             </div>
-          </Card>
-        </div>,
-        document.body
-      )}
+          </div>
+        )}
+      </Modal>
 
       {/* Active goals */}
       {activeGoals.length > 0 ? (

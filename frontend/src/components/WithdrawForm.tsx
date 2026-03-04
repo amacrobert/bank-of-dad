@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { withdraw, ApiRequestError } from "../api";
 import { Child } from "../types";
-import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
 
@@ -60,7 +59,7 @@ export default function WithdrawForm({ child, onSuccess, onCancel }: WithdrawFor
   };
 
   return (
-    <Card padding="md" className="animate-fade-in-up">
+    <div>
       <h4 className="text-base font-bold text-bark mb-1">
         Withdraw from {child.first_name}'s Account
       </h4>
@@ -123,6 +122,6 @@ export default function WithdrawForm({ child, onSuccess, onCancel }: WithdrawFor
           </Button>
         </div>
       </form>
-    </Card>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { post, ApiRequestError } from "../api";
 import { ChildCreateResponse } from "../types";
-import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
 import AvatarPicker from "./AvatarPicker";
@@ -9,9 +8,10 @@ import { CheckCircle } from "lucide-react";
 
 interface AddChildFormProps {
   onChildAdded: () => void;
+  onCancel?: () => void;
 }
 
-export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
+export default function AddChildForm({ onChildAdded, onCancel }: AddChildFormProps) {
   const [firstName, setFirstName] = useState("");
   const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
   };
 
   return (
-    <Card padding="md">
+    <div>
       <h3 className="text-base font-bold text-bark mb-3">Add a new child</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -79,9 +79,16 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
           </div>
         )}
 
-        <Button type="submit" loading={submitting} className="w-full">
-          {submitting ? "Creating..." : "Add Child"}
-        </Button>
+        <div className="flex gap-3">
+          <Button type="submit" loading={submitting} className="flex-1">
+            {submitting ? "Creating..." : "Add Child"}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+              Cancel
+            </Button>
+          )}
+        </div>
       </form>
 
       {created && (
@@ -98,6 +105,6 @@ export default function AddChildForm({ onChildAdded }: AddChildFormProps) {
           <p className="mt-2 text-xs text-bark-light">Share these credentials with your child.</p>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

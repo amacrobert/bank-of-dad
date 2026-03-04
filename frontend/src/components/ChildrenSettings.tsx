@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { get } from "../api";
 import { Child, ChildListResponse } from "../types";
 import Card from "./ui/Card";
+import Modal from "./ui/Modal";
 import ChildSelectorBar from "./ChildSelectorBar";
 import AddChildForm from "./AddChildForm";
 import ChildAccountSettings from "./ChildAccountSettings";
@@ -18,6 +19,7 @@ export default function ChildrenSettings({
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddChild, setShowAddChild] = useState(false);
 
   // Derive selected child from name prop
   const selectedChild = useMemo(() => {
@@ -47,6 +49,7 @@ export default function ChildrenSettings({
 
   const handleChildAdded = () => {
     setChildRefreshKey((k) => k + 1);
+    setShowAddChild(false);
   };
 
   const handleChildUpdated = () => {
@@ -60,13 +63,16 @@ export default function ChildrenSettings({
 
   return (
     <div className="space-y-4">
-      <AddChildForm onChildAdded={handleChildAdded} />
+      <Modal open={showAddChild} onClose={() => setShowAddChild(false)}>
+        <AddChildForm onChildAdded={handleChildAdded} onCancel={() => setShowAddChild(false)} />
+      </Modal>
 
       <ChildSelectorBar
         children={children}
         selectedChildId={selectedChild?.id ?? null}
         onSelectChild={onChildSelect}
         loading={loading}
+        onAddChild={() => setShowAddChild(true)}
       />
 
       {selectedChild ? (
