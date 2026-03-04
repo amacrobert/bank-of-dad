@@ -22,7 +22,6 @@ type SavingsGoal struct {
 	TargetCents int64      `json:"target_cents"`
 	SavedCents  int64      `json:"saved_cents"`
 	Emoji       *string    `json:"emoji,omitempty"`
-	TargetDate  *time.Time `json:"target_date,omitempty"`
 	Status      string     `json:"status"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -52,12 +51,11 @@ func NewSavingsGoalStore(db *sql.DB) *SavingsGoalStore {
 func scanGoal(scanner interface{ Scan(dest ...interface{}) error }) (*SavingsGoal, error) {
 	var g SavingsGoal
 	var emoji sql.NullString
-	var targetDate sql.NullTime
 	var completedAt sql.NullTime
 
 	err := scanner.Scan(
 		&g.ID, &g.ChildID, &g.Name, &g.TargetCents, &g.SavedCents,
-		&emoji, &targetDate, &g.Status, &completedAt,
+		&emoji, &g.Status, &completedAt,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	if err != nil {
@@ -67,10 +65,6 @@ func scanGoal(scanner interface{ Scan(dest ...interface{}) error }) (*SavingsGoa
 	if emoji.Valid {
 		g.Emoji = &emoji.String
 	}
-	if targetDate.Valid {
-		t := targetDate.Time
-		g.TargetDate = &t
-	}
 	if completedAt.Valid {
 		t := completedAt.Time
 		g.CompletedAt = &t
@@ -79,15 +73,15 @@ func scanGoal(scanner interface{ Scan(dest ...interface{}) error }) (*SavingsGoa
 	return &g, nil
 }
 
-const goalColumns = `id, child_id, name, target_cents, saved_cents, emoji, target_date, status, completed_at, created_at, updated_at`
+const goalColumns = `id, child_id, name, target_cents, saved_cents, emoji, status, completed_at, created_at, updated_at`
 
 // Create inserts a new savings goal and returns it.
-func (s *SavingsGoalStore) Create(childID int64, name string, targetCents int64, emoji *string, targetDate *time.Time) (*SavingsGoal, error) {
+func (s *SavingsGoalStore) Create(childID int64, name string, targetCents int64, emoji *string) (*SavingsGoal, error) {
 	var id int64
 	err := s.db.QueryRow(
-		`INSERT INTO savings_goals (child_id, name, target_cents, emoji, target_date)
-		VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		childID, name, targetCents, emoji, targetDate,
+		`INSERT INTO savings_goals (child_id, name, target_cents, emoji)
+		VALUES ($1, $2, $3, $4) RETURNING id`,
+		childID, name, targetCents, emoji,
 	).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("insert savings goal: %w", err)
@@ -247,8 +241,6 @@ type UpdateGoalParams struct {
 	TargetCents   *int64
 	Emoji         *string
 	EmojiSet      bool // if true and Emoji is nil, clears the emoji
-	TargetDate    *time.Time
-	TargetDateSet bool // if true and TargetDate is nil, clears the date
 }
 
 // Update partially updates an active savings goal.
@@ -298,12 +290,6 @@ func (s *SavingsGoalStore) Update(goalID, childID int64, params *UpdateGoalParam
 		args = append(args, params.Emoji)
 		argIdx++
 	}
-	if params.TargetDateSet {
-		setClauses = append(setClauses, fmt.Sprintf("target_date = $%d", argIdx))
-		args = append(args, params.TargetDate)
-		argIdx++
-	}
-
 	// Execute update
 	query := fmt.Sprintf("UPDATE savings_goals SET %s WHERE id = $%d",
 		joinStrings(setClauses, ", "), argIdx)

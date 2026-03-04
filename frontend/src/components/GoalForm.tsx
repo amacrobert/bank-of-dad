@@ -55,7 +55,7 @@ function suggestEmojis(goalName: string, selectedEmoji: string): string[] {
 }
 
 interface GoalFormProps {
-  onSubmit: (data: { name: string; target_cents: number; emoji?: string; target_date?: string }) => Promise<void>;
+  onSubmit: (data: { name: string; target_cents: number; emoji?: string }) => Promise<void>;
   onCancel: () => void;
   initialGoal?: SavingsGoal;
 }
@@ -66,7 +66,6 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
     initialGoal ? (initialGoal.target_cents / 100).toFixed(2) : ""
   );
   const [emoji, setEmoji] = useState(initialGoal?.emoji ?? "");
-  const [targetDate, setTargetDate] = useState(initialGoal?.target_date ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -109,7 +108,6 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
         name: trimmedName,
         target_cents: targetCents,
         emoji: emoji.trim() || undefined,
-        target_date: targetDate || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -186,14 +184,6 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
           ))}
         </div>
       </div>
-
-      <Input
-        id="goal-target-date"
-        label="Target Date (optional)"
-        type="date"
-        value={targetDate}
-        onChange={(e) => setTargetDate(e.target.value)}
-      />
 
       {error && (
         <p className="text-sm text-terracotta font-medium">{error}</p>

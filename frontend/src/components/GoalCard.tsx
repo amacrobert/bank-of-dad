@@ -41,8 +41,6 @@ export default function GoalCard({ goal, onAllocate, onEdit, onDelete }: GoalCar
     ? Math.min(100, Math.round((goal.saved_cents / goal.target_cents) * 100))
     : 0;
 
-  const isOverdue = goal.status === "active" && goal.target_date && new Date(goal.target_date) < new Date();
-
   const handleAllocateSubmit = async () => {
     setError("");
     const dollars = parseFloat(amountStr);
@@ -105,9 +103,6 @@ export default function GoalCard({ goal, onAllocate, onEdit, onDelete }: GoalCar
           <p className="text-sm text-bark-light">
             {formatCents(goal.saved_cents)} / {formatCents(goal.target_cents)}
           </p>
-          {isOverdue && (
-            <span className="text-xs text-terracotta font-medium">Overdue</span>
-          )}
           {goal.status === "completed" && goal.completed_at && (
             <div className="flex items-center gap-1 text-xs text-forest">
               <CheckCircle2 className="h-3 w-3" />

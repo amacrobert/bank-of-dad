@@ -199,7 +199,6 @@ export interface SavingsGoal {
   target_cents: number;
   saved_cents: number;
   emoji?: string;
-  target_date?: string;
   status: 'active' | 'completed';
   completed_at?: string;
   created_at: string;

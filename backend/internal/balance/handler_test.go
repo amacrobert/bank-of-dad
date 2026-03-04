@@ -923,7 +923,7 @@ func TestHandleWithdraw_GoalImpactWarning(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a goal and allocate $60 to it
-	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil)
 	require.NoError(t, err)
 	_, err = goalStore.Allocate(goal.ID, child.ID, 6000)
 	require.NoError(t, err)
@@ -961,7 +961,7 @@ func TestHandleWithdraw_GoalImpactConfirmed(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a goal and allocate $60 to it
-	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil)
 	require.NoError(t, err)
 	_, err = goalStore.Allocate(goal.ID, child.ID, 6000)
 	require.NoError(t, err)
@@ -1006,7 +1006,7 @@ func TestHandleWithdraw_NoGoalImpact_ProcedsNormally(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a goal with $20 saved
-	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil)
 	require.NoError(t, err)
 	_, err = goalStore.Allocate(goal.ID, child.ID, 2000)
 	require.NoError(t, err)
