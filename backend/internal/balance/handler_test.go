@@ -904,6 +904,130 @@ func TestHandleGetBalance_IncludesInterestRate(t *testing.T) {
 	assert.Equal(t, "5.00%", resp.InterestRateDisplay)
 }
 
+// =====================================================
+// T046: Tests for withdrawal goal impact warning
+// =====================================================
+
+func TestHandleWithdraw_GoalImpactWarning(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
+
+	txStore := store.NewTransactionStore(db)
+	goalStore := store.NewSavingsGoalStore(db)
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), goalStore)
+
+	// Deposit $100
+	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	require.NoError(t, err)
+
+	// Create a goal and allocate $60 to it
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	require.NoError(t, err)
+	_, err = goalStore.Allocate(goal.ID, child.ID, 6000)
+	require.NoError(t, err)
+
+	// Try to withdraw $50 — available balance is $40, so this would impact goals
+	body := `{"amount_cents": 5000}`
+	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
+	req.SetPathValue("id", "1")
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
+
+	rr := httptest.NewRecorder()
+	handler.HandleWithdraw(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
+
+	var resp map[string]interface{}
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, "goal_impact_warning", resp["error"])
+	assert.NotNil(t, resp["affected_goals"])
+}
+
+func TestHandleWithdraw_GoalImpactConfirmed(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
+
+	txStore := store.NewTransactionStore(db)
+	goalStore := store.NewSavingsGoalStore(db)
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), goalStore)
+
+	// Deposit $100
+	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	require.NoError(t, err)
+
+	// Create a goal and allocate $60 to it
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	require.NoError(t, err)
+	_, err = goalStore.Allocate(goal.ID, child.ID, 6000)
+	require.NoError(t, err)
+
+	// Withdraw $50 with confirm_goal_impact: true
+	body := `{"amount_cents": 5000, "confirm_goal_impact": true}`
+	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
+	req.SetPathValue("id", "1")
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
+
+	rr := httptest.NewRecorder()
+	handler.HandleWithdraw(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var resp TransactionResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5000), resp.NewBalanceCents) // 10000 - 5000
+
+	// Verify the goal's saved_cents was reduced
+	updatedGoal, err := goalStore.GetByID(goal.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updatedGoal)
+	// Available balance after withdrawal: 5000 total. Goal had 6000 saved.
+	// Excess = 6000 - 5000 = 1000. Goal should be reduced to 5000.
+	assert.Equal(t, int64(5000), updatedGoal.SavedCents)
+}
+
+func TestHandleWithdraw_NoGoalImpact_ProcedsNormally(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family := testutil.CreateTestFamily(t, db)
+	parent := testutil.CreateTestParent(t, db, family.ID)
+	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
+
+	txStore := store.NewTransactionStore(db)
+	goalStore := store.NewSavingsGoalStore(db)
+	handler := NewHandler(txStore, store.NewChildStore(db), store.NewInterestStore(db), store.NewInterestScheduleStore(db), goalStore)
+
+	// Deposit $100
+	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	require.NoError(t, err)
+
+	// Create a goal with $20 saved
+	goal, err := goalStore.Create(child.ID, "Skateboard", 10000, nil, nil)
+	require.NoError(t, err)
+	_, err = goalStore.Allocate(goal.ID, child.ID, 2000)
+	require.NoError(t, err)
+
+	// Withdraw $30 — available is $80, so no impact on goals
+	body := `{"amount_cents": 3000}`
+	req := httptest.NewRequest("POST", "/api/children/1/withdraw", bytes.NewBufferString(body))
+	req.SetPathValue("id", "1")
+	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
+
+	rr := httptest.NewRecorder()
+	handler.HandleWithdraw(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var resp TransactionResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, int64(7000), resp.NewBalanceCents) // 10000 - 3000
+}
+
 func TestHandleGetBalance_DefaultInterestRateZero(t *testing.T) {
 	db := testutil.SetupTestDB(t)
 	family := testutil.CreateTestFamily(t, db)

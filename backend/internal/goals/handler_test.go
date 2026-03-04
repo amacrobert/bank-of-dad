@@ -842,6 +842,34 @@ func TestHandleDelete_403_ParentCannotDelete(t *testing.T) {
 	assert.Equal(t, "forbidden", resp.Error)
 }
 
+// =====================================================
+// T043: Tests for parent access — parents can view but NOT manage goals
+// =====================================================
+
+func TestHandleList_403_ParentCannotViewOtherFamilyChildGoals(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	family1 := testutil.CreateTestFamily(t, db)
+	testutil.CreateTestParent(t, db, family1.ID)
+	child1 := testutil.CreateTestChild(t, db, family1.ID, "Emma")
+
+	goalStore := store.NewSavingsGoalStore(db)
+	childStore := store.NewChildStore(db)
+	handler := NewHandler(goalStore, childStore)
+
+	_, err := goalStore.Create(child1.ID, "Skateboard", 4500, nil, nil)
+	require.NoError(t, err)
+
+	// A parent from a different family (different familyID) tries to view child from family1
+	req := httptest.NewRequest("GET", "/api/children/1/savings-goals", nil)
+	req.SetPathValue("id", strconv.FormatInt(child1.ID, 10))
+	req = testutil.SetRequestContext(req, "parent", 99999, family1.ID+999)
+
+	rr := httptest.NewRecorder()
+	handler.HandleList(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+}
+
 func TestHandleDelete_404_NotFoundOrCompleted(t *testing.T) {
 	handler, _, _, family, _, child, _ := setupHandlerWithBalance(t)
 

@@ -18,10 +18,10 @@ export default function GoalProgressRing({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center ${milestone ? "animate-pulse-subtle" : ""}`}
+      className={`relative inline-flex items-center justify-center overflow-visible ${milestone ? "animate-pulse-subtle" : ""}`}
       style={{ width: size, height: size }}
     >
-      <svg width={size} height={size} className="transform -rotate-90">
+      <svg width={size} height={size} className="transform -rotate-90" overflow="visible">
         {/* Background track */}
         <circle
           cx={size / 2}

@@ -1,7 +1,58 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SavingsGoal } from "../types";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
+
+const EMOJI_KEYWORDS: Record<string, string> = {
+  bike: "🚲", bicycle: "🚲", skateboard: "🛹", scooter: "🛴",
+  game: "🎮", gaming: "🎮", xbox: "🎮", playstation: "🎮", nintendo: "🎮", switch: "🎮",
+  lego: "🧱", book: "📚", reading: "📚",
+  phone: "📱", laptop: "💻", computer: "💻", tablet: "📱", ipad: "📱",
+  toy: "🧸", toys: "🧸", doll: "🪆", car: "🚗",
+  trip: "✈️", vacation: "✈️", travel: "✈️",
+  pet: "🐕", dog: "🐕", cat: "🐱", puppy: "🐕", kitten: "🐱",
+  shoes: "👟", sneakers: "👟", clothes: "👗", dress: "👗",
+  candy: "🍬", sweets: "🍬", chocolate: "🍫",
+  guitar: "🎸", music: "🎸", drum: "🥁", piano: "🎹",
+  art: "🎨", paint: "🎨", draw: "🎨", camera: "📷",
+  ball: "⚽", soccer: "⚽", football: "🏈", basketball: "🏀", sport: "⚽",
+  swim: "🏊", tent: "⛺", camp: "⛺", camping: "⛺",
+  robot: "🤖", science: "🔬", space: "🚀", rocket: "🚀",
+  horse: "🐴", fish: "🐠", dinosaur: "🦕",
+};
+
+const DEFAULT_EMOJIS = ["🎯", "⭐", "💰", "🎁", "🏆", "💎"];
+
+function suggestEmojis(goalName: string, selectedEmoji: string): string[] {
+  const words = goalName.toLowerCase().split(/\s+/);
+  const matched: string[] = [];
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    const emoji = EMOJI_KEYWORDS[word];
+    if (emoji && !seen.has(emoji)) {
+      seen.add(emoji);
+      matched.push(emoji);
+    }
+    if (matched.length >= 6) break;
+  }
+
+  // Fill remaining slots with defaults
+  for (const d of DEFAULT_EMOJIS) {
+    if (matched.length >= 6) break;
+    if (!seen.has(d)) {
+      matched.push(d);
+      seen.add(d);
+    }
+  }
+
+  // If selected emoji isn't in the list, replace the last one
+  if (selectedEmoji && !matched.includes(selectedEmoji)) {
+    matched[matched.length - 1] = selectedEmoji;
+  }
+
+  return matched;
+}
 
 interface GoalFormProps {
   onSubmit: (data: { name: string; target_cents: number; emoji?: string; target_date?: string }) => Promise<void>;
@@ -20,6 +71,7 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [targetError, setTargetError] = useState<string | null>(null);
+  const suggestedEmojis = useMemo(() => suggestEmojis(name, emoji), [name, emoji]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,13 +162,30 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
         )}
       </div>
 
-      <Input
-        id="goal-emoji"
-        label="Emoji (optional)"
-        value={emoji}
-        onChange={(e) => setEmoji(e.target.value)}
-        placeholder="🎯"
-      />
+      <div className="space-y-1.5">
+        <label className="block text-sm font-semibold text-bark-light">
+          Emoji (optional)
+        </label>
+        <div className="flex gap-2">
+          {suggestedEmojis.map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setEmoji(emoji === e ? "" : e)}
+              className={`
+                w-10 h-10 text-xl rounded-lg border-2 transition-all duration-150
+                flex items-center justify-center cursor-pointer
+                ${emoji === e
+                  ? "border-forest bg-forest/10 scale-110 ring-2 ring-forest/30"
+                  : "border-sand bg-white hover:border-forest/40 hover:bg-forest/5"
+                }
+              `}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Input
         id="goal-target-date"

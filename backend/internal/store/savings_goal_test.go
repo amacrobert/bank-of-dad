@@ -618,8 +618,6 @@ func TestSavingsGoalStore_Allocate_ToCompletedGoal_Fails(t *testing.T) {
 
 func strPtr(s string) *string    { return &s }
 func int64Ptr(i int64) *int64    { return &i }
-func timePtr(t time.Time) *time.Time { return &t }
-
 // --- TestSavingsGoalStore_Update ---
 
 func TestSavingsGoalStore_Update_NameOnly(t *testing.T) {
@@ -673,6 +671,7 @@ func TestSavingsGoalStore_Update_AllFields(t *testing.T) {
 		Name:          strPtr("Updated Goal"),
 		TargetCents:   int64Ptr(20000),
 		Emoji:         strPtr("🚀"),
+		EmojiSet:      true,
 		TargetDate:    &newDate,
 		TargetDateSet: true,
 	})
@@ -862,8 +861,19 @@ func TestSavingsGoalStore_Delete_CompletedGoal(t *testing.T) {
 	_, err = gs.Allocate(goal.ID, child.ID, 1000)
 	require.NoError(t, err)
 
-	// Try to delete the completed goal — should fail
-	_, err = gs.Delete(goal.ID, child.ID)
-	require.Error(t, err)
-	assert.Equal(t, ErrGoalNotFound, err)
+	// Verify the goal is completed with saved_cents still set
+	completed, err := gs.GetByID(goal.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", completed.Status)
+	assert.Equal(t, int64(1000), completed.SavedCents)
+
+	// Delete the completed goal — should succeed
+	released, err := gs.Delete(goal.ID, child.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1000), released)
+
+	// Verify the goal no longer exists
+	fetched, err := gs.GetByID(goal.ID)
+	require.NoError(t, err)
+	assert.Nil(t, fetched)
 }

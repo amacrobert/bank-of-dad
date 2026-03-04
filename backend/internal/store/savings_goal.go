@@ -199,11 +199,9 @@ func (s *SavingsGoalStore) Allocate(goalID, childID, amountCents int64) (*Saving
 		if amountCents > availableBalance {
 			return nil, ErrInsufficientAvailable
 		}
-	} else {
-		// Negative (de-allocation): check saved_cents >= abs(amount)
-		if -amountCents > savedCents {
-			return nil, ErrDeallocationExceedsSaved
-		}
+	// Negative (de-allocation): check saved_cents >= abs(amount)
+	} else if -amountCents > savedCents {
+		return nil, ErrDeallocationExceedsSaved
 	}
 
 	// Update saved_cents
@@ -356,7 +354,7 @@ func (s *SavingsGoalStore) Delete(goalID, childID int64) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("lock goal for delete: %w", err)
 	}
-	if status != "active" || currentChildID != childID {
+	if (status != "active" && status != "completed") || currentChildID != childID {
 		return 0, ErrGoalNotFound
 	}
 
@@ -371,6 +369,183 @@ func (s *SavingsGoalStore) Delete(goalID, childID int64) (int64, error) {
 	}
 
 	return savedCents, nil
+}
+
+// ReduceGoalsProportionally reduces active goals' saved_cents proportionally to release totalToRelease cents.
+// Records de-allocation entries for each affected goal. All within a single DB transaction.
+func (s *SavingsGoalStore) ReduceGoalsProportionally(childID, totalToRelease int64) error {
+	if totalToRelease <= 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Get all active goals with saved_cents > 0
+	rows, err := tx.Query(
+		`SELECT id, saved_cents FROM savings_goals WHERE child_id = $1 AND status = 'active' AND saved_cents > 0 FOR UPDATE`,
+		childID,
+	)
+	if err != nil {
+		return fmt.Errorf("query active goals: %w", err)
+	}
+
+	type goalInfo struct {
+		id         int64
+		savedCents int64
+	}
+	var goals []goalInfo
+	var totalSaved int64
+
+	for rows.Next() {
+		var g goalInfo
+		if err := rows.Scan(&g.id, &g.savedCents); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan goal: %w", err)
+		}
+		goals = append(goals, g)
+		totalSaved += g.savedCents
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows error: %w", err)
+	}
+
+	if totalSaved == 0 || len(goals) == 0 {
+		return nil
+	}
+
+	// Cap the release to total saved
+	if totalToRelease > totalSaved {
+		totalToRelease = totalSaved
+	}
+
+	// Proportionally reduce each goal
+	var released int64
+	for i, g := range goals {
+		var reduction int64
+		if i == len(goals)-1 {
+			// Last goal gets the remainder to avoid rounding errors
+			reduction = totalToRelease - released
+		} else {
+			reduction = g.savedCents * totalToRelease / totalSaved
+		}
+
+		if reduction <= 0 {
+			continue
+		}
+		if reduction > g.savedCents {
+			reduction = g.savedCents
+		}
+
+		newSaved := g.savedCents - reduction
+		_, err = tx.Exec(
+			`UPDATE savings_goals SET saved_cents = $1, updated_at = NOW() WHERE id = $2`,
+			newSaved, g.id,
+		)
+		if err != nil {
+			return fmt.Errorf("update goal saved_cents: %w", err)
+		}
+
+		// Record de-allocation
+		_, err = tx.Exec(
+			`INSERT INTO goal_allocations (goal_id, child_id, amount_cents) VALUES ($1, $2, $3)`,
+			g.id, childID, -reduction,
+		)
+		if err != nil {
+			return fmt.Errorf("insert de-allocation: %w", err)
+		}
+
+		released += reduction
+	}
+
+	return tx.Commit()
+}
+
+// GetTotalSavedByChild returns the sum of saved_cents across all active goals for a child.
+func (s *SavingsGoalStore) GetTotalSavedByChild(childID int64) (int64, error) {
+	var total int64
+	err := s.db.QueryRow(
+		`SELECT COALESCE(SUM(saved_cents), 0) FROM savings_goals WHERE child_id = $1 AND status = 'active'`,
+		childID,
+	).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("get total saved: %w", err)
+	}
+	return total, nil
+}
+
+// AffectedGoalInfo represents a goal affected by a withdrawal.
+type AffectedGoalInfo struct {
+	ID               int64  `json:"id"`
+	Name             string `json:"name"`
+	CurrentSavedCents int64  `json:"current_saved_cents"`
+	NewSavedCents     int64  `json:"new_saved_cents"`
+}
+
+// GetAffectedGoals returns active goals that would be impacted by reducing totalToRelease cents.
+func (s *SavingsGoalStore) GetAffectedGoals(childID, totalToRelease int64) ([]AffectedGoalInfo, error) {
+	rows, err := s.db.Query(
+		`SELECT id, name, saved_cents FROM savings_goals WHERE child_id = $1 AND status = 'active' AND saved_cents > 0 ORDER BY id`,
+		childID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query affected goals: %w", err)
+	}
+	defer rows.Close()
+
+	type goalRaw struct {
+		id         int64
+		name       string
+		savedCents int64
+	}
+	var goals []goalRaw
+	var totalSaved int64
+
+	for rows.Next() {
+		var g goalRaw
+		if err := rows.Scan(&g.id, &g.name, &g.savedCents); err != nil {
+			return nil, fmt.Errorf("scan goal: %w", err)
+		}
+		goals = append(goals, g)
+		totalSaved += g.savedCents
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	if totalToRelease > totalSaved {
+		totalToRelease = totalSaved
+	}
+
+	var affected []AffectedGoalInfo
+	var released int64
+	for i, g := range goals {
+		var reduction int64
+		if i == len(goals)-1 {
+			reduction = totalToRelease - released
+		} else {
+			reduction = g.savedCents * totalToRelease / totalSaved
+		}
+		if reduction <= 0 {
+			continue
+		}
+		if reduction > g.savedCents {
+			reduction = g.savedCents
+		}
+		affected = append(affected, AffectedGoalInfo{
+			ID:               g.id,
+			Name:             g.name,
+			CurrentSavedCents: g.savedCents,
+			NewSavedCents:     g.savedCents - reduction,
+		})
+		released += reduction
+	}
+
+	return affected, nil
 }
 
 // joinStrings joins strings with a separator (avoids importing strings package).

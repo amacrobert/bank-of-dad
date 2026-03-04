@@ -4,7 +4,7 @@ import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { Leaf, LayoutDashboard, Home, TrendingUp, LogOut, Settings } from "lucide-react";
+import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings } from "lucide-react";
 
 interface LayoutProps {
   user: AuthUser;
@@ -108,6 +108,20 @@ export default function Layout({ user, children }: LayoutProps) {
                 Home
               </button>
               <button
+                onClick={() => navigate("/child/goals")}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname.startsWith("/child/goals")
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                <Target className="h-4 w-4" aria-hidden="true" />
+                Goals
+              </button>
+              <button
                 onClick={() => navigate("/child/growth")}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
@@ -194,6 +208,13 @@ export default function Layout({ user, children }: LayoutProps) {
               >
                 <Home className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Home</span>
+              </button>
+              <button
+                onClick={() => navigate("/child/goals")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/goals") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <Target className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Goals</span>
               </button>
               <button
                 onClick={() => navigate("/child/growth")}

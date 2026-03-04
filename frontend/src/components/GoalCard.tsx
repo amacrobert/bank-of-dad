@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SavingsGoal } from "../types";
 import Card from "./ui/Card";
 import GoalProgressRing from "./GoalProgressRing";
-import { Target, Sparkles, CheckCircle2 } from "lucide-react";
+import { Target, Sparkles, CheckCircle2, EllipsisVertical } from "lucide-react";
 
 interface GoalCardProps {
   goal: SavingsGoal;
@@ -16,13 +16,26 @@ function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export default function GoalCard({ goal, childId: _childId, onAllocate, onEdit, onDelete }: GoalCardProps) {
+export default function GoalCard({ goal, onAllocate, onEdit, onDelete }: GoalCardProps) {
   const [showAllocate, setShowAllocate] = useState(false);
   const [allocateMode, setAllocateMode] = useState<"add" | "remove">("add");
   const [amountStr, setAmountStr] = useState("");
   const [allocating, setAllocating] = useState(false);
   const [error, setError] = useState("");
   const [pulse, setPulse] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
 
   const percent = goal.target_cents > 0
     ? Math.min(100, Math.round((goal.saved_cents / goal.target_cents) * 100))
@@ -108,42 +121,76 @@ export default function GoalCard({ goal, childId: _childId, onAllocate, onEdit, 
           <GoalProgressRing percent={percent} size={48} strokeWidth={5} milestone={percent >= 75} />
         </div>
 
-        {/* Actions (shown only for active goals) */}
+        {/* Actions for active goals */}
         {goal.status === "active" && (onAllocate || onEdit || onDelete) && (
-          <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1">
             {onAllocate && (
-              <>
+              <button
+                onClick={() => openAllocate("add")}
+                className="text-xs text-forest font-medium hover:underline"
+              >
+                Add Funds
+              </button>
+            )}
+            {(onAllocate && goal.saved_cents > 0) || onEdit || onDelete ? (
+              <div className="relative" ref={menuRef}>
                 <button
-                  onClick={() => openAllocate("add")}
-                  className="text-xs text-forest font-medium hover:underline"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="p-1 text-bark-light hover:text-bark rounded-md hover:bg-sand/50"
                 >
-                  Add Funds
+                  <EllipsisVertical className="h-4 w-4" />
                 </button>
-                {goal.saved_cents > 0 && (
-                  <button
-                    onClick={() => openAllocate("remove")}
-                    className="text-xs text-bark-light hover:text-bark"
-                  >
-                    Remove Funds
-                  </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-sand rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                    {onAllocate && goal.saved_cents > 0 && (
+                      <button
+                        onClick={() => { setMenuOpen(false); openAllocate("remove"); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-bark hover:bg-sand/50"
+                      >
+                        Remove Funds
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        onClick={() => { setMenuOpen(false); onEdit(goal); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-bark hover:bg-sand/50"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={() => { setMenuOpen(false); onDelete(goal); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-terracotta hover:bg-sand/50"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 )}
-              </>
-            )}
-            {onEdit && (
-              <button
-                onClick={() => onEdit(goal)}
-                className="text-xs text-bark-light hover:text-bark"
-              >
-                Edit
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={() => onDelete(goal)}
-                className="text-xs text-terracotta hover:text-terracotta/80"
-              >
-                Delete
-              </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Delete action for completed goals */}
+        {goal.status === "completed" && onDelete && (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-1 text-bark-light hover:text-bark rounded-md hover:bg-sand/50"
+            >
+              <EllipsisVertical className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-sand rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                <button
+                  onClick={() => { setMenuOpen(false); onDelete(goal); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-terracotta hover:bg-sand/50"
+                >
+                  Delete
+                </button>
+              </div>
             )}
           </div>
         )}

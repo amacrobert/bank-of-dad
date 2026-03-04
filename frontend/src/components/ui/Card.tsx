@@ -2,10 +2,9 @@ import { ReactNode } from "react";
 
 type CardPadding = "sm" | "md" | "lg";
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   padding?: CardPadding;
-  className?: string;
 }
 
 const paddingClasses: Record<CardPadding, string> = {
@@ -18,6 +17,7 @@ export default function Card({
   children,
   padding = "md",
   className = "",
+  ...rest
 }: CardProps) {
   return (
     <div
@@ -27,6 +27,7 @@ export default function Card({
         ${paddingClasses[padding]}
         ${className}
       `}
+      {...rest}
     >
       {children}
     </div>

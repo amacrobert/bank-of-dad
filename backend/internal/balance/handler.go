@@ -3,6 +3,7 @@ package balance
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,8 +46,9 @@ type DepositRequest struct {
 
 // WithdrawRequest represents a withdrawal request body.
 type WithdrawRequest struct {
-	AmountCents int64  `json:"amount_cents"`
-	Note        string `json:"note,omitempty"`
+	AmountCents      int64  `json:"amount_cents"`
+	Note             string `json:"note,omitempty"`
+	ConfirmGoalImpact bool  `json:"confirm_goal_impact,omitempty"`
 }
 
 // TransactionResponse represents the response after a successful transaction.
@@ -236,8 +238,32 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Perform withdrawal
+	// Check for goal impact before withdrawal
 	parentID := middleware.GetUserID(r)
+
+	if h.goalStore != nil {
+		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+		if err == nil && totalSaved > 0 {
+			// Balance after withdrawal
+			newBalanceAfter := child.BalanceCents - req.AmountCents
+			if newBalanceAfter < totalSaved && !req.ConfirmGoalImpact {
+				// Goals would be impacted — return warning
+				totalToRelease := totalSaved - newBalanceAfter
+				affectedGoals, err := h.goalStore.GetAffectedGoals(childID, totalToRelease)
+				if err == nil && len(affectedGoals) > 0 {
+					writeJSON(w, http.StatusConflict, map[string]interface{}{
+						"error":              "goal_impact_warning",
+						"message":            "This withdrawal will reduce savings goals allocations.",
+						"affected_goals":     affectedGoals,
+						"total_released_cents": totalToRelease,
+					})
+					return
+				}
+			}
+		}
+	}
+
+	// Perform withdrawal
 	tx, newBalance, err := h.txStore.Withdraw(childID, parentID, req.AmountCents, note)
 	if err != nil {
 		if err == store.ErrInsufficientFunds {
@@ -252,6 +278,17 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 			Message: "Failed to process withdrawal.",
 		})
 		return
+	}
+
+	// If goals were impacted and confirmed, reduce them proportionally
+	if h.goalStore != nil && req.ConfirmGoalImpact {
+		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+		if err == nil && totalSaved > newBalance {
+			totalToRelease := totalSaved - newBalance
+			if err := h.goalStore.ReduceGoalsProportionally(childID, totalToRelease); err != nil {
+				log.Printf("WARN: failed to reduce goals proportionally for child %d: %v", childID, err)
+			}
+		}
 	}
 
 	writeJSON(w, http.StatusOK, TransactionResponse{

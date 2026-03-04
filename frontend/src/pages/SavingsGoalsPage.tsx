@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { getSavingsGoals, createSavingsGoal, allocateToGoal } from "../api";
+import { createPortal } from "react-dom";
+import { getSavingsGoals, createSavingsGoal, allocateToGoal, updateSavingsGoal, deleteSavingsGoal } from "../api";
 import { SavingsGoal, AllocateResponse } from "../types";
 import { useChildUser } from "../hooks/useAuthOutletContext";
 import Card from "../components/ui/Card";
@@ -16,8 +17,11 @@ export default function SavingsGoalsPage() {
   const [availableBalanceCents, setAvailableBalanceCents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+  const [deletingGoal, setDeletingGoal] = useState<SavingsGoal | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [completedGoalName, setCompletedGoalName] = useState("");
+  const [showAchievedCard, setShowAchievedCard] = useState(false);
 
   const activeGoals = goals.filter((g) => g.status === "active");
   const completedGoals = goals.filter((g) => g.status === "completed");
@@ -49,7 +53,31 @@ export default function SavingsGoalsPage() {
     if (res.completed) {
       setCompletedGoalName(res.goal.name);
       setShowConfetti(true);
+      setShowAchievedCard(true);
     }
+    await fetchGoals();
+  };
+
+  const handleEdit = (goal: SavingsGoal) => {
+    setEditingGoal(goal);
+    setShowForm(false);
+  };
+
+  const handleEditSubmit = async (data: { name: string; target_cents: number; emoji?: string; target_date?: string }) => {
+    if (!editingGoal) return;
+    await updateSavingsGoal(user.user_id, editingGoal.id, data);
+    setEditingGoal(null);
+    await fetchGoals();
+  };
+
+  const handleDelete = (goal: SavingsGoal) => {
+    setDeletingGoal(goal);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingGoal) return;
+    await deleteSavingsGoal(user.user_id, deletingGoal.id);
+    setDeletingGoal(null);
     await fetchGoals();
   };
 
@@ -66,10 +94,25 @@ export default function SavingsGoalsPage() {
       <ConfettiCelebration show={showConfetti} onComplete={() => setShowConfetti(false)} />
 
       {/* Goal achieved message */}
-      {completedGoalName && showConfetti && (
+      {completedGoalName && showAchievedCard && (
         <Card padding="md" className="text-center bg-sage-light/30 border-forest/20 animate-scale-in">
           <p className="text-lg font-bold text-forest">Goal Achieved!</p>
-          <p className="text-sm text-bark-light">You completed "{completedGoalName}"</p>
+          <p className="text-sm mt-3">
+            You completed "{completedGoalName}"!
+          </p>
+          <p className="text-sm text-bark-light mt-3">
+            The funds have been returned to your available balance. If this goal was for a purchase, ask your grown-up to make a withdrawal for you.
+          </p>
+          <p className="text-sm mt-3">
+            Congratulations on saving and hitting your goal!
+          </p>
+          <Button
+            variant="primary"
+            onClick={() => { setShowAchievedCard(false); setCompletedGoalName(""); }}
+            className="mt-3"
+          >
+            Ok
+          </Button>
         </Card>
       )}
 
@@ -101,6 +144,46 @@ export default function SavingsGoalsPage() {
         </Card>
       )}
 
+      {/* Edit form */}
+      {editingGoal && (
+        <Card padding="md">
+          <h3 className="text-sm font-semibold text-bark-light mb-3">Edit Goal</h3>
+          <GoalForm
+            onSubmit={handleEditSubmit}
+            onCancel={() => setEditingGoal(null)}
+            initialGoal={editingGoal}
+          />
+        </Card>
+      )}
+
+      {/* Delete confirmation modal — portaled to body to escape transform containing block */}
+      {deletingGoal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeletingGoal(null)}>
+          <Card padding="md" className="border-terracotta/30 bg-terracotta/5 mx-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm text-bark mb-3">
+              Delete "{deletingGoal.name}"? {deletingGoal.saved_cents > 0 && deletingGoal.status === "active" && (
+                <span className="font-semibold">
+                  ${(deletingGoal.saved_cents / 100).toFixed(2)} will return to your available balance.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="primary"
+                onClick={handleDeleteConfirm}
+                className="!bg-terracotta hover:!bg-terracotta/90 flex-1"
+              >
+                Delete
+              </Button>
+              <Button variant="secondary" onClick={() => setDeletingGoal(null)}>
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>,
+        document.body
+      )}
+
       {/* Active goals */}
       {activeGoals.length > 0 ? (
         <div className="space-y-3">
@@ -110,11 +193,13 @@ export default function SavingsGoalsPage() {
               goal={goal}
               childId={user.user_id}
               onAllocate={handleAllocate}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           ))}
         </div>
       ) : (
-        !showForm && (
+        !showForm && !editingGoal && (
           <Card padding="md" className="text-center">
             <p className="text-bark-light">No savings goals yet. Create one to start saving!</p>
           </Card>
@@ -127,7 +212,7 @@ export default function SavingsGoalsPage() {
           <h3 className="text-lg font-semibold text-bark-light">Completed Goals</h3>
           {completedGoals.map((goal) => (
             <div key={goal.id} className="opacity-70">
-              <GoalCard goal={goal} childId={user.user_id} />
+              <GoalCard goal={goal} childId={user.user_id} onDelete={handleDelete} />
             </div>
           ))}
         </div>
