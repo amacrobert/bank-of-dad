@@ -323,6 +323,41 @@ func TestHandleList_200_ParentCanSeeChildGoals(t *testing.T) {
 	assert.Len(t, resp.Goals, 2)
 }
 
+func TestHandleList_403_ParentCannotSeeOtherFamilyChildGoals(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+
+	familyOne := testutil.CreateTestFamily(t, db)
+	parentOne := testutil.CreateTestParent(t, db, familyOne.ID)
+
+	fs := store.NewFamilyStore(db)
+	familyTwo, err := fs.Create("other-family")
+	require.NoError(t, err)
+
+	childStore := store.NewChildStore(db)
+	otherChild, err := childStore.Create(familyTwo.ID, "Noah", "password123", nil)
+	require.NoError(t, err)
+
+	goalStore := store.NewSavingsGoalStore(db)
+	_, err = goalStore.Create(otherChild.ID, "Drone", 12000, nil, nil)
+	require.NoError(t, err)
+
+	handler := NewHandler(goalStore, childStore)
+
+	req := httptest.NewRequest("GET", "/api/children/1/savings-goals", nil)
+	req.SetPathValue("id", strconv.FormatInt(otherChild.ID, 10))
+	req = testutil.SetRequestContext(req, "parent", parentOne.ID, familyOne.ID)
+
+	rr := httptest.NewRecorder()
+	handler.HandleList(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+
+	var resp ErrorResponse
+	err = json.NewDecoder(rr.Body).Decode(&resp)
+	require.NoError(t, err)
+	assert.Equal(t, "forbidden", resp.Error)
+}
+
 // =====================================================
 // T018: Tests for POST /api/children/{id}/savings-goals/{goalId}/allocate (HandleAllocate)
 //       and GET /api/children/{id}/savings-goals/{goalId}/allocations (HandleListAllocations)

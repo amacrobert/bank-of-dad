@@ -616,8 +616,8 @@ func TestSavingsGoalStore_Allocate_ToCompletedGoal_Fails(t *testing.T) {
 
 // --- Helpers for pointer construction ---
 
-func strPtr(s string) *string    { return &s }
-func int64Ptr(i int64) *int64    { return &i }
+func strPtr(s string) *string        { return &s }
+func int64Ptr(i int64) *int64        { return &i }
 func timePtr(t time.Time) *time.Time { return &t }
 
 // --- TestSavingsGoalStore_Update ---
@@ -866,4 +866,68 @@ func TestSavingsGoalStore_Delete_CompletedGoal(t *testing.T) {
 	_, err = gs.Delete(goal.ID, child.ID)
 	require.Error(t, err)
 	assert.Equal(t, ErrGoalNotFound, err)
+}
+
+func TestSavingsGoalStore_ReduceGoalsProportionally(t *testing.T) {
+	db := testDB(t)
+	fam := createTestFamily(t, db)
+
+	ps := NewParentStore(db)
+	parent, err := ps.Create("google-reduce-1", "parent-reduce1@test.com", "Test Parent")
+	require.NoError(t, err)
+	err = ps.SetFamilyID(parent.ID, fam.ID)
+	require.NoError(t, err)
+
+	cs := NewChildStore(db)
+	child, err := cs.Create(fam.ID, "Saver", "password123", nil)
+	require.NoError(t, err)
+
+	txStore := NewTransactionStore(db)
+	_, _, err = txStore.Deposit(child.ID, parent.ID, 10000, "initial balance")
+	require.NoError(t, err)
+
+	gs := NewSavingsGoalStore(db)
+	firstGoal, err := gs.Create(child.ID, "Bike", 10000, nil, nil)
+	require.NoError(t, err)
+	secondGoal, err := gs.Create(child.ID, "Console", 10000, nil, nil)
+	require.NoError(t, err)
+
+	_, err = gs.Allocate(firstGoal.ID, child.ID, 6000)
+	require.NoError(t, err)
+	_, err = gs.Allocate(secondGoal.ID, child.ID, 2000)
+	require.NoError(t, err)
+
+	err = gs.ReduceGoalsProportionally(child.ID, 1000)
+	require.NoError(t, err)
+
+	updatedFirstGoal, err := gs.GetByID(firstGoal.ID)
+	require.NoError(t, err)
+	updatedSecondGoal, err := gs.GetByID(secondGoal.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(5250), updatedFirstGoal.SavedCents)
+	assert.Equal(t, int64(1750), updatedSecondGoal.SavedCents)
+
+	allocations, err := gs.ListAllocationsByGoal(firstGoal.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, allocations)
+	assert.Equal(t, int64(-750), allocations[0].AmountCents)
+
+	allocations, err = gs.ListAllocationsByGoal(secondGoal.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, allocations)
+	assert.Equal(t, int64(-250), allocations[0].AmountCents)
+}
+
+func TestSavingsGoalStore_ReduceGoalsProportionally_NoActiveSavings(t *testing.T) {
+	db := testDB(t)
+	fam := createTestFamily(t, db)
+
+	cs := NewChildStore(db)
+	child, err := cs.Create(fam.ID, "Saver", "password123", nil)
+	require.NoError(t, err)
+
+	gs := NewSavingsGoalStore(db)
+	err = gs.ReduceGoalsProportionally(child.ID, 500)
+	require.NoError(t, err)
 }

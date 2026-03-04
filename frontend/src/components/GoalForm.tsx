@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SavingsGoal } from "../types";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
@@ -20,6 +20,16 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [targetError, setTargetError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setName(initialGoal?.name ?? "");
+    setTargetDollars(initialGoal ? (initialGoal.target_cents / 100).toFixed(2) : "");
+    setEmoji(initialGoal?.emoji ?? "");
+    setTargetDate(initialGoal?.target_date ?? "");
+    setError(null);
+    setNameError(null);
+    setTargetError(null);
+  }, [initialGoal]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,14 +60,16 @@ export default function GoalForm({ onSubmit, onCancel, initialGoal }: GoalFormPr
     }
 
     const targetCents = Math.round(dollars * 100);
+    const trimmedEmoji = emoji.trim();
+    const trimmedTargetDate = targetDate.trim();
 
     setLoading(true);
     try {
       await onSubmit({
         name: trimmedName,
         target_cents: targetCents,
-        emoji: emoji.trim() || undefined,
-        target_date: targetDate || undefined,
+        emoji: initialGoal ? trimmedEmoji : (trimmedEmoji || undefined),
+        target_date: initialGoal ? trimmedTargetDate : (trimmedTargetDate || undefined),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

@@ -119,6 +119,20 @@ type SavingsGoalsResponse struct {
 	TotalSavedCents       int64                `json:"total_saved_cents"`
 }
 
+// UpdateRequest represents a partial savings goal update request body.
+type UpdateRequest struct {
+	Name        *string `json:"name"`
+	TargetCents *int64  `json:"target_cents"`
+	Emoji       *string `json:"emoji"`
+	TargetDate  *string `json:"target_date"`
+}
+
+// deleteGoalResponse represents the response after deleting a goal.
+type deleteGoalResponse struct {
+	ReleasedCents         int64 `json:"released_cents"`
+	AvailableBalanceCents int64 `json:"available_balance_cents"`
+}
+
 // HandleCreate handles POST /api/children/{id}/savings-goals
 func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	childID, err := parseChildID(r)
@@ -239,12 +253,129 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdate handles PUT /api/children/{id}/savings-goals/{goalId}
 func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	childID, err := parseChildID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	goalID, err := parseGoalID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_goal_id", Message: "Invalid goal ID."})
+		return
+	}
+
+	if status, errResp := h.verifyChildOwner(r, childID); errResp != nil {
+		writeJSON(w, status, errResp)
+		return
+	}
+
+	var req UpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_request", Message: "Invalid request body."})
+		return
+	}
+
+	params := &store.UpdateGoalParams{}
+
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_name", Message: "Name is required."})
+			return
+		}
+		if len(name) > MaxNameLength {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_name", Message: "Name must be 50 characters or less."})
+			return
+		}
+		params.Name = &name
+	}
+
+	if req.TargetCents != nil {
+		if *req.TargetCents <= 0 {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_target", Message: "Target amount must be greater than zero."})
+			return
+		}
+		if *req.TargetCents > MaxTargetCents {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_target", Message: "Target amount must be $999,999.99 or less."})
+			return
+		}
+		params.TargetCents = req.TargetCents
+	}
+
+	if req.Emoji != nil {
+		params.EmojiSet = true
+		trimmedEmoji := strings.TrimSpace(*req.Emoji)
+		if trimmedEmoji != "" {
+			params.Emoji = &trimmedEmoji
+		}
+	}
+
+	if req.TargetDate != nil {
+		params.TargetDateSet = true
+		trimmedTargetDate := strings.TrimSpace(*req.TargetDate)
+		if trimmedTargetDate != "" {
+			targetDate, err := time.Parse("2006-01-02", trimmedTargetDate)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_target_date", Message: "Target date must be in YYYY-MM-DD format."})
+				return
+			}
+			params.TargetDate = &targetDate
+		}
+	}
+
+	goal, err := h.goalStore.Update(goalID, childID, params)
+	if err != nil {
+		if err == store.ErrGoalNotFound {
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update goal."})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, goal)
 }
 
 // HandleDelete handles DELETE /api/children/{id}/savings-goals/{goalId}
 func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, ErrorResponse{Error: "not_implemented"})
+	childID, err := parseChildID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_child_id", Message: "Invalid child ID."})
+		return
+	}
+
+	goalID, err := parseGoalID(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_goal_id", Message: "Invalid goal ID."})
+		return
+	}
+
+	if status, errResp := h.verifyChildOwner(r, childID); errResp != nil {
+		writeJSON(w, status, errResp)
+		return
+	}
+
+	releasedCents, err := h.goalStore.Delete(goalID, childID)
+	if err != nil {
+		if err == store.ErrGoalNotFound {
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to delete goal."})
+		return
+	}
+
+	availableBalanceCents, err := h.goalStore.GetAvailableBalance(childID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get available balance."})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, deleteGoalResponse{
+		ReleasedCents:         releasedCents,
+		AvailableBalanceCents: availableBalanceCents,
+	})
 }
 
 // AllocateRequest represents an allocate/de-allocate request body.

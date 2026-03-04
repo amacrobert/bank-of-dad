@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { withdraw, ApiRequestError } from "../api";
-import { Child } from "../types";
+import { Child, GoalImpactProjection } from "../types";
 import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
@@ -16,12 +16,14 @@ export default function WithdrawForm({ child, onSuccess, onCancel }: WithdrawFor
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [goalImpactWarning, setGoalImpactWarning] = useState<GoalImpactProjection[] | null>(null);
 
   const currentBalanceDollars = child.balance_cents / 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setGoalImpactWarning(null);
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -50,6 +52,33 @@ export default function WithdrawForm({ child, onSuccess, onCancel }: WithdrawFor
       onSuccess(response.new_balance_cents);
     } catch (err) {
       if (err instanceof ApiRequestError) {
+        if (err.status === 409 && err.body.error === "goal_impact_warning" && err.body.affected_goals?.length) {
+          setGoalImpactWarning(err.body.affected_goals);
+        } else {
+          setError(err.body.message || err.body.error);
+        }
+      } else {
+        setError("Failed to process withdrawal. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmGoalImpact = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const amountCents = Math.round(parseFloat(amount) * 100);
+      const response = await withdraw(child.id, {
+        amount_cents: amountCents,
+        note: note.trim() || undefined,
+        confirm_goal_impact: true,
+      });
+      setGoalImpactWarning(null);
+      onSuccess(response.new_balance_cents);
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
         setError(err.body.message || err.body.error);
       } else {
         setError("Failed to process withdrawal. Please try again.");
@@ -71,6 +100,32 @@ export default function WithdrawForm({ child, onSuccess, onCancel }: WithdrawFor
       {error && (
         <div className="mb-4 bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
           <p className="text-sm text-terracotta font-medium">{error}</p>
+        </div>
+      )}
+
+      {goalImpactWarning && (
+        <div className="mb-4 space-y-3 rounded-xl border border-amber/30 bg-amber/10 p-3">
+          <p className="text-sm font-medium text-bark">
+            This withdrawal will reduce saved money in these goals:
+          </p>
+          <div className="space-y-2">
+            {goalImpactWarning.map((goal) => (
+              <div key={goal.goal_id} className="rounded-lg bg-white/70 px-3 py-2 text-sm text-bark-light">
+                <p className="font-semibold text-bark">{goal.name}</p>
+                <p>
+                  ${(goal.current_saved_cents / 100).toFixed(2)} to ${(goal.projected_saved_cents / 100).toFixed(2)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <Button type="button" variant="danger" onClick={handleConfirmGoalImpact} loading={loading} className="flex-1">
+              Confirm Withdrawal
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setGoalImpactWarning(null)} disabled={loading}>
+              Keep Goals
+            </Button>
+          </div>
         </div>
       )}
 

@@ -49,7 +49,9 @@ func NewSavingsGoalStore(db *sql.DB) *SavingsGoalStore {
 }
 
 // scanGoal scans a single savings goal row, handling nullable fields.
-func scanGoal(scanner interface{ Scan(dest ...interface{}) error }) (*SavingsGoal, error) {
+func scanGoal(scanner interface {
+	Scan(dest ...interface{}) error
+}) (*SavingsGoal, error) {
 	var g SavingsGoal
 	var emoji sql.NullString
 	var targetDate sql.NullTime
@@ -295,7 +297,7 @@ func (s *SavingsGoalStore) Update(goalID, childID int64, params *UpdateGoalParam
 		args = append(args, *params.TargetCents)
 		argIdx++
 	}
-	if params.EmojiSet {
+	if params.Emoji != nil || params.EmojiSet {
 		setClauses = append(setClauses, fmt.Sprintf("emoji = $%d", argIdx))
 		args = append(args, params.Emoji)
 		argIdx++
@@ -423,4 +425,99 @@ func (s *SavingsGoalStore) ListAllocationsByGoal(goalID int64) ([]*GoalAllocatio
 		allocations = append(allocations, &a)
 	}
 	return allocations, rows.Err()
+}
+
+// ReduceGoalsProportionally releases funds from active goals so total allocations fit within the remaining balance.
+// It records a negative goal_allocation for each affected goal.
+func (s *SavingsGoalStore) ReduceGoalsProportionally(childID, totalToRelease int64) error {
+	if totalToRelease <= 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(
+		`SELECT id, saved_cents
+		 FROM savings_goals
+		 WHERE child_id = $1 AND status = 'active' AND saved_cents > 0
+		 ORDER BY id ASC
+		 FOR UPDATE`,
+		childID,
+	)
+	if err != nil {
+		return fmt.Errorf("list active goals for reduction: %w", err)
+	}
+	defer rows.Close()
+
+	type activeGoal struct {
+		id         int64
+		savedCents int64
+	}
+
+	var goals []activeGoal
+	var totalSaved int64
+	for rows.Next() {
+		var goal activeGoal
+		if err := rows.Scan(&goal.id, &goal.savedCents); err != nil {
+			return fmt.Errorf("scan active goal: %w", err)
+		}
+		goals = append(goals, goal)
+		totalSaved += goal.savedCents
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate active goals: %w", err)
+	}
+
+	if totalSaved == 0 || len(goals) == 0 {
+		return nil
+	}
+
+	if totalToRelease > totalSaved {
+		totalToRelease = totalSaved
+	}
+
+	remainingToRelease := totalToRelease
+
+	for i, goal := range goals {
+		releaseCents := goal.savedCents * totalToRelease / totalSaved
+		if i == len(goals)-1 {
+			releaseCents = remainingToRelease
+		}
+		if releaseCents > goal.savedCents {
+			releaseCents = goal.savedCents
+		}
+		if releaseCents <= 0 {
+			continue
+		}
+
+		_, err := tx.Exec(
+			`UPDATE savings_goals
+			 SET saved_cents = saved_cents - $1, updated_at = NOW()
+			 WHERE id = $2`,
+			releaseCents, goal.id,
+		)
+		if err != nil {
+			return fmt.Errorf("reduce goal saved cents: %w", err)
+		}
+
+		_, err = tx.Exec(
+			`INSERT INTO goal_allocations (goal_id, child_id, amount_cents) VALUES ($1, $2, $3)`,
+			goal.id, childID, -releaseCents,
+		)
+		if err != nil {
+			return fmt.Errorf("insert proportional reduction allocation: %w", err)
+		}
+
+		remainingToRelease -= releaseCents
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit proportional reduction: %w", err)
+	}
+
+	return nil
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBalance, getTransactions, getChildAllowance, getInterestSchedule } from "../api";
-import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
+import { getBalance, getTransactions, getChildAllowance, getInterestSchedule, getSavingsGoals } from "../api";
+import { Child, Transaction, AllowanceSchedule, InterestSchedule, SavingsGoal } from "../types";
 import Card from "./ui/Card";
 import Button from "./ui/Button";
 import BalanceDisplay from "./BalanceDisplay";
@@ -9,7 +9,8 @@ import WithdrawForm from "./WithdrawForm";
 import InterestForm from "./InterestForm";
 import TransactionsCard from "./TransactionsCard";
 import ChildAllowanceForm from "./ChildAllowanceForm";
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import GoalCard from "./GoalCard";
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Target } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
@@ -24,6 +25,13 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
+
+  const loadGoals = useCallback(() => {
+    getSavingsGoals(child.id).then((data) => {
+      setGoals(data.goals || []);
+    }).catch(() => {});
+  }, [child.id]);
 
   const loadTransactions = useCallback(() => {
     getTransactions(child.id).then((data) => {
@@ -36,9 +44,10 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
       setInterestRateBps(data.interest_rate_bps);
     }).catch(() => {});
     loadTransactions();
+    loadGoals();
     getChildAllowance(child.id).then(setAllowance).catch(() => {});
     getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
-  }, [child.id, loadTransactions]);
+  }, [child.id, loadGoals, loadTransactions]);
 
   const handleDepositSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
@@ -55,6 +64,8 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   };
 
   const childWithCurrentBalance = { ...child, balance_cents: currentBalance };
+  const activeGoals = goals.filter((goal) => goal.status === "active");
+  const completedGoalsCount = goals.filter((goal) => goal.status === "completed").length;
 
   return (
     <div className="animate-fade-in-up space-y-4">
@@ -109,6 +120,30 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
           onCancel={() => setShowWithdraw(false)}
         />
       )}
+
+      <Card padding="md" className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-sage-light/30 p-2">
+            <Target className="h-4 w-4 text-forest" aria-hidden="true" />
+          </div>
+          <div>
+            <h4 className="text-base font-bold text-bark">Savings Goals</h4>
+            <p className="text-sm text-bark-light">
+              {completedGoalsCount > 0 ? `${completedGoalsCount} goal${completedGoalsCount > 1 ? "s" : ""} achieved` : "Read-only view"}
+            </p>
+          </div>
+        </div>
+
+        {activeGoals.length > 0 ? (
+          <div className="space-y-3">
+            {activeGoals.map((goal) => (
+              <GoalCard key={goal.id} goal={goal} childId={child.id} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-bark-light">No savings goals yet.</p>
+        )}
+      </Card>
 
       <TransactionsCard childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} transactions={transactions} />
 

@@ -45,8 +45,9 @@ type DepositRequest struct {
 
 // WithdrawRequest represents a withdrawal request body.
 type WithdrawRequest struct {
-	AmountCents int64  `json:"amount_cents"`
-	Note        string `json:"note,omitempty"`
+	AmountCents       int64  `json:"amount_cents"`
+	Note              string `json:"note,omitempty"`
+	ConfirmGoalImpact bool   `json:"confirm_goal_impact,omitempty"`
 }
 
 // TransactionResponse represents the response after a successful transaction.
@@ -57,8 +58,17 @@ type TransactionResponse struct {
 
 // ErrorResponse represents an error response.
 type ErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message,omitempty"`
+	Error         string                 `json:"error"`
+	Message       string                 `json:"message,omitempty"`
+	AffectedGoals []GoalImpactProjection `json:"affected_goals,omitempty"`
+}
+
+// GoalImpactProjection describes how a withdrawal would reduce a goal's saved amount.
+type GoalImpactProjection struct {
+	GoalID              int64  `json:"goal_id"`
+	Name                string `json:"name"`
+	CurrentSavedCents   int64  `json:"current_saved_cents"`
+	ProjectedSavedCents int64  `json:"projected_saved_cents"`
 }
 
 // HandleDeposit handles POST /api/children/{id}/deposit
@@ -236,6 +246,37 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.goalStore != nil {
+		availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+				Error:   "internal_error",
+				Message: "Failed to check goal allocations.",
+			})
+			return
+		}
+
+		if req.AmountCents > availableBalance {
+			goalsToRelease, err := h.projectGoalImpact(childID, req.AmountCents-availableBalance)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+					Error:   "internal_error",
+					Message: "Failed to calculate goal impact.",
+				})
+				return
+			}
+
+			if len(goalsToRelease) > 0 && !req.ConfirmGoalImpact {
+				writeJSON(w, http.StatusConflict, ErrorResponse{
+					Error:         "goal_impact_warning",
+					Message:       "This withdrawal will reduce money saved toward goals. Confirm to continue.",
+					AffectedGoals: goalsToRelease,
+				})
+				return
+			}
+		}
+	}
+
 	// Perform withdrawal
 	parentID := middleware.GetUserID(r)
 	tx, newBalance, err := h.txStore.Withdraw(childID, parentID, req.AmountCents, note)
@@ -254,6 +295,19 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.goalStore != nil {
+		availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+		if err == nil && availableBalance < 0 {
+			if err := h.goalStore.ReduceGoalsProportionally(childID, -availableBalance); err != nil {
+				writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+					Error:   "internal_error",
+					Message: "Withdrawal succeeded, but goal allocations could not be adjusted.",
+				})
+				return
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, TransactionResponse{
 		Transaction:     tx,
 		NewBalanceCents: newBalance,
@@ -268,6 +322,69 @@ func formatInsufficientFundsMessage(requested, available int64) string {
 
 func formatMoney(amount float64) string {
 	return strconv.FormatFloat(amount, 'f', 2, 64)
+}
+
+func (h *Handler) projectGoalImpact(childID, totalToRelease int64) ([]GoalImpactProjection, error) {
+	if h.goalStore == nil || totalToRelease <= 0 {
+		return nil, nil
+	}
+
+	goals, err := h.goalStore.ListByChild(childID)
+	if err != nil {
+		return nil, err
+	}
+
+	type activeGoal struct {
+		id         int64
+		name       string
+		savedCents int64
+	}
+
+	var activeGoals []activeGoal
+	var totalSaved int64
+	for _, goal := range goals {
+		if goal.Status != "active" || goal.SavedCents <= 0 {
+			continue
+		}
+		activeGoals = append(activeGoals, activeGoal{
+			id:         goal.ID,
+			name:       goal.Name,
+			savedCents: goal.SavedCents,
+		})
+		totalSaved += goal.SavedCents
+	}
+
+	if len(activeGoals) == 0 || totalSaved == 0 {
+		return nil, nil
+	}
+
+	if totalToRelease > totalSaved {
+		totalToRelease = totalSaved
+	}
+
+	remainingToRelease := totalToRelease
+	projections := make([]GoalImpactProjection, 0, len(activeGoals))
+	for i, goal := range activeGoals {
+		releaseCents := goal.savedCents * totalToRelease / totalSaved
+		if i == len(activeGoals)-1 {
+			releaseCents = remainingToRelease
+		}
+		if releaseCents > goal.savedCents {
+			releaseCents = goal.savedCents
+		}
+		projectedSaved := goal.savedCents - releaseCents
+		if releaseCents > 0 {
+			projections = append(projections, GoalImpactProjection{
+				GoalID:              goal.id,
+				Name:                goal.name,
+				CurrentSavedCents:   goal.savedCents,
+				ProjectedSavedCents: projectedSaved,
+			})
+		}
+		remainingToRelease -= releaseCents
+	}
+
+	return projections, nil
 }
 
 // BalanceResponse represents a balance query response.

@@ -50,6 +50,7 @@ export interface ApiError {
   error: string;
   message?: string;
   suggestions?: string[];
+  affected_goals?: GoalImpactProjection[];
 }
 
 export interface FamilyChild {
@@ -124,6 +125,14 @@ export interface DepositRequest {
 export interface WithdrawRequest {
   amount_cents: number;
   note?: string;
+  confirm_goal_impact?: boolean;
+}
+
+export interface GoalImpactProjection {
+  goal_id: number;
+  name: string;
+  current_saved_cents: number;
+  projected_saved_cents: number;
 }
 
 // Allowance Scheduling Feature (003-allowance-scheduling)
