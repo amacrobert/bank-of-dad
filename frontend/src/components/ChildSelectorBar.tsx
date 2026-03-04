@@ -2,13 +2,14 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { Child } from "../types";
 import BalanceDisplay from "./BalanceDisplay";
 import LoadingSpinner from "./ui/LoadingSpinner";
-import { Lock } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 
 interface ChildSelectorBarProps {
   children: Child[];
   selectedChildId: number | null;
   onSelectChild: (child: Child | null) => void;
   loading?: boolean;
+  onAddChild?: () => void;
 }
 
 export default function ChildSelectorBar({
@@ -16,6 +17,7 @@ export default function ChildSelectorBar({
   selectedChildId,
   onSelectChild,
   loading = false,
+  onAddChild,
 }: ChildSelectorBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
@@ -50,7 +52,7 @@ export default function ChildSelectorBar({
     );
   }
 
-  if (children.length === 0) {
+  if (children.length === 0 && !onAddChild) {
     return null;
   }
 
@@ -75,6 +77,24 @@ export default function ChildSelectorBar({
         className="flex flex-nowrap gap-2 overflow-x-auto scrollbar-hide py-1 px-0.5"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
+        {onAddChild && (
+          <button
+            onClick={onAddChild}
+            className="
+              flex flex-col items-center justify-center
+              w-[120px] aspect-square p-3 rounded-xl
+              flex-shrink-0 transition-all duration-200 cursor-pointer
+              bg-white border border-dashed border-forest/40 hover:border-forest hover:bg-sage-light/20
+            "
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-forest/10">
+              <Plus className="h-5 w-5 text-forest" />
+            </div>
+            <span className="font-semibold text-forest text-xs text-center mt-1">
+              Add Child
+            </span>
+          </button>
+        )}
         {children.map((child) => {
           const isSelected = selectedChildId === child.id;
           return (
