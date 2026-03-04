@@ -3,6 +3,7 @@ import { getBalance, getTransactions, getChildAllowance, getInterestSchedule, ge
 import { Child, Transaction, AllowanceSchedule, InterestSchedule, SavingsGoal } from "../types";
 import Card from "./ui/Card";
 import Button from "./ui/Button";
+import Modal from "./ui/Modal";
 import BalanceDisplay from "./BalanceDisplay";
 import DepositForm from "./DepositForm";
 import WithdrawForm from "./WithdrawForm";
@@ -108,21 +109,21 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
         </div>
       </Card>
 
-      {showDeposit && (
+      <Modal open={showDeposit} onClose={() => setShowDeposit(false)}>
         <DepositForm
           child={childWithCurrentBalance}
           onSuccess={handleDepositSuccess}
           onCancel={() => setShowDeposit(false)}
         />
-      )}
+      </Modal>
 
-      {showWithdraw && (
+      <Modal open={showWithdraw} onClose={() => setShowWithdraw(false)}>
         <WithdrawForm
           child={childWithCurrentBalance}
           onSuccess={handleWithdrawSuccess}
           onCancel={() => setShowWithdraw(false)}
         />
-      )}
+      </Modal>
 
       <TransactionsCard childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} transactions={transactions} />
 

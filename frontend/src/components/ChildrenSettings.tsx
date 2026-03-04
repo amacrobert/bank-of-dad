@@ -2,9 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { get } from "../api";
 import { Child, ChildListResponse } from "../types";
 import Card from "./ui/Card";
+import Button from "./ui/Button";
+import Modal from "./ui/Modal";
 import ChildSelectorBar from "./ChildSelectorBar";
 import AddChildForm from "./AddChildForm";
 import ChildAccountSettings from "./ChildAccountSettings";
+import { Plus } from "lucide-react";
 
 interface ChildrenSettingsProps {
   selectedChildName?: string;
@@ -18,6 +21,7 @@ export default function ChildrenSettings({
   const [childRefreshKey, setChildRefreshKey] = useState(0);
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddChild, setShowAddChild] = useState(false);
 
   // Derive selected child from name prop
   const selectedChild = useMemo(() => {
@@ -47,6 +51,7 @@ export default function ChildrenSettings({
 
   const handleChildAdded = () => {
     setChildRefreshKey((k) => k + 1);
+    setShowAddChild(false);
   };
 
   const handleChildUpdated = () => {
@@ -60,7 +65,20 @@ export default function ChildrenSettings({
 
   return (
     <div className="space-y-4">
-      <AddChildForm onChildAdded={handleChildAdded} />
+      <div className="flex justify-end">
+        <Button
+          variant="primary"
+          onClick={() => setShowAddChild(true)}
+          className="!min-h-[40px] !px-4 !py-2 text-sm"
+        >
+          <Plus className="h-4 w-4" />
+          Add Child
+        </Button>
+      </div>
+
+      <Modal open={showAddChild} onClose={() => setShowAddChild(false)}>
+        <AddChildForm onChildAdded={handleChildAdded} onCancel={() => setShowAddChild(false)} />
+      </Modal>
 
       <ChildSelectorBar
         children={children}

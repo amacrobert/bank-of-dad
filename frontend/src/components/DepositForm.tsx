@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { deposit, ApiRequestError } from "../api";
 import { Child } from "../types";
-import Card from "./ui/Card";
 import Input from "./ui/Input";
 import Button from "./ui/Button";
 
@@ -53,7 +52,7 @@ export default function DepositForm({ child, onSuccess, onCancel }: DepositFormP
   };
 
   return (
-    <Card padding="md" className="animate-fade-in-up">
+    <div>
       <h4 className="text-base font-bold text-bark mb-4">
         Deposit to {child.first_name}'s Account
       </h4>
@@ -107,6 +106,6 @@ export default function DepositForm({ child, onSuccess, onCancel }: DepositFormP
           </Button>
         </div>
       </form>
-    </Card>
+    </div>
   );
 }
