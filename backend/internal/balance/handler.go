@@ -3,6 +3,7 @@ package balance
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,15 +24,17 @@ type Handler struct {
 	childStore            *store.ChildStore
 	interestStore         *store.InterestStore
 	interestScheduleStore *store.InterestScheduleStore
+	goalStore             *store.SavingsGoalStore
 }
 
 // NewHandler creates a new balance handler.
-func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore) *Handler {
+func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore, goalStore *store.SavingsGoalStore) *Handler {
 	return &Handler{
 		txStore:               txStore,
 		childStore:            childStore,
 		interestStore:         interestStore,
 		interestScheduleStore: interestScheduleStore,
+		goalStore:             goalStore,
 	}
 }
 
@@ -43,8 +46,9 @@ type DepositRequest struct {
 
 // WithdrawRequest represents a withdrawal request body.
 type WithdrawRequest struct {
-	AmountCents int64  `json:"amount_cents"`
-	Note        string `json:"note,omitempty"`
+	AmountCents      int64  `json:"amount_cents"`
+	Note             string `json:"note,omitempty"`
+	ConfirmGoalImpact bool  `json:"confirm_goal_impact,omitempty"`
 }
 
 // TransactionResponse represents the response after a successful transaction.
@@ -234,8 +238,32 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Perform withdrawal
+	// Check for goal impact before withdrawal
 	parentID := middleware.GetUserID(r)
+
+	if h.goalStore != nil {
+		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+		if err == nil && totalSaved > 0 {
+			// Balance after withdrawal
+			newBalanceAfter := child.BalanceCents - req.AmountCents
+			if newBalanceAfter < totalSaved && !req.ConfirmGoalImpact {
+				// Goals would be impacted — return warning
+				totalToRelease := totalSaved - newBalanceAfter
+				affectedGoals, err := h.goalStore.GetAffectedGoals(childID, totalToRelease)
+				if err == nil && len(affectedGoals) > 0 {
+					writeJSON(w, http.StatusConflict, map[string]interface{}{
+						"error":              "goal_impact_warning",
+						"message":            "This withdrawal will reduce savings goals allocations.",
+						"affected_goals":     affectedGoals,
+						"total_released_cents": totalToRelease,
+					})
+					return
+				}
+			}
+		}
+	}
+
+	// Perform withdrawal
 	tx, newBalance, err := h.txStore.Withdraw(childID, parentID, req.AmountCents, note)
 	if err != nil {
 		if err == store.ErrInsufficientFunds {
@@ -250,6 +278,17 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 			Message: "Failed to process withdrawal.",
 		})
 		return
+	}
+
+	// If goals were impacted and confirmed, reduce them proportionally
+	if h.goalStore != nil && req.ConfirmGoalImpact {
+		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+		if err == nil && totalSaved > newBalance {
+			totalToRelease := totalSaved - newBalance
+			if err := h.goalStore.ReduceGoalsProportionally(childID, totalToRelease); err != nil {
+				log.Printf("WARN: failed to reduce goals proportionally for child %d: %v", childID, err)
+			}
+		}
 	}
 
 	writeJSON(w, http.StatusOK, TransactionResponse{
@@ -270,12 +309,15 @@ func formatMoney(amount float64) string {
 
 // BalanceResponse represents a balance query response.
 type BalanceResponse struct {
-	ChildID             int64   `json:"child_id"`
-	FirstName           string  `json:"first_name"`
-	BalanceCents        int64   `json:"balance_cents"`
-	InterestRateBps     int     `json:"interest_rate_bps"`
-	InterestRateDisplay string  `json:"interest_rate_display"`
-	NextInterestAt      *string `json:"next_interest_at,omitempty"`
+	ChildID               int64   `json:"child_id"`
+	FirstName             string  `json:"first_name"`
+	BalanceCents          int64   `json:"balance_cents"`
+	InterestRateBps       int     `json:"interest_rate_bps"`
+	InterestRateDisplay   string  `json:"interest_rate_display"`
+	NextInterestAt        *string `json:"next_interest_at,omitempty"`
+	AvailableBalanceCents *int64  `json:"available_balance_cents,omitempty"`
+	TotalSavedCents       *int64  `json:"total_saved_cents,omitempty"`
+	ActiveGoalsCount      *int    `json:"active_goals_count,omitempty"`
 }
 
 // TransactionListResponse represents a list of transactions.
@@ -352,14 +394,30 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, BalanceResponse{
+	resp := BalanceResponse{
 		ChildID:             child.ID,
 		FirstName:           child.FirstName,
 		BalanceCents:        child.BalanceCents,
 		InterestRateBps:     rateBps,
 		InterestRateDisplay: fmt.Sprintf("%.2f%%", float64(rateBps)/100.0),
 		NextInterestAt:      nextInterestAt,
-	})
+	}
+
+	// Include savings goal information if goalStore is available
+	if h.goalStore != nil {
+		availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+		if err == nil {
+			totalSaved := child.BalanceCents - availableBalance
+			resp.AvailableBalanceCents = &availableBalance
+			resp.TotalSavedCents = &totalSaved
+		}
+		activeCount, err := h.goalStore.CountActiveByChild(childID)
+		if err == nil {
+			resp.ActiveGoalsCount = &activeCount
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // HandleGetTransactions handles GET /api/children/{id}/transactions

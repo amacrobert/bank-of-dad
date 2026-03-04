@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBalance, getTransactions, getChildAllowance, getInterestSchedule } from "../api";
-import { Child, Transaction, AllowanceSchedule, InterestSchedule } from "../types";
+import { getBalance, getTransactions, getChildAllowance, getInterestSchedule, getSavingsGoals } from "../api";
+import { Child, Transaction, AllowanceSchedule, InterestSchedule, SavingsGoal } from "../types";
 import Card from "./ui/Card";
 import Button from "./ui/Button";
 import BalanceDisplay from "./BalanceDisplay";
@@ -9,7 +9,8 @@ import WithdrawForm from "./WithdrawForm";
 import InterestForm from "./InterestForm";
 import TransactionsCard from "./TransactionsCard";
 import ChildAllowanceForm from "./ChildAllowanceForm";
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import GoalCard from "./GoalCard";
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Target, CheckCircle2 } from "lucide-react";
 
 interface ManageChildProps {
   child: Child;
@@ -24,6 +25,9 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [availableBalanceCents, setAvailableBalanceCents] = useState<number | undefined>(undefined);
+  const [totalSavedCents, setTotalSavedCents] = useState<number>(0);
 
   const loadTransactions = useCallback(() => {
     getTransactions(child.id).then((data) => {
@@ -34,10 +38,13 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   useEffect(() => {
     getBalance(child.id).then((data) => {
       setInterestRateBps(data.interest_rate_bps);
+      setAvailableBalanceCents(data.available_balance_cents);
+      setTotalSavedCents(data.total_saved_cents || 0);
     }).catch(() => {});
     loadTransactions();
     getChildAllowance(child.id).then(setAllowance).catch(() => {});
     getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
+    getSavingsGoals(child.id).then((res) => setSavingsGoals(res.goals)).catch(() => {});
   }, [child.id, loadTransactions]);
 
   const handleDepositSuccess = (newBalance: number) => {
@@ -71,7 +78,14 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
       <Card padding="md">
         <div className="text-center mb-4">
           <p className="text-sm font-semibold text-bark-light uppercase tracking-wide mb-1">Balance</p>
-          <BalanceDisplay balanceCents={currentBalance} size="large" />
+          <BalanceDisplay
+            balanceCents={currentBalance}
+            size="large"
+            breakdown={totalSavedCents > 0 && availableBalanceCents !== undefined
+              ? { availableCents: availableBalanceCents, savedCents: totalSavedCents }
+              : undefined
+            }
+          />
         </div>
         <div className="flex gap-3">
           <Button
@@ -111,6 +125,35 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
       )}
 
       <TransactionsCard childId={child.id} balanceCents={currentBalance} interestRateBps={interestRateBps} transactions={transactions} />
+
+      {/* Savings Goals (read-only for parent) */}
+      {savingsGoals.length > 0 && (
+        <Card padding="md">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-forest" />
+              <h4 className="font-semibold text-bark">Savings Goals</h4>
+            </div>
+            {savingsGoals.filter((g) => g.status === "completed").length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-forest">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>{savingsGoals.filter((g) => g.status === "completed").length} achieved</span>
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            {savingsGoals.filter((g) => g.status === "active").length > 0 ? (
+              savingsGoals
+                .filter((g) => g.status === "active")
+                .map((goal) => (
+                  <GoalCard key={goal.id} goal={goal} childId={child.id} />
+                ))
+            ) : (
+              <p className="text-sm text-bark-light">No active savings goals.</p>
+            )}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChildAllowanceForm

@@ -13,6 +13,7 @@ import (
 	"bank-of-dad/internal/balance"
 	"bank-of-dad/internal/config"
 	"bank-of-dad/internal/family"
+	"bank-of-dad/internal/goals"
 	"bank-of-dad/internal/interest"
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/settings"
@@ -64,11 +65,13 @@ func main() {
 	txStore := store.NewTransactionStore(db)
 	interestStore := store.NewInterestStore(db)
 	interestScheduleStore := store.NewInterestScheduleStore(db)
-	balanceHandler := balance.NewHandler(txStore, childStore, interestStore, interestScheduleStore)
+	goalStore := store.NewSavingsGoalStore(db)
+	balanceHandler := balance.NewHandler(txStore, childStore, interestStore, interestScheduleStore, goalStore)
 	scheduleStore := store.NewScheduleStore(db)
 	allowanceHandler := allowance.NewHandler(scheduleStore, childStore, familyStore)
 	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore, familyStore)
 	settingsHandlers := settings.NewHandlers(familyStore)
+	goalsHandler := goals.NewHandler(goalStore, childStore)
 	webhookEventStore := store.NewWebhookEventStore(db)
 	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
 
@@ -161,6 +164,14 @@ func main() {
 	mux.Handle("POST /api/subscription/checkout", requireParent(http.HandlerFunc(subscriptionHandlers.HandleCreateCheckout)))
 	mux.Handle("POST /api/subscription/portal", requireParent(http.HandlerFunc(subscriptionHandlers.HandleCreatePortal)))
 	mux.HandleFunc("POST /api/stripe/webhook", subscriptionHandlers.HandleStripeWebhook)
+
+	// Savings Goals (025-savings-goals)
+	mux.Handle("GET /api/children/{id}/savings-goals", requireAuth(http.HandlerFunc(goalsHandler.HandleList)))
+	mux.Handle("POST /api/children/{id}/savings-goals", requireAuth(http.HandlerFunc(goalsHandler.HandleCreate)))
+	mux.Handle("PUT /api/children/{id}/savings-goals/{goalId}", requireAuth(http.HandlerFunc(goalsHandler.HandleUpdate)))
+	mux.Handle("DELETE /api/children/{id}/savings-goals/{goalId}", requireAuth(http.HandlerFunc(goalsHandler.HandleDelete)))
+	mux.Handle("POST /api/children/{id}/savings-goals/{goalId}/allocate", requireAuth(http.HandlerFunc(goalsHandler.HandleAllocate)))
+	mux.Handle("GET /api/children/{id}/savings-goals/{goalId}/allocations", requireAuth(http.HandlerFunc(goalsHandler.HandleListAllocations)))
 
 	// Account deletion
 	mux.Handle("DELETE /api/account", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteAccount)))

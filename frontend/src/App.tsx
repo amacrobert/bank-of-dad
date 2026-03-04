@@ -11,6 +11,7 @@ import ChildDashboard from "./pages/ChildDashboard";
 import GrowthPage from "./pages/GrowthPage";
 import SettingsPage from "./pages/SettingsPage";
 import ChildSettingsPage from "./pages/ChildSettingsPage";
+import SavingsGoalsPage from "./pages/SavingsGoalsPage";
 import NotFound from "./pages/NotFound";
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         {/* Child routes — shared Layout */}
         <Route element={<AuthenticatedLayout userType="child" />}>
           <Route path="/child/dashboard" element={<ChildDashboard />} />
+          <Route path="/child/goals" element={<SavingsGoalsPage />} />
           <Route path="/child/growth" element={<GrowthPage />} />
           <Route path="/child/settings" element={<ChildSettingsPage />} />
         </Route>

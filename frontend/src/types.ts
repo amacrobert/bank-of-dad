@@ -95,6 +95,9 @@ export interface BalanceResponse {
   interest_rate_bps: number;
   interest_rate_display: string;
   next_interest_at?: string;
+  available_balance_cents?: number;
+  total_saved_cents?: number;
+  active_goals_count?: number;
 }
 
 export interface ChildWithBalance {
@@ -185,6 +188,46 @@ export interface InterestSchedule {
   next_run_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+// Savings Goals Feature (025-savings-goals)
+
+export interface SavingsGoal {
+  id: number;
+  child_id: number;
+  name: string;
+  target_cents: number;
+  saved_cents: number;
+  emoji?: string;
+  target_date?: string;
+  status: 'active' | 'completed';
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalAllocation {
+  id: number;
+  goal_id: number;
+  amount_cents: number;
+  created_at: string;
+}
+
+export interface SavingsGoalsResponse {
+  goals: SavingsGoal[];
+  available_balance_cents: number;
+  total_saved_cents: number;
+}
+
+export interface AllocateResponse {
+  goal: SavingsGoal;
+  available_balance_cents: number;
+  completed: boolean;
+}
+
+export interface DeleteGoalResponse {
+  released_cents: number;
+  available_balance_cents: number;
 }
 
 // Savings Growth Projector Feature (016-savings-growth-projector)
