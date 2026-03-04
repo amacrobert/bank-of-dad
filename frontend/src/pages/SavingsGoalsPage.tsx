@@ -42,7 +42,7 @@ export default function SavingsGoalsPage() {
     fetchGoals();
   }, [fetchGoals]);
 
-  const handleCreate = async (data: { name: string; target_cents: number; emoji?: string; target_date?: string }) => {
+  const handleCreate = async (data: { name: string; target_cents: number; emoji?: string }) => {
     await createSavingsGoal(user.user_id, data);
     setShowForm(false);
     await fetchGoals();
@@ -63,7 +63,7 @@ export default function SavingsGoalsPage() {
     setShowForm(false);
   };
 
-  const handleEditSubmit = async (data: { name: string; target_cents: number; emoji?: string; target_date?: string }) => {
+  const handleEditSubmit = async (data: { name: string; target_cents: number; emoji?: string }) => {
     if (!editingGoal) return;
     await updateSavingsGoal(user.user_id, editingGoal.id, data);
     setEditingGoal(null);

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
@@ -109,7 +108,6 @@ type CreateRequest struct {
 	Name        string  `json:"name"`
 	TargetCents int64   `json:"target_cents"`
 	Emoji       *string `json:"emoji,omitempty"`
-	TargetDate  *string `json:"target_date,omitempty"`
 }
 
 // SavingsGoalsResponse represents the response for listing goals.
@@ -170,18 +168,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse optional target date
-	var targetDate *time.Time
-	if req.TargetDate != nil && *req.TargetDate != "" {
-		t, err := time.Parse("2006-01-02", *req.TargetDate)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_target_date", Message: "Target date must be in YYYY-MM-DD format."})
-			return
-		}
-		targetDate = &t
-	}
-
-	goal, err := h.goalStore.Create(childID, name, req.TargetCents, req.Emoji, targetDate)
+	goal, err := h.goalStore.Create(childID, name, req.TargetCents, req.Emoji)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to create goal."})
 		return
@@ -242,7 +229,6 @@ type UpdateRequest struct {
 	Name        *string `json:"name,omitempty"`
 	TargetCents *int64  `json:"target_cents,omitempty"`
 	Emoji       *string `json:"emoji"`
-	TargetDate  *string `json:"target_date"`
 }
 
 // HandleUpdate handles PUT /api/children/{id}/savings-goals/{goalId}
@@ -308,22 +294,6 @@ func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	if req.Emoji != nil {
 		params.Emoji = req.Emoji
 		params.EmojiSet = true
-	}
-
-	// Parse optional target date
-	if req.TargetDate != nil {
-		if *req.TargetDate == "" {
-			params.TargetDateSet = true
-			params.TargetDate = nil
-		} else {
-			t, err := time.Parse("2006-01-02", *req.TargetDate)
-			if err != nil {
-				writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_target_date", Message: "Target date must be in YYYY-MM-DD format."})
-				return
-			}
-			params.TargetDate = &t
-			params.TargetDateSet = true
-		}
 	}
 
 	goal, err := h.goalStore.Update(goalID, childID, params)

@@ -228,11 +228,11 @@ export function getSavingsGoals(childId: number): Promise<SavingsGoalsResponse> 
   return get<SavingsGoalsResponse>(`/children/${childId}/savings-goals`);
 }
 
-export function createSavingsGoal(childId: number, data: { name: string; target_cents: number; emoji?: string; target_date?: string }): Promise<SavingsGoal> {
+export function createSavingsGoal(childId: number, data: { name: string; target_cents: number; emoji?: string }): Promise<SavingsGoal> {
   return post<SavingsGoal>(`/children/${childId}/savings-goals`, data);
 }
 
-export function updateSavingsGoal(childId: number, goalId: number, data: { name?: string; target_cents?: number; emoji?: string; target_date?: string }): Promise<SavingsGoal> {
+export function updateSavingsGoal(childId: number, goalId: number, data: { name?: string; target_cents?: number; emoji?: string }): Promise<SavingsGoal> {
   return put<SavingsGoal>(`/children/${childId}/savings-goals/${goalId}`, data);
 }
 

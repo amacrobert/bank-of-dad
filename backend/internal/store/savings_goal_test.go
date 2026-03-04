@@ -2,7 +2,6 @@ package store
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +19,7 @@ func TestSavingsGoalStore_Create_AllFields(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	emoji := "🎮"
-	targetDate := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
-	goal, err := gs.Create(child.ID, "New Bike", 50000, &emoji, &targetDate)
+	goal, err := gs.Create(child.ID, "New Bike", 50000, &emoji)
 	require.NoError(t, err)
 	require.NotNil(t, goal)
 
@@ -32,10 +30,6 @@ func TestSavingsGoalStore_Create_AllFields(t *testing.T) {
 	assert.Equal(t, int64(0), goal.SavedCents)
 	require.NotNil(t, goal.Emoji)
 	assert.Equal(t, "🎮", *goal.Emoji)
-	require.NotNil(t, goal.TargetDate)
-	assert.Equal(t, 2026, goal.TargetDate.Year())
-	assert.Equal(t, time.Month(6), goal.TargetDate.Month())
-	assert.Equal(t, 15, goal.TargetDate.Day())
 	assert.Equal(t, "active", goal.Status)
 	assert.Nil(t, goal.CompletedAt)
 	assert.False(t, goal.CreatedAt.IsZero())
@@ -51,7 +45,7 @@ func TestSavingsGoalStore_Create_RequiredFieldsOnly(t *testing.T) {
 
 	gs := NewSavingsGoalStore(db)
 
-	goal, err := gs.Create(child.ID, "Piggy Bank", 1000, nil, nil)
+	goal, err := gs.Create(child.ID, "Piggy Bank", 1000, nil)
 	require.NoError(t, err)
 	require.NotNil(t, goal)
 
@@ -61,7 +55,6 @@ func TestSavingsGoalStore_Create_RequiredFieldsOnly(t *testing.T) {
 	assert.Equal(t, int64(1000), goal.TargetCents)
 	assert.Equal(t, int64(0), goal.SavedCents)
 	assert.Nil(t, goal.Emoji)
-	assert.Nil(t, goal.TargetDate)
 	assert.Equal(t, "active", goal.Status)
 	assert.Nil(t, goal.CompletedAt)
 	assert.False(t, goal.CreatedAt.IsZero())
@@ -80,8 +73,7 @@ func TestSavingsGoalStore_GetByID_Found(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	emoji := "🚀"
-	targetDate := time.Date(2026, 12, 25, 0, 0, 0, 0, time.UTC)
-	created, err := gs.Create(child.ID, "Rocket Ship", 99999, &emoji, &targetDate)
+	created, err := gs.Create(child.ID, "Rocket Ship", 99999, &emoji)
 	require.NoError(t, err)
 
 	found, err := gs.GetByID(created.ID)
@@ -95,7 +87,6 @@ func TestSavingsGoalStore_GetByID_Found(t *testing.T) {
 	assert.Equal(t, int64(0), found.SavedCents)
 	require.NotNil(t, found.Emoji)
 	assert.Equal(t, "🚀", *found.Emoji)
-	require.NotNil(t, found.TargetDate)
 	assert.Equal(t, "active", found.Status)
 	assert.Nil(t, found.CompletedAt)
 	assert.False(t, found.CreatedAt.IsZero())
@@ -123,11 +114,11 @@ func TestSavingsGoalStore_ListByChild_Ordering(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	// Create three goals; they'll get created_at in ascending order
-	goal1, err := gs.Create(child.ID, "Goal A", 1000, nil, nil)
+	goal1, err := gs.Create(child.ID, "Goal A", 1000, nil)
 	require.NoError(t, err)
-	goal2, err := gs.Create(child.ID, "Goal B", 2000, nil, nil)
+	goal2, err := gs.Create(child.ID, "Goal B", 2000, nil)
 	require.NoError(t, err)
-	goal3, err := gs.Create(child.ID, "Goal C", 3000, nil, nil)
+	goal3, err := gs.Create(child.ID, "Goal C", 3000, nil)
 	require.NoError(t, err)
 
 	// Mark goal2 as completed via direct SQL
@@ -178,11 +169,11 @@ func TestSavingsGoalStore_CountActiveByChild(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	// Create two active goals
-	_, err = gs.Create(child.ID, "Goal A", 1000, nil, nil)
+	_, err = gs.Create(child.ID, "Goal A", 1000, nil)
 	require.NoError(t, err)
-	goal2, err := gs.Create(child.ID, "Goal B", 2000, nil, nil)
+	goal2, err := gs.Create(child.ID, "Goal B", 2000, nil)
 	require.NoError(t, err)
-	_, err = gs.Create(child.ID, "Goal C", 3000, nil, nil)
+	_, err = gs.Create(child.ID, "Goal C", 3000, nil)
 	require.NoError(t, err)
 
 	// Mark one as completed
@@ -232,7 +223,7 @@ func TestSavingsGoalStore_Allocate_Success(t *testing.T) {
 
 	// Create a goal
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "New Bike", 50000, nil, nil)
+	goal, err := gs.Create(child.ID, "New Bike", 50000, nil)
 	require.NoError(t, err)
 
 	// Allocate $20 to the goal
@@ -270,13 +261,13 @@ func TestSavingsGoalStore_Allocate_ExceedsAvailableBalance(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	// Create a goal and allocate $30 to it
-	goal1, err := gs.Create(child.ID, "Goal A", 10000, nil, nil)
+	goal1, err := gs.Create(child.ID, "Goal A", 10000, nil)
 	require.NoError(t, err)
 	_, err = gs.Allocate(goal1.ID, child.ID, 3000)
 	require.NoError(t, err)
 
 	// Create a second goal and try to allocate $25 — only $20 is available
-	goal2, err := gs.Create(child.ID, "Goal B", 10000, nil, nil)
+	goal2, err := gs.Create(child.ID, "Goal B", 10000, nil)
 	require.NoError(t, err)
 
 	_, err = gs.Allocate(goal2.ID, child.ID, 2500)
@@ -292,7 +283,7 @@ func TestSavingsGoalStore_Allocate_ZeroAmount(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Goal", 5000, nil, nil)
+	goal, err := gs.Create(child.ID, "Goal", 5000, nil)
 	require.NoError(t, err)
 
 	_, err = gs.Allocate(goal.ID, child.ID, 0)
@@ -332,7 +323,7 @@ func TestSavingsGoalStore_Allocate_Deallocate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil, nil)
+	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil)
 	require.NoError(t, err)
 
 	// Allocate $20
@@ -370,7 +361,7 @@ func TestSavingsGoalStore_Allocate_Deallocate_ExceedsSavedCents(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil, nil)
+	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil)
 	require.NoError(t, err)
 
 	// Allocate $10
@@ -406,12 +397,12 @@ func TestSavingsGoalStore_GetAvailableBalance_WithActiveGoals(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	// Create two active goals with saved amounts via direct SQL
-	goal1, err := gs.Create(child.ID, "Goal A", 10000, nil, nil)
+	goal1, err := gs.Create(child.ID, "Goal A", 10000, nil)
 	require.NoError(t, err)
 	_, err = db.Exec(`UPDATE savings_goals SET saved_cents = $1, updated_at = NOW() WHERE id = $2`, 2000, goal1.ID)
 	require.NoError(t, err)
 
-	goal2, err := gs.Create(child.ID, "Goal B", 10000, nil, nil)
+	goal2, err := gs.Create(child.ID, "Goal B", 10000, nil)
 	require.NoError(t, err)
 	_, err = db.Exec(`UPDATE savings_goals SET saved_cents = $1, updated_at = NOW() WHERE id = $2`, 3000, goal2.ID)
 	require.NoError(t, err)
@@ -470,7 +461,7 @@ func TestSavingsGoalStore_ListAllocationsByGoal_Order(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil, nil)
+	goal, err := gs.Create(child.ID, "Bike Fund", 50000, nil)
 	require.NoError(t, err)
 
 	// Make multiple allocations
@@ -508,7 +499,7 @@ func TestSavingsGoalStore_ListAllocationsByGoal_Empty(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Empty Goal", 5000, nil, nil)
+	goal, err := gs.Create(child.ID, "Empty Goal", 5000, nil)
 	require.NoError(t, err)
 
 	allocs, err := gs.ListAllocationsByGoal(goal.ID)
@@ -537,7 +528,7 @@ func TestSavingsGoalStore_Allocate_CompletesGoal(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Small Goal", 5000, nil, nil)
+	goal, err := gs.Create(child.ID, "Small Goal", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate exactly the target amount — should auto-complete
@@ -569,7 +560,7 @@ func TestSavingsGoalStore_Allocate_OverAllocationCompletesGoal(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Small Goal", 3000, nil, nil)
+	goal, err := gs.Create(child.ID, "Small Goal", 3000, nil)
 	require.NoError(t, err)
 
 	// Allocate more than target — should still complete
@@ -601,7 +592,7 @@ func TestSavingsGoalStore_Allocate_ToCompletedGoal_Fails(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Done Goal", 1000, nil, nil)
+	goal, err := gs.Create(child.ID, "Done Goal", 1000, nil)
 	require.NoError(t, err)
 
 	// Complete the goal
@@ -630,8 +621,7 @@ func TestSavingsGoalStore_Update_NameOnly(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	emoji := "🎯"
-	targetDate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	goal, err := gs.Create(child.ID, "Original Name", 10000, &emoji, &targetDate)
+	goal, err := gs.Create(child.ID, "Original Name", 10000, &emoji)
 	require.NoError(t, err)
 
 	// Update only the name
@@ -646,10 +636,6 @@ func TestSavingsGoalStore_Update_NameOnly(t *testing.T) {
 	assert.Equal(t, int64(10000), updated.TargetCents)
 	require.NotNil(t, updated.Emoji)
 	assert.Equal(t, "🎯", *updated.Emoji)
-	require.NotNil(t, updated.TargetDate)
-	assert.Equal(t, 2026, updated.TargetDate.Year())
-	assert.Equal(t, time.Month(9), updated.TargetDate.Month())
-	assert.Equal(t, 1, updated.TargetDate.Day())
 	assert.Equal(t, "active", updated.Status)
 	assert.Nil(t, updated.CompletedAt)
 }
@@ -663,17 +649,14 @@ func TestSavingsGoalStore_Update_AllFields(t *testing.T) {
 
 	gs := NewSavingsGoalStore(db)
 
-	goal, err := gs.Create(child.ID, "Old Goal", 5000, nil, nil)
+	goal, err := gs.Create(child.ID, "Old Goal", 5000, nil)
 	require.NoError(t, err)
 
-	newDate := time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC)
 	updated, err := gs.Update(goal.ID, child.ID, &UpdateGoalParams{
-		Name:          strPtr("Updated Goal"),
-		TargetCents:   int64Ptr(20000),
-		Emoji:         strPtr("🚀"),
-		EmojiSet:      true,
-		TargetDate:    &newDate,
-		TargetDateSet: true,
+		Name:        strPtr("Updated Goal"),
+		TargetCents: int64Ptr(20000),
+		Emoji:       strPtr("🚀"),
+		EmojiSet:    true,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, updated)
@@ -682,10 +665,6 @@ func TestSavingsGoalStore_Update_AllFields(t *testing.T) {
 	assert.Equal(t, int64(20000), updated.TargetCents)
 	require.NotNil(t, updated.Emoji)
 	assert.Equal(t, "🚀", *updated.Emoji)
-	require.NotNil(t, updated.TargetDate)
-	assert.Equal(t, 2027, updated.TargetDate.Year())
-	assert.Equal(t, time.Month(1), updated.TargetDate.Month())
-	assert.Equal(t, 15, updated.TargetDate.Day())
 	assert.Equal(t, "active", updated.Status)
 }
 
@@ -711,7 +690,7 @@ func TestSavingsGoalStore_Update_AutoCompleteOnTargetReduction(t *testing.T) {
 	gs := NewSavingsGoalStore(db)
 
 	// Create a goal with target $100 (10000 cents)
-	goal, err := gs.Create(child.ID, "Big Goal", 10000, nil, nil)
+	goal, err := gs.Create(child.ID, "Big Goal", 10000, nil)
 	require.NoError(t, err)
 
 	// Allocate $50 (5000 cents)
@@ -767,7 +746,7 @@ func TestSavingsGoalStore_Update_CompletedGoal(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Done Goal", 1000, nil, nil)
+	goal, err := gs.Create(child.ID, "Done Goal", 1000, nil)
 	require.NoError(t, err)
 
 	// Complete the goal by allocating the full target
@@ -803,7 +782,7 @@ func TestSavingsGoalStore_Delete_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Doomed Goal", 50000, nil, nil)
+	goal, err := gs.Create(child.ID, "Doomed Goal", 50000, nil)
 	require.NoError(t, err)
 
 	// Allocate $30 to the goal
@@ -854,7 +833,7 @@ func TestSavingsGoalStore_Delete_CompletedGoal(t *testing.T) {
 	require.NoError(t, err)
 
 	gs := NewSavingsGoalStore(db)
-	goal, err := gs.Create(child.ID, "Completed Goal", 1000, nil, nil)
+	goal, err := gs.Create(child.ID, "Completed Goal", 1000, nil)
 	require.NoError(t, err)
 
 	// Complete the goal

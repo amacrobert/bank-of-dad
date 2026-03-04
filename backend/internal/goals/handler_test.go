@@ -68,7 +68,7 @@ func TestHandleCreate_Success(t *testing.T) {
 func TestHandleCreate_SuccessWithOptionalFields(t *testing.T) {
 	handler, _, _, family, _, child := setupHandler(t)
 
-	body := `{"name": "Video Game", "target_cents": 6000, "emoji": "🎮", "target_date": "2026-12-25"}`
+	body := `{"name": "Video Game", "target_cents": 6000, "emoji": "🎮"}`
 	req := httptest.NewRequest("POST", "/api/children/1/savings-goals", bytes.NewBufferString(body))
 	req.SetPathValue("id", strconv.FormatInt(child.ID, 10))
 	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
@@ -86,7 +86,6 @@ func TestHandleCreate_SuccessWithOptionalFields(t *testing.T) {
 	assert.Equal(t, int64(6000), goal.TargetCents)
 	require.NotNil(t, goal.Emoji)
 	assert.Equal(t, "🎮", *goal.Emoji)
-	require.NotNil(t, goal.TargetDate)
 }
 
 func TestHandleCreate_400_MissingName(t *testing.T) {
@@ -192,7 +191,7 @@ func TestHandleCreate_409_MaxActiveGoals(t *testing.T) {
 
 	// Create 5 active goals directly via the store
 	for i := 1; i <= 5; i++ {
-		_, err := goalStore.Create(child.ID, fmt.Sprintf("Goal %d", i), int64(1000*i), nil, nil)
+		_, err := goalStore.Create(child.ID, fmt.Sprintf("Goal %d", i), int64(1000*i), nil)
 		require.NoError(t, err)
 	}
 
@@ -221,9 +220,9 @@ func TestHandleList_200_ReturnsGoals(t *testing.T) {
 	handler, goalStore, _, family, _, child := setupHandler(t)
 
 	// Create a couple of goals directly via the store
-	_, err := goalStore.Create(child.ID, "Skateboard", 4500, nil, nil)
+	_, err := goalStore.Create(child.ID, "Skateboard", 4500, nil)
 	require.NoError(t, err)
-	_, err = goalStore.Create(child.ID, "Video Game", 6000, nil, nil)
+	_, err = goalStore.Create(child.ID, "Video Game", 6000, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/children/1/savings-goals", nil)
@@ -278,7 +277,7 @@ func TestHandleList_403_ChildCannotSeeSiblingGoals(t *testing.T) {
 	handler := NewHandler(goalStore, childStore)
 
 	// Create a goal for child B
-	_, err := goalStore.Create(childB.ID, "Skateboard", 4500, nil, nil)
+	_, err := goalStore.Create(childB.ID, "Skateboard", 4500, nil)
 	require.NoError(t, err)
 
 	// Child A tries to view child B's goals
@@ -301,9 +300,9 @@ func TestHandleList_200_ParentCanSeeChildGoals(t *testing.T) {
 	handler, goalStore, _, family, parent, child := setupHandler(t)
 
 	// Create goals for the child
-	_, err := goalStore.Create(child.ID, "Skateboard", 4500, nil, nil)
+	_, err := goalStore.Create(child.ID, "Skateboard", 4500, nil)
 	require.NoError(t, err)
-	_, err = goalStore.Create(child.ID, "Video Game", 6000, nil, nil)
+	_, err = goalStore.Create(child.ID, "Video Game", 6000, nil)
 	require.NoError(t, err)
 
 	// Parent views the child's goals
@@ -355,7 +354,7 @@ func TestHandleAllocate_200_PositiveAmount(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
 	// Create a goal for the child
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"amount_cents": 2000}`
@@ -382,7 +381,7 @@ func TestHandleAllocate_200_NegativeAmount_DeAllocation(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
 	// Create a goal and allocate $30 to it directly via the store
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate $30 first via the handler so saved_cents = 3000
@@ -419,7 +418,7 @@ func TestHandleAllocate_200_NegativeAmount_DeAllocation(t *testing.T) {
 func TestHandleAllocate_400_AmountIsZero(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"amount_cents": 0}`
@@ -443,7 +442,7 @@ func TestHandleAllocate_400_ExceedsAvailableBalance(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
 	// Child has $100 balance
-	goal, err := goalStore.Create(child.ID, "Expensive Thing", 50000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Expensive Thing", 50000, nil)
 	require.NoError(t, err)
 
 	// Try to allocate $120, which exceeds the $100 available balance
@@ -467,7 +466,7 @@ func TestHandleAllocate_400_ExceedsAvailableBalance(t *testing.T) {
 func TestHandleAllocate_400_DeAllocationExceedsSavedCents(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate $20 first
@@ -502,7 +501,7 @@ func TestHandleAllocate_400_DeAllocationExceedsSavedCents(t *testing.T) {
 func TestHandleAllocate_403_ParentCannotAllocate(t *testing.T) {
 	handler, goalStore, _, family, parent, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"amount_cents": 2000}`
@@ -548,7 +547,7 @@ func TestHandleAllocate_404_GoalNotFound(t *testing.T) {
 func TestHandleListAllocations_200_ReturnsAllocations(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate twice via the handler
@@ -588,7 +587,7 @@ func TestHandleListAllocations_200_ReturnsAllocations(t *testing.T) {
 func TestHandleListAllocations_200_ParentCanView(t *testing.T) {
 	handler, goalStore, _, family, parent, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate once as the child
@@ -627,7 +626,7 @@ func TestHandleAllocate_200_CompletesGoal(t *testing.T) {
 	handler, goalStore, _, _, _, child, _ := setupHandlerWithBalance(t)
 
 	// Create a goal with target $50
-	goal, err := goalStore.Create(child.ID, "Small Goal", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Small Goal", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate exactly the target amount
@@ -666,7 +665,7 @@ func TestHandleUpdate_200_Success(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
 	// Create a goal for the child
-	goal, err := goalStore.Create(child.ID, "Old Name", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Old Name", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"name": "New Name"}`
@@ -693,7 +692,7 @@ func TestHandleUpdate_200_Success(t *testing.T) {
 func TestHandleUpdate_400_NameTooLong(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	longName := strings.Repeat("a", 51)
@@ -717,7 +716,7 @@ func TestHandleUpdate_400_NameTooLong(t *testing.T) {
 func TestHandleUpdate_400_TargetCentsNegative(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"target_cents": -100}`
@@ -740,7 +739,7 @@ func TestHandleUpdate_400_TargetCentsNegative(t *testing.T) {
 func TestHandleUpdate_403_ParentCannotUpdate(t *testing.T) {
 	handler, goalStore, _, family, parent, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	body := `{"name": "New Name"}`
@@ -784,7 +783,7 @@ func TestHandleDelete_200_Success(t *testing.T) {
 	handler, goalStore, _, family, _, child, _ := setupHandlerWithBalance(t)
 
 	// Create a goal and allocate $20 to it so it has saved_cents
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	// Allocate $20 via the handler
@@ -822,7 +821,7 @@ func TestHandleDelete_200_Success(t *testing.T) {
 func TestHandleDelete_403_ParentCannotDelete(t *testing.T) {
 	handler, goalStore, _, family, parent, child, _ := setupHandlerWithBalance(t)
 
-	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil, nil)
+	goal, err := goalStore.Create(child.ID, "Skateboard", 5000, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("DELETE", "/api/children/1/savings-goals/"+strconv.FormatInt(goal.ID, 10), nil)
@@ -856,7 +855,7 @@ func TestHandleList_403_ParentCannotViewOtherFamilyChildGoals(t *testing.T) {
 	childStore := store.NewChildStore(db)
 	handler := NewHandler(goalStore, childStore)
 
-	_, err := goalStore.Create(child1.ID, "Skateboard", 4500, nil, nil)
+	_, err := goalStore.Create(child1.ID, "Skateboard", 4500, nil)
 	require.NoError(t, err)
 
 	// A parent from a different family (different familyID) tries to view child from family1
