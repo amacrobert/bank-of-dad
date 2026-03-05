@@ -1,0 +1,1 @@
+ALTER TABLE families ADD COLUMN bank_name TEXT NOT NULL DEFAULT 'Dad';

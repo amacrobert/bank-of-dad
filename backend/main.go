@@ -158,6 +158,7 @@ func main() {
 	// Settings (013-parent-settings)
 	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
 	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))
+	mux.Handle("PUT /api/settings/bank-name", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateBankName)))
 
 	// Subscription (024-stripe-subscription)
 	mux.Handle("GET /api/subscription", requireParent(http.HandlerFunc(subscriptionHandlers.HandleGetSubscription)))

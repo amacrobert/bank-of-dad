@@ -42,11 +42,13 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 
 	var familySlug string
 	var accountType string
+	var bankName string
 	if familyID != 0 {
 		fam, err := h.familyStore.GetByID(familyID)
 		if err == nil && fam != nil {
 			familySlug = fam.Slug
 			accountType = fam.AccountType
+			bankName = fam.BankName
 		}
 	}
 
@@ -65,6 +67,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 			"email":        parent.Email,
 			"family_slug":  familySlug,
 			"account_type": accountType,
+			"bank_name":    bankName,
 		})
 		return
 	}
@@ -84,6 +87,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 		"family_slug": familySlug,
 		"avatar":      child.Avatar,
 		"theme":       child.Theme,
+		"bank_name":   bankName,
 	})
 }
 
