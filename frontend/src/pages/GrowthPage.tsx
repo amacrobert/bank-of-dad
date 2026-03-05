@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useOutletContext, useNavigate, useParams } from "react-router-dom";
-import { get, getBalance, getChildAllowance, getInterestSchedule } from "../api";
+import { get, getBalance, getChildAllowance, getInterestSchedule, getSavingsGoals } from "../api";
 import {
   AuthUser,
   Child,
@@ -8,6 +8,7 @@ import {
   BalanceResponse,
   AllowanceSchedule,
   InterestSchedule,
+  SavingsGoal,
   ScenarioConfig,
   ScenarioOutcome,
   ProjectionConfig,
@@ -23,7 +24,8 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 import ChildSelectorBar from "../components/ChildSelectorBar";
 import GrowthChart from "../components/GrowthChart";
 import ScenarioControls from "../components/ScenarioControls";
-import { TrendingUp, Users } from "lucide-react";
+import { calculateGoalMarkers } from "../utils/goalMarkers";
+import { TrendingUp, Users, Target } from "lucide-react";
 
 const HORIZON_OPTIONS = [
   { months: 3, label: "3mo" },
@@ -46,6 +48,7 @@ export default function GrowthPage() {
   const [balanceData, setBalanceData] = useState<BalanceResponse | null>(null);
   const [allowance, setAllowance] = useState<AllowanceSchedule | null>(null);
   const [interestSchedule, setInterestSchedule] = useState<InterestSchedule | null>(null);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
 
   // Scenario state
   const [scenarios, setScenarios] = useState<ScenarioConfig[]>([]);
@@ -90,6 +93,7 @@ export default function GrowthPage() {
     setBalanceData(null);
     setAllowance(null);
     setInterestSchedule(null);
+    setSavingsGoals([]);
     setScenarios([]);
     setHorizonMonths(12);
     setError("");
@@ -104,11 +108,13 @@ export default function GrowthPage() {
       getBalance(childId),
       getChildAllowance(childId).catch(() => null),
       getInterestSchedule(childId).catch(() => null),
+      getSavingsGoals(childId).catch(() => null),
     ])
-      .then(([bal, allow, interest]) => {
+      .then(([bal, allow, interest, goalsResp]) => {
         setBalanceData(bal);
         setAllowance(allow);
         setInterestSchedule(interest);
+        setSavingsGoals(goalsResp?.goals ?? []);
 
         // Try to restore scenarios from URL params; fall back to defaults
         const fromUrl = deserializeScenarios(new URLSearchParams(window.location.search));
@@ -219,6 +225,7 @@ export default function GrowthPage() {
             balanceData={balanceData}
             allowance={allowance}
             interestSchedule={interestSchedule}
+            savingsGoals={savingsGoals}
           />
         )}
       </div>
@@ -258,6 +265,7 @@ export default function GrowthPage() {
         balanceData={balanceData}
         allowance={allowance}
         interestSchedule={interestSchedule}
+        savingsGoals={savingsGoals}
       />
     </div>
   );
@@ -271,6 +279,7 @@ interface ProjectorContentProps {
   balanceData: BalanceResponse | null;
   allowance: AllowanceSchedule | null;
   interestSchedule: InterestSchedule | null;
+  savingsGoals: SavingsGoal[];
 }
 
 function ProjectorContent({
@@ -281,7 +290,11 @@ function ProjectorContent({
   balanceData,
   allowance,
   interestSchedule,
+  savingsGoals,
 }: ProjectorContentProps) {
+  const hasGoals = savingsGoals.some((g) => g.status === "active" && g.target_cents > g.saved_cents);
+  const [showGoalMarkers, setShowGoalMarkers] = useState(true);
+
   const isAllowanceActive = allowance?.status === "active";
   const isInterestActive = interestSchedule?.status === "active";
   const hasAllowance = isAllowanceActive && (allowance?.amount_cents ?? 0) > 0;
@@ -336,6 +349,12 @@ function ProjectorContent({
     return { scenarioLines: lines, outcomes: outcomeMap };
   }, [scenarios, horizonMonths, balanceData, allowance, interestSchedule, isAllowanceActive, isInterestActive, hasAllowance, weeklyAllowanceCents]);
 
+  // Compute goal markers when toggle is on
+  const goalMarkers = useMemo(() => {
+    if (!showGoalMarkers || savingsGoals.length === 0 || scenarioLines.length === 0) return [];
+    return calculateGoalMarkers(scenarioLines, savingsGoals);
+  }, [showGoalMarkers, savingsGoals, scenarioLines]);
+
   const handleScenariosChange = (updated: ScenarioConfig[]) => {
     setScenarios(updated);
   };
@@ -348,28 +367,55 @@ function ProjectorContent({
           <h2 className="text-sm font-bold text-bark uppercase tracking-wide">
             Projected Balance
           </h2>
-          <div className="flex gap-1">
-            {HORIZON_OPTIONS.map((opt) => (
-              <button
-                key={opt.months}
-                onClick={() => setHorizonMonths(opt.months)}
-                className={`
-                  px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer
-                  ${horizonMonths === opt.months
-                    ? "bg-forest text-white"
-                    : "text-bark-light hover:bg-cream-dark"
-                  }
-                `}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            {/* Goal markers toggle */}
+            <button
+              onClick={() => hasGoals && setShowGoalMarkers((prev) => !prev)}
+              disabled={!hasGoals}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                ${!hasGoals
+                  ? "text-bark-light/50 cursor-not-allowed"
+                  : showGoalMarkers
+                    ? "bg-forest/10 text-forest cursor-pointer"
+                    : "text-bark-light hover:bg-cream-dark cursor-pointer"
+                }
+              `}
+              title={
+                !hasGoals
+                  ? "Add goals to project when you can reach them"
+                  : showGoalMarkers
+                    ? "Hide savings goals"
+                    : "Show savings goals on chart"
+              }
+            >
+              <Target className="h-3.5 w-3.5" />
+              Goals
+            </button>
+            <div className="flex gap-1">
+              {HORIZON_OPTIONS.map((opt) => (
+                <button
+                  key={opt.months}
+                  onClick={() => setHorizonMonths(opt.months)}
+                  className={`
+                    px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer
+                    ${horizonMonths === opt.months
+                      ? "bg-forest text-white"
+                      : "text-bark-light hover:bg-cream-dark"
+                    }
+                  `}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {scenarioLines.length > 0 && (
           <GrowthChart
             scenarios={scenarioLines}
             animationKey={`horizon-${horizonMonths}`}
+            goalMarkers={goalMarkers}
           />
         )}
       </Card>
