@@ -41,7 +41,7 @@ export default function Layout({ user, children }: LayoutProps) {
         {/* Branding */}
         <div className="flex items-center gap-2 px-5 py-5">
           <Leaf className="h-6 w-6 text-forest" aria-hidden="true" />
-          <span className="text-lg font-bold text-forest">Bank of Dad</span>
+          <span className="text-lg font-bold text-forest truncate">Bank of {user.bank_name || "Dad"}</span>
         </div>
 
         {/* Navigation links */}

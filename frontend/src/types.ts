@@ -6,6 +6,7 @@ export interface ParentUser {
   email: string;
   family_slug: string;
   account_type?: string;
+  bank_name: string;
 }
 
 export interface ChildUser {
@@ -16,6 +17,7 @@ export interface ChildUser {
   family_slug: string;
   avatar?: string | null;
   theme?: string | null;
+  bank_name: string;
 }
 
 export type AuthUser = ParentUser | ChildUser;
@@ -168,11 +170,17 @@ export interface SetInterestResponse {
 
 export interface SettingsResponse {
   timezone: string;
+  bank_name: string;
 }
 
 export interface UpdateTimezoneResponse {
   message: string;
   timezone: string;
+}
+
+export interface UpdateBankNameResponse {
+  message: string;
+  bank_name: string;
 }
 
 // Interest Schedule Feature (006-account-management-enhancements)

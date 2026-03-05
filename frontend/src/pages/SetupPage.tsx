@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { get, post } from "../api";
-import { ApiRequestError } from "../api";
+import { get, post, updateBankName, ApiRequestError } from "../api";
 import { setTokens, getRefreshToken } from "../auth";
 import { ParentUser, Child, ChildListResponse } from "../types";
 import SlugPicker from "../components/SlugPicker";
+import BankNameInput from "../components/BankNameInput";
 import AddChildForm from "../components/AddChildForm";
 import ChildSelectorBar from "../components/ChildSelectorBar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
-import { Leaf, PartyPopper, Users } from "lucide-react";
+import { Leaf, PartyPopper, Users, Sparkles } from "lucide-react";
 
 export default function SetupPage() {
   const navigate = useNavigate();
@@ -19,8 +19,9 @@ export default function SetupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // Step tracking: 1 = slug picker, 2 = add children, 3 = confirmation
+  // Step tracking: 1 = slug picker, 2 = bank name, 3 = add children, 4 = confirmation
   const [step, setStep] = useState(1);
+  const [bankName, setBankName] = useState("Dad");
   const [showAddChild, setShowAddChild] = useState(false);
   const [children, setChildren] = useState<Child[]>([]);
   const [childRefreshKey, setChildRefreshKey] = useState(0);
@@ -32,7 +33,7 @@ export default function SetupPage() {
   }, []);
 
   useEffect(() => {
-    if (step === 2) {
+    if (step === 3) {
       fetchChildren();
     }
   }, [step, childRefreshKey, fetchChildren]);
@@ -41,7 +42,7 @@ export default function SetupPage() {
     get<ParentUser>("/auth/me")
       .then((data) => {
         if (data.family_id > 0) {
-          setStep(2);
+          setStep(3);
         }
       })
       .catch(() => {
@@ -49,6 +50,7 @@ export default function SetupPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
   const handleSubmit = async () => {
     if (!selectedSlug) return;
 
@@ -70,6 +72,24 @@ export default function SetupPage() {
       } else {
         setError("Something went wrong. Please try again.");
       }
+      setSubmitting(false);
+    }
+  };
+
+  const handleBankNameSubmit = async () => {
+    if (!bankName.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await updateBankName(bankName.trim());
+      setStep(3);
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setError(err.body.message || err.body.error);
+      } else {
+        setError("Failed to save bank name. Please try again.");
+      }
+    } finally {
       setSubmitting(false);
     }
   };
@@ -96,7 +116,7 @@ export default function SetupPage() {
       <div className="w-full max-w-md animate-fade-in-up">
         {/* Progress dots */}
         <div className="flex justify-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`w-3 h-3 rounded-full transition-colors ${
@@ -144,8 +164,45 @@ export default function SetupPage() {
           </Card>
         )}
 
-        {/* Step 2: Add children */}
+        {/* Step 2: Bank name */}
         {step === 2 && (
+          <Card padding="lg">
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 bg-forest/10 rounded-2xl flex items-center justify-center">
+                <Sparkles className="h-7 w-7 text-forest" aria-hidden="true" />
+              </div>
+            </div>
+
+            <h1 className="text-2xl font-bold text-forest text-center mb-2">
+              Personalize your bank
+            </h1>
+            <p className="text-bark-light text-center mb-6">
+              Who runs this bank? Pick a name or create your own.
+            </p>
+
+            <BankNameInput value={bankName} onChange={setBankName} />
+
+            {error && (
+              <div className="mt-4 bg-terracotta/10 border border-terracotta/20 rounded-xl p-3">
+                <p className="text-sm text-terracotta font-medium">{error}</p>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <Button
+                onClick={handleBankNameSubmit}
+                loading={submitting}
+                disabled={!bankName.trim() || submitting}
+                className="w-full"
+              >
+                {submitting ? "Saving..." : "Continue"}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Step 3: Add children */}
+        {step === 3 && (
           <div className="space-y-4">
             <Card padding="lg">
               <div className="flex justify-center mb-4">
@@ -178,11 +235,11 @@ export default function SetupPage() {
             </Modal>
 
             <div className="space-y-3">
-              <Button onClick={() => setStep(3)} className="w-full">
+              <Button onClick={() => setStep(4)} className="w-full">
                 Continue to Dashboard
               </Button>
               <button
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
                 className="w-full text-center text-sm text-bark-light hover:text-bark transition-colors cursor-pointer"
               >
                 Skip for now
@@ -191,8 +248,8 @@ export default function SetupPage() {
           </div>
         )}
 
-        {/* Step 3: Confirmation */}
-        {step === 3 && (
+        {/* Step 4: Confirmation */}
+        {step === 4 && (
           <Card padding="lg">
             <div className="text-center">
               <div className="flex justify-center mb-4">
