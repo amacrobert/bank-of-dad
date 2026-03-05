@@ -19,6 +19,7 @@ import { ProjectionConfig } from "../types";
 import { Navigate } from "react-router-dom";
 import Card from "../components/ui/Card";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import RotatingName from "../components/RotatingName";
 import { getFamilySlug } from "../utils/familyPreference";
 
 // ---------------------------------------------------------------------------
@@ -220,7 +221,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Leaf className="h-6 w-6 text-forest" aria-hidden="true" />
-            <span className="text-lg font-bold text-forest">Bank of Dad</span>
+            <span className="text-lg font-bold text-forest">Bank of <RotatingName className="font-bold" /></span>
           </div>
           <GoogleSignInButton size="compact" />
         </div>

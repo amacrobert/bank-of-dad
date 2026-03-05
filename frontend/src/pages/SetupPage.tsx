@@ -65,6 +65,7 @@ export default function SetupPage() {
           setTokens(resp.access_token, refreshToken);
         }
       }
+      setSubmitting(false);
       setStep(2);
     } catch (err) {
       if (err instanceof ApiRequestError) {
