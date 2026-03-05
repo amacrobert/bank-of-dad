@@ -249,7 +249,7 @@ export function getGoalAllocations(childId: number, goalId: number): Promise<{ a
 }
 
 // Settings API functions (013-parent-settings)
-import { SettingsResponse, UpdateTimezoneResponse } from "./types";
+import { SettingsResponse, UpdateTimezoneResponse, UpdateBankNameResponse } from "./types";
 
 export function getSettings(): Promise<SettingsResponse> {
   return get<SettingsResponse>("/settings");
@@ -257,6 +257,10 @@ export function getSettings(): Promise<SettingsResponse> {
 
 export function updateTimezone(timezone: string): Promise<UpdateTimezoneResponse> {
   return put<UpdateTimezoneResponse>("/settings/timezone", { timezone });
+}
+
+export function updateBankName(bankName: string): Promise<UpdateBankNameResponse> {
+  return put<UpdateBankNameResponse>("/settings/bank-name", { bank_name: bankName });
 }
 
 export function deleteAccount(): Promise<void> {

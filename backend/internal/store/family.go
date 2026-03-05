@@ -24,6 +24,7 @@ type Family struct {
 	ID        int64
 	Slug      string
 	Timezone  string
+	BankName  string
 	CreatedAt time.Time
 	AccountType                  string
 	StripeCustomerID             sql.NullString
@@ -56,8 +57,8 @@ func (s *FamilyStore) Create(slug string) (*Family, error) {
 func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE id = $1`, id,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+		`SELECT id, slug, timezone, bank_name, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE id = $1`, id,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.BankName, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -70,8 +71,8 @@ func (s *FamilyStore) GetByID(id int64) (*Family, error) {
 func (s *FamilyStore) GetBySlug(slug string) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE slug = $1`, slug,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+		`SELECT id, slug, timezone, bank_name, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE slug = $1`, slug,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.BankName, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -102,6 +103,34 @@ func (s *FamilyStore) UpdateTimezone(familyID int64, timezone string) error {
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("update timezone rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("family not found: %d", familyID)
+	}
+	return nil
+}
+
+func (s *FamilyStore) GetBankName(familyID int64) (string, error) {
+	var bankName string
+	err := s.db.QueryRow(
+		`SELECT bank_name FROM families WHERE id = $1`, familyID,
+	).Scan(&bankName)
+	if err != nil {
+		return "", fmt.Errorf("get bank name: %w", err)
+	}
+	return bankName, nil
+}
+
+func (s *FamilyStore) UpdateBankName(familyID int64, bankName string) error {
+	result, err := s.db.Exec(
+		`UPDATE families SET bank_name = $1 WHERE id = $2`, bankName, familyID,
+	)
+	if err != nil {
+		return fmt.Errorf("update bank name: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update bank name rows affected: %w", err)
 	}
 	if rows == 0 {
 		return fmt.Errorf("family not found: %d", familyID)
@@ -203,8 +232,8 @@ func (s *FamilyStore) GetSubscriptionByFamilyID(familyID int64) (*SubscriptionIn
 func (s *FamilyStore) GetFamilyByStripeCustomerID(customerID string) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_customer_id = $1`, customerID,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+		`SELECT id, slug, timezone, bank_name, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_customer_id = $1`, customerID,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.BankName, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -218,8 +247,8 @@ func (s *FamilyStore) GetFamilyByStripeCustomerID(customerID string) (*Family, e
 func (s *FamilyStore) GetFamilyByStripeSubscriptionID(subscriptionID string) (*Family, error) {
 	var f Family
 	err := s.db.QueryRow(
-		`SELECT id, slug, timezone, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_subscription_id = $1`, subscriptionID,
-	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
+		`SELECT id, slug, timezone, bank_name, created_at, account_type, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end FROM families WHERE stripe_subscription_id = $1`, subscriptionID,
+	).Scan(&f.ID, &f.Slug, &f.Timezone, &f.BankName, &f.CreatedAt, &f.AccountType, &f.StripeCustomerID, &f.StripeSubscriptionID, &f.SubscriptionStatus, &f.SubscriptionCurrentPeriodEnd, &f.SubscriptionCancelAtPeriodEnd)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

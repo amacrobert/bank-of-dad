@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/store"
 )
+
+var validBankName = regexp.MustCompile(`^[\p{L}\p{N} '\-]+$`)
 
 type Handlers struct {
 	familyStore *store.FamilyStore
@@ -31,7 +35,16 @@ func (h *Handlers) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"timezone": tz})
+	bankName, err := h.familyStore.GetBankName(familyID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"timezone":  tz,
+		"bank_name": bankName,
+	})
 }
 
 func (h *Handlers) HandleUpdateTimezone(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +87,58 @@ func (h *Handlers) HandleUpdateTimezone(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message":  "Timezone updated",
 		"timezone": req.Timezone,
+	})
+}
+
+func (h *Handlers) HandleUpdateBankName(w http.ResponseWriter, r *http.Request) {
+	familyID := middleware.GetFamilyID(r)
+	if familyID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No family associated"})
+		return
+	}
+
+	var req struct {
+		BankName string `json:"bank_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	req.BankName = strings.TrimSpace(req.BankName)
+
+	if req.BankName == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error":   "bad_request",
+			"message": "Bank name is required",
+		})
+		return
+	}
+
+	if len([]rune(req.BankName)) > 12 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error":   "bad_request",
+			"message": "Bank name must be 12 characters or fewer",
+		})
+		return
+	}
+
+	if !validBankName.MatchString(req.BankName) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error":   "bad_request",
+			"message": "Bank name contains invalid characters",
+		})
+		return
+	}
+
+	if err := h.familyStore.UpdateBankName(familyID, req.BankName); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":   "Bank name updated",
+		"bank_name": req.BankName,
 	})
 }
 

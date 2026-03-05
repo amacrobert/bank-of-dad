@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getSettings, updateTimezone, ApiRequestError } from "../api";
+import { getSettings, updateTimezone, updateBankName, ApiRequestError } from "../api";
 import { SettingsResponse, Child } from "../types";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import TimezoneSelect from "../components/TimezoneSelect";
+import BankNameInput from "../components/BankNameInput";
 import ChildrenSettings from "../components/ChildrenSettings";
 import AccountSettings from "../components/AccountSettings";
 import { Settings, Globe, Users, User, CreditCard } from "lucide-react";
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   // Settings state
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [selectedTimezone, setSelectedTimezone] = useState("");
+  const [selectedBankName, setSelectedBankName] = useState("");
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -54,6 +56,7 @@ export default function SettingsPage() {
       .then((data) => {
         setSettings(data);
         setSelectedTimezone(data.timezone);
+        setSelectedBankName(data.bank_name);
         setLoading(false);
       })
       .catch(() => {
@@ -62,21 +65,30 @@ export default function SettingsPage() {
       });
   }, []);
 
-  const hasChanges = settings !== null && selectedTimezone !== settings.timezone;
+  const hasChanges = settings !== null && (
+    selectedTimezone !== settings.timezone ||
+    selectedBankName !== settings.bank_name
+  );
 
   const handleSave = async () => {
     setSaving(true);
     setSuccessMsg("");
     setErrorMsg("");
     try {
-      const result = await updateTimezone(selectedTimezone);
-      setSettings({ timezone: result.timezone });
-      setSuccessMsg("Timezone updated successfully.");
+      if (selectedBankName !== settings?.bank_name) {
+        const bnResult = await updateBankName(selectedBankName);
+        setSettings((prev) => prev ? { ...prev, bank_name: bnResult.bank_name } : prev);
+      }
+      if (selectedTimezone !== settings?.timezone) {
+        const tzResult = await updateTimezone(selectedTimezone);
+        setSettings((prev) => prev ? { ...prev, timezone: tzResult.timezone } : prev);
+      }
+      setSuccessMsg("Settings saved.");
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setErrorMsg(err.body.message || err.body.error || "Failed to save.");
       } else {
-        setErrorMsg("Failed to save timezone.");
+        setErrorMsg("Failed to save settings.");
       }
     } finally {
       setSaving(false);
@@ -167,6 +179,21 @@ export default function SettingsPage() {
               <h2 className="text-lg font-bold text-bark mb-4">General</h2>
 
               <div className="space-y-6">
+                {/* Bank name setting */}
+                <div>
+                  <h3 className="text-sm font-semibold text-bark-light mb-3">Bank name</h3>
+                  <BankNameInput
+                    value={selectedBankName}
+                    onChange={(name) => {
+                      setSelectedBankName(name);
+                      setSuccessMsg("");
+                      setErrorMsg("");
+                    }}
+                  />
+                </div>
+
+                <div className="border-t border-sand" />
+
                 {/* Timezone setting */}
                 <div>
                   <TimezoneSelect
