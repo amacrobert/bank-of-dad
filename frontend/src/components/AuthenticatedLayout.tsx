@@ -42,6 +42,15 @@ export default function AuthenticatedLayout({ userType }: Props) {
       });
   }, [navigate, userType]);
 
+  useEffect(() => {
+    if (user) {
+      document.title = `Bank of ${user.bank_name || "Dad"}`;
+    }
+    return () => {
+      document.title = "Bank of Dad";
+    };
+  }, [user]);
+
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
