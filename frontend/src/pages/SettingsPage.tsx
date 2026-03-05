@@ -11,6 +11,7 @@ import ChildrenSettings from "../components/ChildrenSettings";
 import AccountSettings from "../components/AccountSettings";
 import { Settings, Globe, Users, User, CreditCard } from "lucide-react";
 import SubscriptionSettings from "../components/SubscriptionSettings";
+import { useSetUser } from "../hooks/useAuthOutletContext";
 
 interface SettingsCategory {
   key: string;
@@ -30,6 +31,7 @@ const VALID_CATEGORY_KEYS = CATEGORIES.map((c) => c.key);
 export default function SettingsPage() {
   const { category, childName } = useParams<{ category: string; childName?: string }>();
   const navigate = useNavigate();
+  const setUser = useSetUser();
   const [loading, setLoading] = useState(true);
 
   // If the route is /settings/children/:childName, category param won't be set —
@@ -78,6 +80,7 @@ export default function SettingsPage() {
       if (selectedBankName !== settings?.bank_name) {
         const bnResult = await updateBankName(selectedBankName);
         setSettings((prev) => prev ? { ...prev, bank_name: bnResult.bank_name } : prev);
+        setUser((prev) => prev ? { ...prev, bank_name: bnResult.bank_name } : prev);
       }
       if (selectedTimezone !== settings?.timezone) {
         const tzResult = await updateTimezone(selectedTimezone);
