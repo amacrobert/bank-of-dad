@@ -184,6 +184,19 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	count, err := h.childStore.CountByFamily(familyID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to check family size"})
+		return
+	}
+	if count >= 2 {
+		writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error":   "Limit reached",
+			"message": "You can have up to 20 children per family.",
+		})
+		return
+	}
+
 	var req struct {
 		FirstName string  `json:"first_name"`
 		Password  string  `json:"password"`

@@ -31,6 +31,15 @@ func NewChildStore(db *sql.DB) *ChildStore {
 	return &ChildStore{db: db}
 }
 
+func (s *ChildStore) CountByFamily(familyID int64) (int, error) {
+	var count int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM children WHERE family_id = $1`, familyID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count children by family: %w", err)
+	}
+	return count, nil
+}
+
 func (s *ChildStore) Create(familyID int64, firstName, password string, avatar *string) (*Child, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
