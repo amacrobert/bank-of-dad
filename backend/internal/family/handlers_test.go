@@ -2,6 +2,7 @@ package family
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -371,4 +372,42 @@ func TestHandleDeleteAccount_NoSubscriptionAllows(t *testing.T) {
 	h.HandleDeleteAccount(rr, req)
 
 	assert.Equal(t, http.StatusNoContent, rr.Code)
+}
+
+func TestHandleCreateChild_MaxChildrenLimit(t *testing.T) {
+	db := testutil.SetupTestDB(t)
+	familyStore := store.NewFamilyStore(db)
+	parentStore := store.NewParentStore(db)
+	childStore := store.NewChildStore(db)
+	eventStore := store.NewAuthEventStore(db)
+	h := NewHandlers(familyStore, parentStore, childStore, eventStore, []byte("test-key"))
+
+	fam, err := familyStore.Create("big-family")
+	require.NoError(t, err)
+
+	parent, err := parentStore.Create("g-limit-1", "limit@test.com", "Limit Parent")
+	require.NoError(t, err)
+	err = parentStore.SetFamilyID(parent.ID, fam.ID)
+	require.NoError(t, err)
+
+	// Create 20 children
+	for i := 1; i <= 20; i++ {
+		_, err := childStore.Create(fam.ID, fmt.Sprintf("Child%d", i), "password123", nil)
+		require.NoError(t, err)
+	}
+
+	// 21st should be rejected
+	body := strings.NewReader(`{"first_name":"Child21","password":"password123"}`)
+	req := httptest.NewRequest("POST", "/api/children", body)
+	req = testutil.SetRequestContext(req, "parent", parent.ID, fam.ID)
+	rr := httptest.NewRecorder()
+
+	h.HandleCreateChild(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var resp map[string]interface{}
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, "Limit reached", resp["error"])
 }
