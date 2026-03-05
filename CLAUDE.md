@@ -71,6 +71,8 @@ cd frontend && npm run lint
 - PostgreSQL 17 — extend `families` table, add `stripe_webhook_events` table (024-stripe-subscription)
 - Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + pgx/v5 (existing), Vite + Tailwind CSS 4 (existing), lucide-react (existing), Recharts (existing) (025-savings-goals)
 - PostgreSQL 17 — 2 new tables (`savings_goals`, `goal_allocations`), no changes to existing tables (025-savings-goals)
+- Go 1.24 (backend, unchanged), TypeScript 5.3.3 + React 18.2.0 (frontend) + Vite, Tailwind CSS 4, lucide-react (all existing) (026-child-auto-setup)
+- PostgreSQL 17 (existing, no schema changes) (026-child-auto-setup)
 
 ## Recent Changes
 - 024-stripe-subscription: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `github.com/stripe/stripe-go/v82` (new), pgx/v5 (existing), Vite + Tailwind CSS 4 (existing)
