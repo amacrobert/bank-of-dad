@@ -73,6 +73,8 @@ cd frontend && npm run lint
 - PostgreSQL 17 — 2 new tables (`savings_goals`, `goal_allocations`), no changes to existing tables (025-savings-goals)
 - Go 1.24 (backend, unchanged), TypeScript 5.3.3 + React 18.2.0 (frontend) + Vite, Tailwind CSS 4, lucide-react (all existing) (026-child-auto-setup)
 - PostgreSQL 17 (existing, no schema changes) (026-child-auto-setup)
+- Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + pgx/v5 (DB), stripe-go/v82 (webhooks), Vite + Tailwind CSS 4, lucide-reac (028-child-account-limits)
+- PostgreSQL 17 — 1 new column (`is_disabled`) on existing `children` table (028-child-account-limits)
 
 ## Recent Changes
 - 024-stripe-subscription: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `github.com/stripe/stripe-go/v82` (new), pgx/v5 (existing), Vite + Tailwind CSS 4 (existing)

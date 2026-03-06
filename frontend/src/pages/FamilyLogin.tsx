@@ -29,7 +29,8 @@ export default function FamilyLogin() {
     ])
       .then(([familyData, childrenData]) => {
         setFamilyExists(familyData.exists);
-        setChildren(childrenData.children || []);
+        // Filter out disabled children — they cannot log in
+        setChildren((childrenData.children || []).filter((c) => !c.is_disabled));
       })
       .catch(() => {
         setFamilyExists(false);

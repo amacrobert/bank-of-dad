@@ -26,6 +26,7 @@ export interface Child {
   id: number;
   first_name: string;
   is_locked: boolean;
+  is_disabled: boolean;
   balance_cents: number;
   created_at: string;
   avatar?: string | null;
@@ -57,6 +58,7 @@ export interface ApiError {
 export interface FamilyChild {
   first_name: string;
   avatar: string | null;
+  is_disabled: boolean;
 }
 
 export interface FamilyChildrenResponse {

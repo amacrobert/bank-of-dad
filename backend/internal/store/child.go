@@ -15,6 +15,7 @@ type Child struct {
 	FirstName           string
 	PasswordHash        string
 	IsLocked            bool
+	IsDisabled          bool
 	FailedLoginAttempts int
 	BalanceCents        int64
 	Avatar              *string
@@ -65,9 +66,9 @@ func (s *ChildStore) GetByID(id int64) (*Child, error) {
 	var c Child
 	var avatar, theme sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, is_disabled, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE id = $1`, id,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.IsDisabled, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -87,9 +88,9 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 	var c Child
 	var avatar, theme sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, is_disabled, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE family_id = $1 AND first_name = $2`, familyID, firstName,
-	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
+	).Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.IsDisabled, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -107,7 +108,7 @@ func (s *ChildStore) GetByFamilyAndName(familyID int64, firstName string) (*Chil
 
 func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	rows, err := s.db.Query(
-		`SELECT id, family_id, first_name, password_hash, is_locked, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
+		`SELECT id, family_id, first_name, password_hash, is_locked, is_disabled, failed_login_attempts, balance_cents, avatar, theme, created_at, updated_at
 		 FROM children WHERE family_id = $1 ORDER BY id`, familyID,
 	)
 	if err != nil {
@@ -119,7 +120,7 @@ func (s *ChildStore) ListByFamily(familyID int64) ([]Child, error) {
 	for rows.Next() {
 		var c Child
 		var avatar, theme sql.NullString
-		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.FamilyID, &c.FirstName, &c.PasswordHash, &c.IsLocked, &c.IsDisabled, &c.FailedLoginAttempts, &c.BalanceCents, &avatar, &theme, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
 		if avatar.Valid {
@@ -272,6 +273,91 @@ func (s *ChildStore) Delete(id int64) error {
 
 	if _, err := tx.Exec(`DELETE FROM children WHERE id = $1`, id); err != nil {
 		return fmt.Errorf("delete child: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// SetDisabled sets the is_disabled flag on a child.
+func (s *ChildStore) SetDisabled(childID int64, disabled bool) error {
+	_, err := s.db.Exec(
+		`UPDATE children SET is_disabled = $1, updated_at = NOW() WHERE id = $2`,
+		disabled, childID,
+	)
+	if err != nil {
+		return fmt.Errorf("set disabled: %w", err)
+	}
+	return nil
+}
+
+// CountEnabledByFamily returns the number of enabled (non-disabled) children in a family.
+func (s *ChildStore) CountEnabledByFamily(familyID int64) (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM children WHERE family_id = $1 AND is_disabled = FALSE`, familyID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count enabled children by family: %w", err)
+	}
+	return count, nil
+}
+
+// EnableAllChildren sets is_disabled = FALSE for all children in a family.
+func (s *ChildStore) EnableAllChildren(familyID int64) error {
+	_, err := s.db.Exec(
+		`UPDATE children SET is_disabled = FALSE, updated_at = NOW() WHERE family_id = $1 AND is_disabled = TRUE`,
+		familyID,
+	)
+	if err != nil {
+		return fmt.Errorf("enable all children: %w", err)
+	}
+	return nil
+}
+
+// DisableExcessChildren disables all children beyond the earliest `limit` (by ID) in a family.
+func (s *ChildStore) DisableExcessChildren(familyID int64, limit int) error {
+	_, err := s.db.Exec(
+		`UPDATE children SET is_disabled = TRUE, updated_at = NOW()
+		 WHERE family_id = $1 AND id NOT IN (
+			SELECT id FROM children WHERE family_id = $1 ORDER BY id ASC LIMIT $2
+		 )`,
+		familyID, limit,
+	)
+	if err != nil {
+		return fmt.Errorf("disable excess children: %w", err)
+	}
+	return nil
+}
+
+// ReconcileChildLimits enables the earliest `limit` children (by ID) and disables the rest.
+// This is the single source of truth for enforcing the free tier child limit.
+func (s *ChildStore) ReconcileChildLimits(familyID int64, limit int) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin reconcile: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+	// Enable the earliest `limit` children
+	if _, err := tx.Exec(
+		`UPDATE children SET is_disabled = FALSE, updated_at = NOW()
+		 WHERE family_id = $1 AND is_disabled = TRUE AND id IN (
+			SELECT id FROM children WHERE family_id = $1 ORDER BY id ASC LIMIT $2
+		 )`,
+		familyID, limit,
+	); err != nil {
+		return fmt.Errorf("enable earliest children: %w", err)
+	}
+
+	// Disable the rest
+	if _, err := tx.Exec(
+		`UPDATE children SET is_disabled = TRUE, updated_at = NOW()
+		 WHERE family_id = $1 AND is_disabled = FALSE AND id NOT IN (
+			SELECT id FROM children WHERE family_id = $1 ORDER BY id ASC LIMIT $2
+		 )`,
+		familyID, limit,
+	); err != nil {
+		return fmt.Errorf("disable excess children: %w", err)
 	}
 
 	return tx.Commit()

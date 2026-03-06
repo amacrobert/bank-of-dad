@@ -73,6 +73,7 @@ export default function ChildrenSettings({
         onSelectChild={onChildSelect}
         loading={loading}
         onAddChild={() => setShowAddChild(true)}
+        allowDisabledSelection
       />
 
       {selectedChild ? (

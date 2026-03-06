@@ -121,7 +121,7 @@ func (s *InterestScheduleStore) ListDue(now time.Time) ([]DueInterestSchedule, e
 		 FROM interest_schedules s
 		 JOIN children c ON c.id = s.child_id
 		 JOIN families f ON f.id = c.family_id
-		 WHERE s.status = 'active' AND s.next_run_at <= $1
+		 WHERE s.status = 'active' AND s.next_run_at <= $1 AND c.is_disabled = FALSE
 		 ORDER BY s.next_run_at ASC`,
 		now,
 	)
@@ -169,7 +169,7 @@ func (s *InterestScheduleStore) ListAllActiveWithTimezone() ([]DueInterestSchedu
 		 FROM interest_schedules s
 		 JOIN children c ON c.id = s.child_id
 		 JOIN families f ON f.id = c.family_id
-		 WHERE s.status = 'active'
+		 WHERE s.status = 'active' AND c.is_disabled = FALSE
 		 ORDER BY s.id ASC`,
 	)
 	if err != nil {

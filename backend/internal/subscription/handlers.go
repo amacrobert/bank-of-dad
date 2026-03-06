@@ -23,6 +23,7 @@ import (
 type Handlers struct {
 	familyStore         *store.FamilyStore
 	parentStore         *store.ParentStore
+	childStore          *store.ChildStore
 	webhookEventStore   *store.WebhookEventStore
 	stripeSecretKey     string
 	stripeWebhookSecret string
@@ -32,6 +33,7 @@ type Handlers struct {
 func NewHandlers(
 	familyStore *store.FamilyStore,
 	parentStore *store.ParentStore,
+	childStore *store.ChildStore,
 	webhookEventStore *store.WebhookEventStore,
 	stripeSecretKey string,
 	stripeWebhookSecret string,
@@ -40,6 +42,7 @@ func NewHandlers(
 	return &Handlers{
 		familyStore:         familyStore,
 		parentStore:         parentStore,
+		childStore:          childStore,
 		webhookEventStore:   webhookEventStore,
 		stripeSecretKey:     stripeSecretKey,
 		stripeWebhookSecret: stripeWebhookSecret,
@@ -315,6 +318,11 @@ func (h *Handlers) handleCheckoutCompleted(event stripe.Event) {
 		periodEnd := time.Now().UTC().Add(30 * 24 * time.Hour)
 		if err := h.familyStore.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, "active", periodEnd); err != nil {
 			log.Printf("checkout.session.completed: error updating family: %v", err)
+			return
+		}
+		// Enable all disabled children now that family is Plus
+		if err := h.childStore.EnableAllChildren(familyID); err != nil {
+			log.Printf("checkout.session.completed: error enabling children for family %d: %v", familyID, err)
 		}
 		return
 	}
@@ -331,6 +339,12 @@ func (h *Handlers) handleCheckoutCompleted(event stripe.Event) {
 	periodEnd := time.Unix(periodEndUnix, 0).UTC()
 	if err := h.familyStore.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, string(sub.Status), periodEnd); err != nil {
 		log.Printf("checkout.session.completed: error updating family: %v", err)
+		return
+	}
+
+	// Enable all disabled children now that family is Plus
+	if err := h.childStore.EnableAllChildren(familyID); err != nil {
+		log.Printf("checkout.session.completed: error enabling children for family %d: %v", familyID, err)
 	}
 }
 
@@ -354,8 +368,22 @@ func (h *Handlers) handleSubscriptionDeleted(event stripe.Event) {
 		return
 	}
 
+	// Look up family BEFORE clearing subscription (ClearSubscription NULLs the subscription ID)
+	fam, err := h.familyStore.GetFamilyByStripeSubscriptionID(sub.ID)
+	if err != nil {
+		log.Printf("customer.subscription.deleted: error looking up family for subscription %s: %v", sub.ID, err)
+	}
+
 	if err := h.familyStore.ClearSubscription(sub.ID); err != nil {
 		log.Printf("customer.subscription.deleted: family not found for subscription %s: %v", sub.ID, err)
+		return
+	}
+
+	// Disable excess children now that family is back to free tier (limit: 2)
+	if fam != nil {
+		if err := h.childStore.ReconcileChildLimits(fam.ID, 2); err != nil {
+			log.Printf("customer.subscription.deleted: error reconciling children for family %d: %v", fam.ID, err)
+		}
 	}
 }
 
