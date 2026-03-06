@@ -277,7 +277,7 @@ func (s *ScheduleStore) ListDue(now time.Time) ([]DueAllowanceSchedule, error) {
 		 FROM allowance_schedules s
 		 JOIN children c ON c.id = s.child_id
 		 JOIN families f ON f.id = c.family_id
-		 WHERE s.status = 'active' AND s.next_run_at <= $1
+		 WHERE s.status = 'active' AND s.next_run_at <= $1 AND c.is_disabled = FALSE
 		 ORDER BY s.next_run_at ASC`,
 		now,
 	)
@@ -330,7 +330,7 @@ func (s *ScheduleStore) ListAllActiveWithTimezone() ([]DueAllowanceSchedule, err
 		 FROM allowance_schedules s
 		 JOIN children c ON c.id = s.child_id
 		 JOIN families f ON f.id = c.family_id
-		 WHERE s.status = 'active'
+		 WHERE s.status = 'active' AND c.is_disabled = FALSE
 		 ORDER BY s.id ASC`,
 	)
 	if err != nil {

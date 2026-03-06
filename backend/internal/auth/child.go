@@ -77,6 +77,15 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check disabled (free tier limit)
+	if child.IsDisabled {
+		writeJSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":   "Account disabled",
+			"message": "This account is disabled. Ask your parent to upgrade to Plus.",
+		})
+		return
+	}
+
 	// Check locked
 	if child.IsLocked {
 		writeJSON(w, http.StatusForbidden, map[string]interface{}{

@@ -72,6 +72,7 @@ func (s *InterestStore) ListDueForInterest() ([]InterestDue, error) {
 		JOIN parents p ON p.family_id = c.family_id
 		WHERE c.interest_rate_bps > 0
 		  AND c.balance_cents > 0
+		  AND c.is_disabled = FALSE
 		  AND (c.last_interest_at IS NULL OR to_char(c.last_interest_at, 'YYYY-MM') != $1)
 	`, currentMonth)
 	if err != nil {

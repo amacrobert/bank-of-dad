@@ -195,7 +195,10 @@ export default function SubscriptionSettings() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-bark-light mb-4">
-              Upgrade to Plus to unlock premium features for your family.
+              Free plans allow you to manage two children in your bank.
+            </p>
+            <p className="text-sm text-bark-light mb-4">
+              Upgrade to Plus to remove this limit.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button

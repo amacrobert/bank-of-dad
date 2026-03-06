@@ -162,16 +162,18 @@ func (h *Handlers) HandleListFamilyChildren(w http.ResponseWriter, r *http.Reque
 	}
 
 	type publicChild struct {
-		FirstName string  `json:"first_name"`
-		Avatar    *string `json:"avatar"`
+		FirstName  string  `json:"first_name"`
+		Avatar     *string `json:"avatar"`
+		IsDisabled bool    `json:"is_disabled"`
 	}
 
-	result := make([]publicChild, len(children))
-	for i, c := range children {
-		result[i] = publicChild{
-			FirstName: c.FirstName,
-			Avatar:    c.Avatar,
-		}
+	result := make([]publicChild, 0, len(children))
+	for _, c := range children {
+		result = append(result, publicChild{
+			FirstName:  c.FirstName,
+			Avatar:     c.Avatar,
+			IsDisabled: c.IsDisabled,
+		})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{"children": result})
@@ -184,12 +186,13 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Hard cap: 20 children per family
 	count, err := h.childStore.CountByFamily(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to check family size"})
 		return
 	}
-	if count >= 2 {
+	if count >= 20 {
 		writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"error":   "Limit reached",
 			"message": "You can have up to 20 children per family.",
@@ -242,8 +245,17 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get family slug for login URL
+	// Determine if child should be disabled (free tier limit: 2 enabled children)
 	fam, _ := h.familyStore.GetByID(familyID)
+	shouldDisable := false
+	if fam != nil && fam.AccountType != "plus" {
+		enabledCount, err := h.childStore.CountEnabledByFamily(familyID)
+		if err == nil && enabledCount > 2 {
+			shouldDisable = true
+			h.childStore.SetDisabled(child.ID, true) //nolint:errcheck // best-effort
+		}
+	}
+
 	var familySlug string
 	if fam != nil {
 		familySlug = fam.Slug
@@ -252,6 +264,7 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"id":          child.ID,
 		"first_name":  child.FirstName,
+		"is_disabled": shouldDisable,
 		"family_slug": familySlug,
 		"login_url":   "/" + familySlug,
 		"avatar":      child.Avatar,
@@ -275,6 +288,7 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 		ID           int64   `json:"id"`
 		FirstName    string  `json:"first_name"`
 		IsLocked     bool    `json:"is_locked"`
+		IsDisabled   bool    `json:"is_disabled"`
 		BalanceCents int64   `json:"balance_cents"`
 		CreatedAt    string  `json:"created_at"`
 		Avatar       *string `json:"avatar"`
@@ -286,6 +300,7 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 			ID:           c.ID,
 			FirstName:    c.FirstName,
 			IsLocked:     c.IsLocked,
+			IsDisabled:   c.IsDisabled,
 			BalanceCents: c.BalanceCents,
 			CreatedAt:    c.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			Avatar:       c.Avatar,
@@ -470,6 +485,12 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 	if err := h.childStore.Delete(childID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete child"})
 		return
+	}
+
+	// Re-evaluate child limits after deletion — may re-enable a disabled child on free tier
+	fam, _ := h.familyStore.GetByID(familyID)
+	if fam != nil && fam.AccountType != "plus" {
+		h.childStore.ReconcileChildLimits(familyID, 2) //nolint:errcheck // best-effort
 	}
 
 	w.WriteHeader(http.StatusNoContent)

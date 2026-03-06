@@ -73,7 +73,7 @@ func main() {
 	settingsHandlers := settings.NewHandlers(familyStore)
 	goalsHandler := goals.NewHandler(goalStore, childStore)
 	webhookEventStore := store.NewWebhookEventStore(db)
-	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
+	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, childStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopScheduler := make(chan struct{})

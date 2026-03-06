@@ -113,6 +113,15 @@ func (h *Handler) HandleDeposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if child account is disabled (free tier limit)
+	if child.IsDisabled {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{
+			Error:   "Account disabled",
+			Message: "This account is disabled. Upgrade to Plus to enable all children.",
+		})
+		return
+	}
+
 	// Parse request body
 	var req DepositRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -205,6 +214,15 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusForbidden, ErrorResponse{
 			Error:   "forbidden",
 			Message: "You do not have permission to access this child's account.",
+		})
+		return
+	}
+
+	// Check if child account is disabled (free tier limit)
+	if child.IsDisabled {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{
+			Error:   "Account disabled",
+			Message: "This account is disabled. Upgrade to Plus to enable all children.",
 		})
 		return
 	}

@@ -22,8 +22,9 @@ func newTestHandlers(t *testing.T) (*Handlers, *store.FamilyStore, *store.Parent
 	db := testutil.SetupTestDB(t)
 	familyStore := store.NewFamilyStore(db)
 	parentStore := store.NewParentStore(db)
+	childStore := store.NewChildStore(db)
 	webhookEventStore := store.NewWebhookEventStore(db)
-	h := NewHandlers(familyStore, parentStore, webhookEventStore, "sk_test_fake", "whsec_test_fake", "http://localhost:8000")
+	h := NewHandlers(familyStore, parentStore, childStore, webhookEventStore, "sk_test_fake", "whsec_test_fake", "http://localhost:8000")
 	return h, familyStore, parentStore
 }
 

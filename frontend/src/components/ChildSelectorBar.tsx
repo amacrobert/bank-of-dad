@@ -3,6 +3,7 @@ import { Child } from "../types";
 import BalanceDisplay from "./BalanceDisplay";
 import LoadingSpinner from "./ui/LoadingSpinner";
 import { Lock, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface ChildSelectorBarProps {
   children: Child[];
@@ -11,6 +12,7 @@ interface ChildSelectorBarProps {
   loading?: boolean;
   onAddChild?: () => void;
   selectable?: boolean;
+  allowDisabledSelection?: boolean;
 }
 
 export default function ChildSelectorBar({
@@ -20,6 +22,7 @@ export default function ChildSelectorBar({
   loading = false,
   onAddChild,
   selectable = true,
+  allowDisabledSelection = false,
 }: ChildSelectorBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftFade, setShowLeftFade] = useState(false);
@@ -59,6 +62,9 @@ export default function ChildSelectorBar({
   }
 
   const handleClick = (child: Child) => {
+    if (child.is_disabled && !allowDisabledSelection) {
+      return;
+    }
     if (selectedChildId === child.id) {
       onSelectChild(null);
     } else {
@@ -99,56 +105,75 @@ export default function ChildSelectorBar({
         )}
         {children.map((child) => {
           const isSelected = selectedChildId === child.id;
+          const isDisabled = child.is_disabled;
           const Tag = selectable ? "button" : "div";
+          const canSelect = !isDisabled || allowDisabledSelection;
           const interactiveProps = selectable
-            ? { onClick: () => handleClick(child), "aria-pressed": isSelected }
+            ? { onClick: () => handleClick(child), "aria-pressed": canSelect ? isSelected : undefined }
             : {};
           return (
-            <Tag
-              key={child.id}
-              {...interactiveProps}
-              className={`
-                relative flex flex-col items-center justify-center
-                w-[120px] aspect-square p-3 rounded-xl
-                flex-shrink-0 transition-all duration-200
-                ${selectable ? "cursor-pointer" : ""}
-                ${isSelected && selectable
-                  ? "bg-forest/5 ring-2 ring-forest"
-                  : "bg-white border border-sand"
-                }
-                ${selectable && !(isSelected) ? "hover:border-forest hover:bg-sage-light/20" : ""}
-              `}
-            >
-              {/* Lock indicator */}
-              {child.is_locked && (
-                <div className="absolute top-1.5 right-1.5">
-                  <Lock className="h-3 w-3 text-terracotta" aria-label="Account locked" />
+            <div key={child.id} className="relative flex-shrink-0">
+              <Tag
+                {...interactiveProps}
+                className={`
+                  relative flex flex-col items-center justify-center
+                  w-[120px] aspect-square p-3 rounded-xl
+                  flex-shrink-0 transition-all duration-200
+                  ${selectable && canSelect ? "cursor-pointer" : ""}
+                  ${isDisabled ? "opacity-50 grayscale" : ""}
+                  ${isSelected && selectable && canSelect
+                    ? "bg-forest/5 ring-2 ring-forest"
+                    : "bg-white border border-sand"
+                  }
+                  ${selectable && !isSelected && canSelect ? "hover:border-forest hover:bg-sage-light/20" : ""}
+                `}
+              >
+                {/* Lock indicator */}
+                {child.is_locked && !isDisabled && (
+                  <div className="absolute top-1.5 right-1.5">
+                    <Lock className="h-3 w-3 text-terracotta" aria-label="Account locked" />
+                  </div>
+                )}
+
+                {/* Avatar */}
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                  ${child.avatar
+                    ? "text-2xl"
+                    : `text-sm font-bold ${isSelected && selectable && !isDisabled ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
+                  }
+                  ${child.avatar && !(isSelected && selectable && !isDisabled) ? "bg-cream" : ""}
+                  ${child.avatar && isSelected && selectable && !isDisabled ? "bg-forest/10" : ""}
+                `}>
+                  {child.avatar || child.first_name.charAt(0).toUpperCase()}
                 </div>
-              )}
 
-              {/* Avatar */}
-              <div className={`
-                w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
-                ${child.avatar
-                  ? "text-2xl"
-                  : `text-sm font-bold ${isSelected && selectable ? "bg-forest text-white" : "bg-sage-light/40 text-forest"}`
-                }
-                ${child.avatar && !(isSelected && selectable) ? "bg-cream" : ""}
-                ${child.avatar && isSelected && selectable ? "bg-forest/10" : ""}
-              `}>
-                {child.avatar || child.first_name.charAt(0).toUpperCase()}
-              </div>
+                {/* Name */}
+                <span className="font-semibold text-bark text-xs text-center truncate w-full mt-1">
+                  {child.first_name}
+                </span>
 
-              {/* Name */}
-              <span className="font-semibold text-bark text-xs text-center truncate w-full mt-1">
-                {child.first_name}
-              </span>
+                {/* Balance */}
+                {!isDisabled && (
+                  <div className="-mt-0.5">
+                    <BalanceDisplay balanceCents={child.balance_cents} size="small" />
+                  </div>
+                )}
 
-              {/* Balance */}
-              <div className="-mt-0.5">
-                <BalanceDisplay balanceCents={child.balance_cents} size="small" />
-              </div>
-            </Tag>
+                {isDisabled && !allowDisabledSelection && (
+                  <Link
+                    to="/settings/subscription"
+                    className="text-forest font-semibold text-[10px] mt-0.5 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Upgrade →
+                  </Link>
+                )}
+                {isDisabled && allowDisabledSelection && (
+                  <span className="text-bark-light text-[10px] mt-0.5">Disabled</span>
+                )}
+              </Tag>
+            </div>
           );
         })}
       </div>

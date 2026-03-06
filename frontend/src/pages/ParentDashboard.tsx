@@ -18,12 +18,14 @@ export default function ParentDashboard() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Derive selected child from URL param
+  // Derive selected child from URL param (disabled children cannot be selected)
   const selectedChild = useMemo(() => {
     if (!childName || children.length === 0) return null;
-    return children.find(
+    const child = children.find(
       (c) => c.first_name.toLowerCase() === childName.toLowerCase()
     ) ?? null;
+    if (child?.is_disabled) return null;
+    return child;
   }, [childName, children]);
 
   // Redirect if child name in URL is invalid
