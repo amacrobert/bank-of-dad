@@ -197,7 +197,6 @@ export default function GrowthChart({ scenarios, animationKey, goalMarkers = [] 
           ))}
           {uniqueMarkerDots.map((m) => {
             const key = `${m.scenarioId}_${m.weekIndex}`;
-            const dataKey = `balanceCents_${m.scenarioId}`;
             const canonicalDate = mergedData[m.weekIndex]?.date ?? m.date;
             return (
               <ReferenceDot
@@ -208,9 +207,7 @@ export default function GrowthChart({ scenarios, animationKey, goalMarkers = [] 
                 fill="#fff"
                 stroke={m.scenarioColor}
                 strokeWidth={2.5}
-                ifOverflow="extendDomain"
-                /* suppress the dataKey warning — we position via x/y */
-                {...({ dataKey } as Record<string, string>)}
+                ifOverflow="discard"
               />
             );
           })}

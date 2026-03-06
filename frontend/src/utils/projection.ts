@@ -69,6 +69,7 @@ export function calculateProjection(config: ProjectionConfig): ProjectionResult 
 
   const dataPoints: ProjectionDataPoint[] = [];
   const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
 
   // Week 0 = today
   dataPoints.push({
