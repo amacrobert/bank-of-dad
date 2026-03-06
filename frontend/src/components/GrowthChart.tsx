@@ -198,10 +198,11 @@ export default function GrowthChart({ scenarios, animationKey, goalMarkers = [] 
           {uniqueMarkerDots.map((m) => {
             const key = `${m.scenarioId}_${m.weekIndex}`;
             const dataKey = `balanceCents_${m.scenarioId}`;
+            const canonicalDate = mergedData[m.weekIndex]?.date ?? m.date;
             return (
               <ReferenceDot
                 key={key}
-                x={m.date}
+                x={canonicalDate}
                 y={m.balanceCents}
                 r={6}
                 fill="#fff"
