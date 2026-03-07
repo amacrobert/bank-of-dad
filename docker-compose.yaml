@@ -31,6 +31,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - BREVO_API_KEY=${BREVO_API_KEY}
       - SERVER_PORT=8001
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8000}
     depends_on:

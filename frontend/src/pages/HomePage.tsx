@@ -21,6 +21,7 @@ import Card from "../components/ui/Card";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import RotatingName from "../components/RotatingName";
 import { getFamilySlug } from "../utils/familyPreference";
+import Footer from "../components/Footer";
 
 // ---------------------------------------------------------------------------
 // useInView — fires once when element enters viewport
@@ -537,17 +538,7 @@ export default function HomePage() {
       {/* ----------------------------------------------------------------- */}
       {/* Footer                                                             */}
       {/* ----------------------------------------------------------------- */}
-      <footer className="bg-bark">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Leaf className="h-5 w-5 text-sage" aria-hidden="true" />
-            <span className="text-sm font-bold text-white">Bank of Dad</span>
-          </div>
-          <p className="text-sm text-sage-light/70">
-            Teaching kids the value of money, one allowance at a time.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings } from "lucide-react";
+import Footer from "./Footer";
 
 interface LayoutProps {
   user: AuthUser;
@@ -167,9 +168,12 @@ export default function Layout({ user, children }: LayoutProps) {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0">
-        <div className="px-4 py-6 pb-24 lg:pb-6">
+      <main className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 px-4 py-6 pb-24 lg:pb-6">
           {children}
+        </div>
+        <div className="hidden lg:block">
+          <Footer variant="subtle" />
         </div>
       </main>
 
