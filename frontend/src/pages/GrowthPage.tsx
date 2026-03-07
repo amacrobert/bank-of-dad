@@ -363,11 +363,11 @@ function ProjectorContent({
     <>
       {/* Time Horizon Selector + Chart */}
       <Card>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-sm font-bold text-bark uppercase tracking-wide">
             Projected Balance
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 flex-wrap">
             {/* Goal markers toggle */}
             <button
               onClick={() => hasGoals && setShowGoalMarkers((prev) => !prev)}

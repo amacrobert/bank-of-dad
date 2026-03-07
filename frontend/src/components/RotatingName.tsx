@@ -3,10 +3,10 @@ import { useState, useEffect, useRef } from "react";
 const NAMES = [
   { name: "Dad", color: "#2D5A3D" },
   { name: "Mom", color: "#C4704B" },
-  { name: "Grandad", color: "#D4A84B" },
+  { name: "Grampa", color: "#D4A84B" },
   { name: "Auntie", color: "#7B5EA7" },
   { name: "Nana", color: "#D4704B" },
-  { name: "Grandma", color: "#3A7A52" },
+  { name: "Grammy", color: "#3A7A52" },
   { name: "Papa", color: "#6B5744" },
   { name: "Uncle", color: "#2D7A8A" },
 ];
