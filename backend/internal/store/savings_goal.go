@@ -48,7 +48,9 @@ func NewSavingsGoalStore(db *sql.DB) *SavingsGoalStore {
 }
 
 // scanGoal scans a single savings goal row, handling nullable fields.
-func scanGoal(scanner interface{ Scan(dest ...interface{}) error }) (*SavingsGoal, error) {
+func scanGoal(scanner interface {
+	Scan(dest ...interface{}) error
+}) (*SavingsGoal, error) {
 	var g SavingsGoal
 	var emoji sql.NullString
 	var completedAt sql.NullTime
@@ -110,7 +112,7 @@ func (s *SavingsGoalStore) GetByID(id int64) (*SavingsGoal, error) {
 func (s *SavingsGoalStore) ListByChild(childID int64) ([]*SavingsGoal, error) {
 	rows, err := s.db.Query(
 		fmt.Sprintf(`SELECT %s FROM savings_goals WHERE child_id = $1
-		ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, created_at DESC`, goalColumns),
+		ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, created_at ASC`, goalColumns),
 		childID,
 	)
 	if err != nil {
@@ -193,7 +195,7 @@ func (s *SavingsGoalStore) Allocate(goalID, childID, amountCents int64) (*Saving
 		if amountCents > availableBalance {
 			return nil, ErrInsufficientAvailable
 		}
-	// Negative (de-allocation): check saved_cents >= abs(amount)
+		// Negative (de-allocation): check saved_cents >= abs(amount)
 	} else if -amountCents > savedCents {
 		return nil, ErrDeallocationExceedsSaved
 	}
@@ -237,10 +239,10 @@ func (s *SavingsGoalStore) Allocate(goalID, childID, amountCents int64) (*Saving
 
 // UpdateGoalParams contains the optional fields for updating a savings goal.
 type UpdateGoalParams struct {
-	Name          *string
-	TargetCents   *int64
-	Emoji         *string
-	EmojiSet      bool // if true and Emoji is nil, clears the emoji
+	Name        *string
+	TargetCents *int64
+	Emoji       *string
+	EmojiSet    bool // if true and Emoji is nil, clears the emoji
 }
 
 // Update partially updates an active savings goal.
@@ -466,8 +468,8 @@ func (s *SavingsGoalStore) GetTotalSavedByChild(childID int64) (int64, error) {
 
 // AffectedGoalInfo represents a goal affected by a withdrawal.
 type AffectedGoalInfo struct {
-	ID               int64  `json:"id"`
-	Name             string `json:"name"`
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
 	CurrentSavedCents int64  `json:"current_saved_cents"`
 	NewSavedCents     int64  `json:"new_saved_cents"`
 }
@@ -523,8 +525,8 @@ func (s *SavingsGoalStore) GetAffectedGoals(childID, totalToRelease int64) ([]Af
 			reduction = g.savedCents
 		}
 		affected = append(affected, AffectedGoalInfo{
-			ID:               g.id,
-			Name:             g.name,
+			ID:                g.id,
+			Name:              g.name,
 			CurrentSavedCents: g.savedCents,
 			NewSavedCents:     g.savedCents - reduction,
 		})
