@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bank-of-dad/internal/contact"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 	_ "time/tzdata" // Embed IANA timezone database for environments without system tzdata (e.g. Alpine Docker)
+
+	brevo "github.com/getbrevo/brevo-go/lib"
 
 	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/auth"
@@ -47,6 +50,11 @@ func main() {
 	childStore := store.NewChildStore(db)
 	eventStore := store.NewAuthEventStore(db)
 
+	// Set up Brevo
+	brevoConfig := brevo.NewConfiguration()
+	brevoConfig.AddDefaultHeader("api-key", cfg.BrevoApiKey)
+	brevoClient := brevo.NewAPIClient(brevoConfig)
+
 	// Initialize handlers
 	googleAuth := auth.NewGoogleAuth(
 		cfg.GoogleClientID,
@@ -74,19 +82,19 @@ func main() {
 	goalsHandler := goals.NewHandler(goalStore, childStore)
 	webhookEventStore := store.NewWebhookEventStore(db)
 	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, childStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
+	contactHandler := contact.NewHandler(brevoClient, cfg.ContactRecipientEmail, cfg.ContactRecipientName, parentStore)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
-	stopScheduler := make(chan struct{})
-	defer close(stopScheduler)
-	scheduler := allowance.NewScheduler(scheduleStore, txStore, childStore)
-	scheduler.Start(5*time.Minute, stopScheduler)
+	stopAllowanceScheduler := make(chan struct{})
+	defer close(stopAllowanceScheduler)
+	allowanceScheduler := allowance.NewScheduler(scheduleStore, txStore, childStore)
+	allowanceScheduler.Start(5*time.Minute, stopAllowanceScheduler)
 
 	// Start interest accrual scheduler goroutine (check every hour)
-	stopInterest := make(chan struct{})
-	defer close(stopInterest)
-	interestScheduler := interest.NewScheduler(interestStore)
-	interestScheduler.SetInterestScheduleStore(interestScheduleStore)
-	interestScheduler.Start(1*time.Hour, stopInterest)
+	stopInterestScheduler := make(chan struct{})
+	defer close(stopInterestScheduler)
+	interestScheduler := interest.NewScheduler(interestStore, interestScheduleStore)
+	interestScheduler.Start(1*time.Hour, stopInterestScheduler)
 
 	// Auth middleware
 	requireAuth := middleware.RequireAuth(jwtKey)
@@ -176,6 +184,9 @@ func main() {
 
 	// Account deletion
 	mux.Handle("DELETE /api/account", requireParent(http.HandlerFunc(familyHandlers.HandleDeleteAccount)))
+
+	// Contact form submission
+	mux.Handle("POST /api/contact", requireParent(http.HandlerFunc(contactHandler.HandleContactSubmission)))
 
 	// Child-scoped allowance endpoints (006-account-management-enhancements)
 	mux.Handle("GET /api/children/{childId}/allowance", requireAuth(http.HandlerFunc(allowanceHandler.HandleGetChildAllowance)))
