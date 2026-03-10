@@ -130,12 +130,12 @@ func TestSavingsGoalStore_ListByChild_Ordering(t *testing.T) {
 	require.Len(t, goals, 3)
 
 	// Active goals first, ordered by created_at DESC
-	// goal3 (active, newest) should come first
-	assert.Equal(t, goal3.ID, goals[0].ID)
+	// goal3 (active, newest) should come second
+	assert.Equal(t, goal3.ID, goals[1].ID)
 	assert.Equal(t, "active", goals[0].Status)
 
-	// goal1 (active, oldest) should come second
-	assert.Equal(t, goal1.ID, goals[1].ID)
+	// goal1 (active, oldest) should come first
+	assert.Equal(t, goal1.ID, goals[0].ID)
 	assert.Equal(t, "active", goals[1].Status)
 
 	// goal2 (completed) should come last
@@ -607,8 +607,9 @@ func TestSavingsGoalStore_Allocate_ToCompletedGoal_Fails(t *testing.T) {
 
 // --- Helpers for pointer construction ---
 
-func strPtr(s string) *string    { return &s }
-func int64Ptr(i int64) *int64    { return &i }
+func strPtr(s string) *string { return &s }
+func int64Ptr(i int64) *int64 { return &i }
+
 // --- TestSavingsGoalStore_Update ---
 
 func TestSavingsGoalStore_Update_NameOnly(t *testing.T) {

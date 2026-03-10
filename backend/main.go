@@ -93,7 +93,7 @@ func main() {
 	// Start interest accrual scheduler goroutine (check every hour)
 	stopInterestScheduler := make(chan struct{})
 	defer close(stopInterestScheduler)
-	interestScheduler := interest.NewScheduler(interestStore, interestScheduleStore)
+	interestScheduler := interest.NewScheduler(interestStore)
 	interestScheduler.Start(1*time.Hour, stopInterestScheduler)
 
 	// Auth middleware

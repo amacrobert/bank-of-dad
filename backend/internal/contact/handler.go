@@ -64,12 +64,12 @@ func (h *Handler) HandleContactSubmission(w http.ResponseWriter, r *http.Request
 	// TODO: Replace with interface
 	_, _, err := h.brevoClient.TransactionalEmailsApi.SendTransacEmail(r.Context(), brevo.SendSmtpEmail{
 		Sender: &brevo.SendSmtpEmailSender{
-			Name:  "Bank of Dad",
 			Email: "noreply@bankofdad.xyz",
+			Name:  "Bank of Dad",
 		},
 		To: []brevo.SendSmtpEmailTo{{
-			h.recipientEmail,
-			h.recipientName,
+			Email: h.recipientEmail,
+			Name:  h.recipientName,
 		}},
 		ReplyTo: &brevo.SendSmtpEmailReplyTo{
 			Email: parent.Email,
