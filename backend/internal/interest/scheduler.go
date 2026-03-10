@@ -15,8 +15,8 @@ type Scheduler struct {
 }
 
 // NewScheduler creates a new interest Scheduler.
-func NewScheduler(interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore) *Scheduler {
-	return &Scheduler{interestStore, interestScheduleStore}
+func NewScheduler(interestStore *store.InterestStore) *Scheduler {
+	return &Scheduler{interestStore: interestStore}
 }
 
 // SetInterestScheduleStore sets the interest schedule store for schedule-based processing.

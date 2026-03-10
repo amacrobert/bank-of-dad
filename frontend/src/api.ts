@@ -248,6 +248,11 @@ export function getGoalAllocations(childId: number, goalId: number): Promise<{ a
   return get<{ allocations: import("./types").GoalAllocation[] }>(`/children/${childId}/savings-goals/${goalId}/allocations`);
 }
 
+// Contact API function
+export function submitContact(body: string) {
+  return post<{ status: string }>("/contact", { body });
+}
+
 // Settings API functions (013-parent-settings)
 import { SettingsResponse, UpdateTimezoneResponse, UpdateBankNameResponse } from "./types";
 

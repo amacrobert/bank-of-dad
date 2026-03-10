@@ -2,9 +2,10 @@ import { Leaf } from "lucide-react";
 
 interface FooterProps {
   variant?: "dark" | "subtle";
+  onContactClick?: () => void;
 }
 
-export default function Footer({ variant = "dark" }: FooterProps) {
+export default function Footer({ variant = "dark", onContactClick }: FooterProps) {
   const dark = variant === "dark";
   return (
     <footer className={dark ? "bg-bark" : ""}>
@@ -15,7 +16,18 @@ export default function Footer({ variant = "dark" }: FooterProps) {
             <span className={`text-sm font-bold ${dark ? "text-white" : "text-bark-light/50"}`}>Bank of Dad</span>
           </div>
           <nav className="flex items-center gap-6">
-            {/* Future links go here */}
+            {onContactClick && (
+              <button
+                onClick={onContactClick}
+                className={`text-sm font-medium transition-colors cursor-pointer ${
+                  dark
+                    ? "text-sage-light/70 hover:text-white"
+                    : "text-bark-light/50 hover:text-bark-light"
+                }`}
+              >
+                Contact
+              </button>
+            )}
           </nav>
         </div>
         <div className={`border-t ${dark ? "border-white/10" : "border-sand"} pt-4`}>
