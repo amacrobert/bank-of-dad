@@ -7,15 +7,18 @@ import (
 )
 
 type Config struct {
-	GoogleClientID     string
-	GoogleClientSecret string
-	GoogleRedirectURL  string
-	DatabaseURL        string
-	JWTSecret          []byte
-	ServerPort         string
-	FrontendURL        string
-	StripeSecretKey    string
+	GoogleClientID      string
+	GoogleClientSecret  string
+	GoogleRedirectURL   string
+	DatabaseURL         string
+	JWTSecret           []byte
+	ServerPort          string
+	FrontendURL         string
+	StripeSecretKey     string
 	StripeWebhookSecret string
+	BrevoApiKey           string
+	ContactRecipientEmail string
+	ContactRecipientName  string
 }
 
 func Load() (*Config, error) {
@@ -23,6 +26,7 @@ func Load() (*Config, error) {
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
+		BrevoApiKey:        os.Getenv("BREVO_API_KEY"),
 		DatabaseURL:        getEnvOrDefault("DATABASE_URL", "postgres://bankofdad:bankofdad@localhost:5432/bankofdad?sslmode=disable"),
 		ServerPort:         getEnvOrDefault("SERVER_PORT", "8001"),
 		FrontendURL:        getEnvOrDefault("FRONTEND_URL", "http://localhost:8000"),
@@ -59,6 +63,20 @@ func Load() (*Config, error) {
 	cfg.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
 	if cfg.StripeWebhookSecret == "" {
 		return nil, fmt.Errorf("STRIPE_WEBHOOK_SECRET environment variable is required")
+	}
+
+	cfg.BrevoApiKey = os.Getenv("BREVO_API_KEY")
+	if cfg.BrevoApiKey == "" {
+		return nil, fmt.Errorf("BREVO_API_KEY environment variable is required")
+	}
+
+	cfg.ContactRecipientEmail = os.Getenv("CONTACT_RECIPIENT_EMAIL")
+	if cfg.ContactRecipientEmail == "" {
+		return nil, fmt.Errorf("CONTACT_RECIPIENT_EMAIL environment variable is required")
+	}
+	cfg.ContactRecipientName = os.Getenv("CONTACT_RECIPIENT_NAME")
+	if cfg.ContactRecipientName == "" {
+		return nil, fmt.Errorf("CONTACT_RECIPIENT_NAME environment variable is required")
 	}
 
 	return cfg, nil

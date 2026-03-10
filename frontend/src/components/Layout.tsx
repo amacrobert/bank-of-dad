@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
@@ -6,6 +6,7 @@ import { AuthUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings } from "lucide-react";
 import Footer from "./Footer";
+import ContactFormModal from "./ContactFormModal";
 
 interface LayoutProps {
   user: AuthUser;
@@ -16,6 +17,7 @@ export default function Layout({ user, children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { setTheme } = useTheme();
+  const [showContact, setShowContact] = useState(false);
 
   const displayName =
     user.user_type === "parent" ? user.display_name : user.first_name;
@@ -173,7 +175,7 @@ export default function Layout({ user, children }: LayoutProps) {
           {children}
         </div>
         <div className="hidden lg:block">
-          <Footer variant="subtle" />
+          <Footer variant="subtle" onContactClick={user.user_type === "parent" ? () => setShowContact(true) : undefined} />
         </div>
       </main>
 
@@ -245,6 +247,10 @@ export default function Layout({ user, children }: LayoutProps) {
           </button>
         </div>
       </nav>
+
+      {user.user_type === "parent" && (
+        <ContactFormModal open={showContact} onClose={() => setShowContact(false)} />
+      )}
     </div>
   );
 }
