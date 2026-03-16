@@ -35,7 +35,7 @@ export default function BalanceDisplay({
           {dollars.toLocaleString()}
         </span>
         <span className={`${s.cent} relative -top-[0.15em] ml-0.5 text-forest/70`}>
-          {cents.toString().padStart(2, "0")}
+          .{cents.toString().padStart(2, "0")}
         </span>
       </span>
       {breakdown && breakdown.savedCents > 0 && (
