@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -317,5 +318,5 @@ func (r *ChildRepo) GetBalance(id int64) (int64, error) {
 
 // isNotFound checks whether the error is a GORM record-not-found error.
 func isNotFound(err error) bool {
-	return err == gorm.ErrRecordNotFound
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }

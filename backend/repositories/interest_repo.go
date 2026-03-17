@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -38,7 +39,7 @@ func (r *InterestRepo) SetInterestRate(childID int64, rateBps int) error {
 
 	result := r.db.Model(&models.Child{}).Where("id = ?", childID).Updates(map[string]interface{}{
 		"interest_rate_bps": rateBps,
-		"updated_at":        time.Now(),
+		"updated_at":        gorm.Expr("NOW()"),
 	})
 	if result.Error != nil {
 		return fmt.Errorf("set interest rate: %w", result.Error)
@@ -50,7 +51,7 @@ func (r *InterestRepo) SetInterestRate(childID int64, rateBps int) error {
 func (r *InterestRepo) GetInterestRate(childID int64) (int, error) {
 	var child models.Child
 	err := r.db.Select("interest_rate_bps").First(&child, childID).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, fmt.Errorf("child not found")
 	}
 	if err != nil {
@@ -142,10 +143,9 @@ func (r *InterestRepo) ApplyInterest(childID, parentID int64, rateBps int, frequ
 		}
 
 		// Update balance and last_interest_at
-		now := time.Now().UTC()
 		if err := tx.Exec(
-			`UPDATE children SET balance_cents = balance_cents + ?, last_interest_at = ?, updated_at = ? WHERE id = ?`,
-			interestCents, now, now, childID,
+			`UPDATE children SET balance_cents = balance_cents + ?, last_interest_at = NOW(), updated_at = NOW() WHERE id = ?`,
+			interestCents, childID,
 		).Error; err != nil {
 			return fmt.Errorf("update balance: %w", err)
 		}

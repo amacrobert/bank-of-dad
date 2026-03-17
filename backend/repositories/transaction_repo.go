@@ -1,9 +1,9 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"bank-of-dad/models"
 
@@ -46,8 +46,8 @@ func (r *TransactionRepo) Deposit(childID, parentID, amountCents int64, note str
 
 		// Update balance
 		if err := tx.Exec(
-			`UPDATE children SET balance_cents = balance_cents + ?, updated_at = ? WHERE id = ?`,
-			amountCents, time.Now(), childID,
+			`UPDATE children SET balance_cents = balance_cents + ?, updated_at = NOW() WHERE id = ?`,
+			amountCents, childID,
 		).Error; err != nil {
 			return fmt.Errorf("update balance: %w", err)
 		}
@@ -82,7 +82,7 @@ func (r *TransactionRepo) Withdraw(childID, parentID, amountCents int64, note st
 		// Check current balance
 		var child models.Child
 		if err := tx.Select("balance_cents").First(&child, childID).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("child not found")
 			}
 			return fmt.Errorf("get current balance: %w", err)
@@ -108,8 +108,8 @@ func (r *TransactionRepo) Withdraw(childID, parentID, amountCents int64, note st
 
 		// Update balance
 		if err := tx.Exec(
-			`UPDATE children SET balance_cents = balance_cents - ?, updated_at = ? WHERE id = ?`,
-			amountCents, time.Now(), childID,
+			`UPDATE children SET balance_cents = balance_cents - ?, updated_at = NOW() WHERE id = ?`,
+			amountCents, childID,
 		).Error; err != nil {
 			return fmt.Errorf("update balance: %w", err)
 		}
@@ -137,7 +137,7 @@ func (r *TransactionRepo) Withdraw(childID, parentID, amountCents int64, note st
 func (r *TransactionRepo) GetByID(id int64) (*models.Transaction, error) {
 	var t models.Transaction
 	err := r.db.First(&t, id).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
@@ -198,8 +198,8 @@ func (r *TransactionRepo) DepositAllowance(childID, parentID, amountCents, sched
 
 		// Update balance
 		if err := tx.Exec(
-			`UPDATE children SET balance_cents = balance_cents + ?, updated_at = ? WHERE id = ?`,
-			amountCents, time.Now(), childID,
+			`UPDATE children SET balance_cents = balance_cents + ?, updated_at = NOW() WHERE id = ?`,
+			amountCents, childID,
 		).Error; err != nil {
 			return fmt.Errorf("update balance: %w", err)
 		}

@@ -3,7 +3,6 @@ package repositories
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"bank-of-dad/models"
 
@@ -145,15 +144,14 @@ func (r *SavingsGoalRepo) Allocate(goalID, childID, amountCents int64) (*models.
 		// Update saved_cents
 		newSavedCents := goal.SavedCents + amountCents
 		if err := tx.Model(&models.SavingsGoal{}).Where("id = ?", goalID).
-			Updates(map[string]interface{}{"saved_cents": newSavedCents, "updated_at": time.Now()}).Error; err != nil {
+			Updates(map[string]interface{}{"saved_cents": newSavedCents, "updated_at": gorm.Expr("NOW()")}).Error; err != nil {
 			return fmt.Errorf("update saved_cents: %w", err)
 		}
 
 		// Check for goal completion
 		if newSavedCents >= goal.TargetCents {
-			now := time.Now()
 			if err := tx.Model(&models.SavingsGoal{}).Where("id = ?", goalID).
-				Updates(map[string]interface{}{"status": "completed", "completed_at": now}).Error; err != nil {
+				Updates(map[string]interface{}{"status": "completed", "completed_at": gorm.Expr("NOW()")}).Error; err != nil {
 				return fmt.Errorf("complete goal: %w", err)
 			}
 		}
@@ -198,7 +196,7 @@ func (r *SavingsGoalRepo) Update(goalID, childID int64, params *UpdateGoalParams
 
 		// Build update map
 		updates := map[string]interface{}{
-			"updated_at": time.Now(),
+			"updated_at": gorm.Expr("NOW()"),
 		}
 		if params.Name != nil {
 			updates["name"] = *params.Name
@@ -216,9 +214,8 @@ func (r *SavingsGoalRepo) Update(goalID, childID int64, params *UpdateGoalParams
 
 		// Check for auto-completion after target reduction
 		if params.TargetCents != nil && goal.SavedCents >= *params.TargetCents {
-			now := time.Now()
 			if err := tx.Model(&models.SavingsGoal{}).Where("id = ?", goalID).
-				Updates(map[string]interface{}{"status": "completed", "completed_at": now}).Error; err != nil {
+				Updates(map[string]interface{}{"status": "completed", "completed_at": gorm.Expr("NOW()")}).Error; err != nil {
 				return fmt.Errorf("auto-complete goal: %w", err)
 			}
 		}
@@ -322,7 +319,7 @@ func (r *SavingsGoalRepo) ReduceGoalsProportionally(childID, totalToRelease int6
 
 			newSaved := g.SavedCents - reduction
 			if err := tx.Model(&models.SavingsGoal{}).Where("id = ?", g.ID).
-				Updates(map[string]interface{}{"saved_cents": newSaved, "updated_at": time.Now()}).Error; err != nil {
+				Updates(map[string]interface{}{"saved_cents": newSaved, "updated_at": gorm.Expr("NOW()")}).Error; err != nil {
 				return fmt.Errorf("update goal saved_cents: %w", err)
 			}
 

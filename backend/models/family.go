@@ -1,6 +1,23 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"regexp"
+	"time"
+)
+
+var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
+
+// ValidateSlug checks that a slug meets length and character requirements.
+func ValidateSlug(slug string) error {
+	if len(slug) < 3 || len(slug) > 30 {
+		return fmt.Errorf("slug must be between 3 and 30 characters")
+	}
+	if !slugRegex.MatchString(slug) {
+		return fmt.Errorf("slug must contain only lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen")
+	}
+	return nil
+}
 
 // Family represents a family group identified by a unique slug.
 type Family struct {

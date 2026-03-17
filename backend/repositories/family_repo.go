@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -22,8 +21,6 @@ type SubscriptionInfo struct {
 	SubscriptionCurrentPeriodEnd  *time.Time
 	SubscriptionCancelAtPeriodEnd bool
 }
-
-var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
 
 // FamilyRepo provides GORM-based access to the families table.
 type FamilyRepo struct {
@@ -143,7 +140,7 @@ func (r *FamilyRepo) SuggestSlugs(base string) []string {
 
 	var available []string
 	for _, sug := range suggestions {
-		if ValidateSlug(sug) == nil {
+		if models.ValidateSlug(sug) == nil {
 			exists, err := r.SlugExists(sug)
 			if err == nil && !exists {
 				available = append(available, sug)
@@ -295,13 +292,3 @@ func (r *FamilyRepo) ClearSubscription(stripeSubscriptionID string) error {
 	return nil
 }
 
-// ValidateSlug checks that a slug meets length and character requirements.
-func ValidateSlug(slug string) error {
-	if len(slug) < 3 || len(slug) > 30 {
-		return fmt.Errorf("slug must be between 3 and 30 characters")
-	}
-	if !slugRegex.MatchString(slug) {
-		return fmt.Errorf("slug must contain only lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen")
-	}
-	return nil
-}

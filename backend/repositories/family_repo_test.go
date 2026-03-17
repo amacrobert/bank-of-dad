@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"bank-of-dad/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,7 +93,7 @@ func TestValidateSlug(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		err := ValidateSlug(tt.slug)
+		err := models.ValidateSlug(tt.slug)
 		if tt.valid {
 			assert.NoError(t, err, "slug %q should be valid", tt.slug)
 		} else {
@@ -174,7 +176,7 @@ func TestSuggestSlugs(t *testing.T) {
 	suggestions := fr.SuggestSlugs("smith-family")
 	assert.NotEmpty(t, suggestions)
 	for _, s := range suggestions {
-		assert.NoError(t, ValidateSlug(s))
+		assert.NoError(t, models.ValidateSlug(s))
 	}
 }
 
