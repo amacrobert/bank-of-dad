@@ -121,10 +121,10 @@
 - [x] T00 [P] [US3] Migrate backend/internal/goals/ handlers — change constructor to accept SavingsGoalRepo, GoalAllocationRepo, ChildRepo. Update all method calls and imports.
 - [x] T00 [P] [US3] Migrate backend/internal/settings/ handlers — change constructor to accept FamilyRepo. Update all method calls and imports.
 - [x] T00 [P] [US3] Migrate backend/internal/subscription/ handlers — change constructor to accept FamilyRepo, WebhookEventRepo, ChildRepo. Update all method calls and imports.
-- [ ] T050 [P] [US3] Migrate backend/internal/contact/ handlers — update constructor to accept any repository dependencies. Update imports.
-- [ ] T051 [P] [US3] Migrate backend/internal/allowance/ processor/scheduler — update the allowance processor goroutine to use ScheduleRepo and TransactionRepo instead of store types.
-- [ ] T052 [US3] Update backend/internal/testutil/ — update shared test helpers to work with `*gorm.DB` if any test utilities reference the DB connection type.
-- [ ] T053 [US3] Run full test suite: `cd backend && go test -p 1 ./...` — all existing tests must pass with repository-backed handlers
+- [x] T050 [P] [US3] Migrate backend/internal/contact/ handlers — update constructor to accept any repository dependencies. Update imports.
+- [x] T051 [P] [US3] Migrate backend/internal/allowance/ processor/scheduler — update the allowance processor goroutine to use ScheduleRepo and TransactionRepo instead of store types.
+- [x] T052 [US3] Update backend/internal/testutil/ — update shared test helpers to work with `*gorm.DB` if any test utilities reference the DB connection type.
+- [x] T053 [US3] Run full test suite: `cd backend && go test -p 1 ./...` — all existing tests must pass with repository-backed handlers
 
 **Checkpoint**: All handlers use repositories. No handler package imports `internal/store`. Full test suite passes.
 
@@ -138,9 +138,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Verify no remaining imports of `internal/store` in any non-store package — run `grep -r "internal/store" backend/ --include="*.go"` excluding the store package itself. Fix any remaining references.
-- [ ] T055 [US4] Remove backend/internal/store/ directory entirely — delete all store files (postgres.go, family.go, child.go, parent.go, transaction.go, schedule.go, interest_schedule.go, interest.go, refresh_token.go, auth_event.go, webhook_event.go, savings_goal.go, and all corresponding test files).
-- [ ] T056 [US4] Run full test suite after store removal: `cd backend && go test -p 1 ./...` — confirm everything compiles and passes without the store package.
+- [x] T054 [US4] Verify no remaining imports of `internal/store` in any non-store package — run `grep -r "internal/store" backend/ --include="*.go"` excluding the store package itself. Fix any remaining references.
+- [x] T055 [US4] Remove backend/internal/store/ directory entirely — delete all store files (postgres.go, family.go, child.go, parent.go, transaction.go, schedule.go, interest_schedule.go, interest.go, refresh_token.go, auth_event.go, webhook_event.go, savings_goal.go, and all corresponding test files).
+- [x] T056 [US4] Run full test suite after store removal: `cd backend && go test -p 1 ./...` — confirm everything compiles and passes without the store package.
 
 **Checkpoint**: Store package removed. Project compiles. All tests pass. `backend/models/` and `backend/repositories/` are the sole data access layer.
 
@@ -150,10 +150,10 @@
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T057 Run `cd backend && go vet ./...` to verify no issues across the codebase
-- [ ] T058 Run `cd backend && go build ./...` to verify clean compilation of all packages
-- [ ] T059 Verify no GORM AutoMigrate usage anywhere: search for "AutoMigrate" in backend/ — must return zero results
-- [ ] T060 Verify int64 cents preserved: spot-check models and repository methods for money fields — all must be int64, no float64 or decimal types
+- [x] T057 Run `cd backend && go vet ./...` to verify no issues across the codebase
+- [x] T058 Run `cd backend && go build ./...` to verify clean compilation of all packages
+- [x] T059 Verify no GORM AutoMigrate usage anywhere: search for "AutoMigrate" in backend/ — must return zero results
+- [x] T060 Verify int64 cents preserved: spot-check models and repository methods for money fields — all must be int64, no float64 or decimal types
 
 ---
 
