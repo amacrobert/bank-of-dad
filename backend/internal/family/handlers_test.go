@@ -9,34 +9,35 @@ import (
 	"testing"
 	"time"
 
-	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/testutil"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newTestHandlers(t *testing.T) (*Handlers, *store.FamilyStore, *store.ChildStore) {
+func newTestHandlers(t *testing.T) (*Handlers, *repositories.FamilyRepo, *repositories.ChildRepo) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	familyStore := store.NewFamilyStore(db)
-	parentStore := store.NewParentStore(db)
-	childStore := store.NewChildStore(db)
-	eventStore := store.NewAuthEventStore(db)
-	h := NewHandlers(familyStore, parentStore, childStore, eventStore, []byte("test-key"))
-	return h, familyStore, childStore
+	familyRepo := repositories.NewFamilyRepo(db)
+	parentRepo := repositories.NewParentRepo(db)
+	childRepo := repositories.NewChildRepo(db)
+	eventRepo := repositories.NewAuthEventRepo(db)
+	h := NewHandlers(familyRepo, parentRepo, childRepo, eventRepo, []byte("test-key"))
+	return h, familyRepo, childRepo
 }
 
 func TestHandleListFamilyChildren_WithChildren(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("smith-family")
+	fam, err := familyRepo.Create("smith-family")
 	require.NoError(t, err)
 
 	avatar := "🦊"
-	_, err = childStore.Create(fam.ID, "Alice", "password123", &avatar)
+	_, err = childRepo.Create(fam.ID, "Alice", "password123", &avatar)
 	require.NoError(t, err)
-	_, err = childStore.Create(fam.ID, "Bob", "password456", nil)
+	_, err = childRepo.Create(fam.ID, "Bob", "password456", nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/families/smith-family/children", nil)
@@ -86,11 +87,11 @@ func TestHandleListFamilyChildren_NonexistentSlug(t *testing.T) {
 }
 
 func TestHandleListFamilyChildren_NoSensitiveFields(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("doe-family")
+	fam, err := familyRepo.Create("doe-family")
 	require.NoError(t, err)
-	_, err = childStore.Create(fam.ID, "Charlie", "password789", nil)
+	_, err = childRepo.Create(fam.ID, "Charlie", "password789", nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/families/doe-family/children", nil)
@@ -122,12 +123,12 @@ func TestHandleListFamilyChildren_NoSensitiveFields(t *testing.T) {
 
 // T006: HandleUpdateTheme tests
 func TestHandleUpdateTheme_ValidTheme(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", nil)
 	require.NoError(t, err)
 
 	body := strings.NewReader(`{"theme":"piggybank"}`)
@@ -149,19 +150,19 @@ func TestHandleUpdateTheme_ValidTheme(t *testing.T) {
 	assert.Equal(t, "piggybank", resp.Theme)
 
 	// Verify persisted
-	updated, err := childStore.GetByID(child.ID)
+	updated, err := childRepo.GetByID(child.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.Theme)
 	assert.Equal(t, "piggybank", *updated.Theme)
 }
 
 func TestHandleUpdateTheme_InvalidTheme(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", nil)
 	require.NoError(t, err)
 
 	body := strings.NewReader(`{"theme":"darkmode"}`)
@@ -175,12 +176,12 @@ func TestHandleUpdateTheme_InvalidTheme(t *testing.T) {
 }
 
 func TestHandleUpdateTheme_NonChildUser(t *testing.T) {
-	h, familyStore, _ := newTestHandlers(t)
+	h, familyRepo, _ := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	ps := store.NewParentStore(testutil.SetupTestDB(t))
+	ps := repositories.NewParentRepo(testutil.SetupTestDB(t))
 	parent, err := ps.Create("g-123", "p@test.com", "Parent")
 	require.NoError(t, err)
 
@@ -195,12 +196,12 @@ func TestHandleUpdateTheme_NonChildUser(t *testing.T) {
 }
 
 func TestHandleUpdateAvatar_SetAvatar(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", nil)
 	require.NoError(t, err)
 
 	body := strings.NewReader(`{"avatar":"🦊"}`)
@@ -223,20 +224,20 @@ func TestHandleUpdateAvatar_SetAvatar(t *testing.T) {
 	assert.Equal(t, "🦊", *resp.Avatar)
 
 	// Verify persisted
-	updated, err := childStore.GetByID(child.ID)
+	updated, err := childRepo.GetByID(child.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.Avatar)
 	assert.Equal(t, "🦊", *updated.Avatar)
 }
 
 func TestHandleUpdateAvatar_ClearAvatar(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
 	avatar := "🐻"
-	child, err := childStore.Create(fam.ID, "Alice", "password123", &avatar)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", &avatar)
 	require.NoError(t, err)
 
 	body := strings.NewReader(`{"avatar":null}`)
@@ -249,19 +250,19 @@ func TestHandleUpdateAvatar_ClearAvatar(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	// Verify cleared
-	updated, err := childStore.GetByID(child.ID)
+	updated, err := childRepo.GetByID(child.ID)
 	require.NoError(t, err)
 	assert.Nil(t, updated.Avatar)
 }
 
 func TestHandleUpdateAvatar_EmptyStringClearsAvatar(t *testing.T) {
-	h, familyStore, childStore := newTestHandlers(t)
+	h, familyRepo, childRepo := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
 	avatar := "🐻"
-	child, err := childStore.Create(fam.ID, "Alice", "password123", &avatar)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", &avatar)
 	require.NoError(t, err)
 
 	body := strings.NewReader(`{"avatar":""}`)
@@ -274,18 +275,18 @@ func TestHandleUpdateAvatar_EmptyStringClearsAvatar(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	// Verify cleared
-	updated, err := childStore.GetByID(child.ID)
+	updated, err := childRepo.GetByID(child.ID)
 	require.NoError(t, err)
 	assert.Nil(t, updated.Avatar)
 }
 
 func TestHandleUpdateAvatar_NonChildUser(t *testing.T) {
-	h, familyStore, _ := newTestHandlers(t)
+	h, familyRepo, _ := newTestHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	ps := store.NewParentStore(testutil.SetupTestDB(t))
+	ps := repositories.NewParentRepo(testutil.SetupTestDB(t))
 	parent, err := ps.Create("g-456", "p2@test.com", "Parent")
 	require.NoError(t, err)
 
@@ -301,32 +302,32 @@ func TestHandleUpdateAvatar_NonChildUser(t *testing.T) {
 
 // HandleDeleteAccount subscription guard tests
 
-func setupDeleteAccountTest(t *testing.T) (*Handlers, *store.FamilyStore, *store.ParentStore, *store.Family, *store.Parent) {
+func setupDeleteAccountTest(t *testing.T) (*Handlers, *repositories.FamilyRepo, *repositories.ParentRepo, *models.Family, *models.Parent) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	familyStore := store.NewFamilyStore(db)
-	parentStore := store.NewParentStore(db)
-	childStore := store.NewChildStore(db)
-	eventStore := store.NewAuthEventStore(db)
-	h := NewHandlers(familyStore, parentStore, childStore, eventStore, []byte("test-key"))
+	familyRepo := repositories.NewFamilyRepo(db)
+	parentRepo := repositories.NewParentRepo(db)
+	childRepo := repositories.NewChildRepo(db)
+	eventRepo := repositories.NewAuthEventRepo(db)
+	h := NewHandlers(familyRepo, parentRepo, childRepo, eventRepo, []byte("test-key"))
 
-	fam, err := familyStore.Create("del-test-family")
+	fam, err := familyRepo.Create("del-test-family")
 	require.NoError(t, err)
 
-	parent, err := parentStore.Create("g-del-1", "del@test.com", "Del Parent")
+	parent, err := parentRepo.Create("g-del-1", "del@test.com", "Del Parent")
 	require.NoError(t, err)
 
-	err = parentStore.SetFamilyID(parent.ID, fam.ID)
+	err = parentRepo.SetFamilyID(parent.ID, fam.ID)
 	require.NoError(t, err)
 
-	return h, familyStore, parentStore, fam, parent
+	return h, familyRepo, parentRepo, fam, parent
 }
 
 func TestHandleDeleteAccount_ActiveSubscriptionBlocks(t *testing.T) {
-	h, familyStore, _, fam, parent := setupDeleteAccountTest(t)
+	h, familyRepo, _, fam, parent := setupDeleteAccountTest(t)
 
 	// Set up active, un-cancelled subscription
-	err := familyStore.UpdateSubscriptionFromCheckout(fam.ID, "cus_123", "sub_123", "active", time.Now().Add(30*24*time.Hour))
+	err := familyRepo.UpdateSubscriptionFromCheckout(fam.ID, "cus_123", "sub_123", "active", time.Now().Add(30*24*time.Hour))
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("DELETE", "/api/account", nil)
@@ -344,12 +345,12 @@ func TestHandleDeleteAccount_ActiveSubscriptionBlocks(t *testing.T) {
 }
 
 func TestHandleDeleteAccount_CancellingSubscriptionAllows(t *testing.T) {
-	h, familyStore, _, fam, parent := setupDeleteAccountTest(t)
+	h, familyRepo, _, fam, parent := setupDeleteAccountTest(t)
 
 	// Set up active subscription that is cancelling at period end
-	err := familyStore.UpdateSubscriptionFromCheckout(fam.ID, "cus_234", "sub_234", "active", time.Now().Add(30*24*time.Hour))
+	err := familyRepo.UpdateSubscriptionFromCheckout(fam.ID, "cus_234", "sub_234", "active", time.Now().Add(30*24*time.Hour))
 	require.NoError(t, err)
-	err = familyStore.UpdateSubscriptionStatus("sub_234", "active", time.Now().Add(30*24*time.Hour), true)
+	err = familyRepo.UpdateSubscriptionStatus("sub_234", "active", time.Now().Add(30*24*time.Hour), true)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("DELETE", "/api/account", nil)
@@ -376,23 +377,23 @@ func TestHandleDeleteAccount_NoSubscriptionAllows(t *testing.T) {
 
 func TestHandleCreateChild_MaxChildrenLimit(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	familyStore := store.NewFamilyStore(db)
-	parentStore := store.NewParentStore(db)
-	childStore := store.NewChildStore(db)
-	eventStore := store.NewAuthEventStore(db)
-	h := NewHandlers(familyStore, parentStore, childStore, eventStore, []byte("test-key"))
+	familyRepo := repositories.NewFamilyRepo(db)
+	parentRepo := repositories.NewParentRepo(db)
+	childRepo := repositories.NewChildRepo(db)
+	eventRepo := repositories.NewAuthEventRepo(db)
+	h := NewHandlers(familyRepo, parentRepo, childRepo, eventRepo, []byte("test-key"))
 
-	fam, err := familyStore.Create("big-family")
+	fam, err := familyRepo.Create("big-family")
 	require.NoError(t, err)
 
-	parent, err := parentStore.Create("g-limit-1", "limit@test.com", "Limit Parent")
+	parent, err := parentRepo.Create("g-limit-1", "limit@test.com", "Limit Parent")
 	require.NoError(t, err)
-	err = parentStore.SetFamilyID(parent.ID, fam.ID)
+	err = parentRepo.SetFamilyID(parent.ID, fam.ID)
 	require.NoError(t, err)
 
 	// Create 20 children
 	for i := 1; i <= 20; i++ {
-		_, err := childStore.Create(fam.ID, fmt.Sprintf("Child%d", i), "password123", nil)
+		_, err := childRepo.Create(fam.ID, fmt.Sprintf("Child%d", i), "password123", nil)
 		require.NoError(t, err)
 	}
 

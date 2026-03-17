@@ -5,33 +5,34 @@ import (
 	"time"
 
 	"bank-of-dad/internal/allowance"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 // Scheduler processes due interest accruals in the background.
 type Scheduler struct {
-	interestStore         *store.InterestStore
-	interestScheduleStore *store.InterestScheduleStore
+	interestRepo         *repositories.InterestRepo
+	interestScheduleRepo *repositories.InterestScheduleRepo
 }
 
 // NewScheduler creates a new interest Scheduler.
-func NewScheduler(interestStore *store.InterestStore) *Scheduler {
-	return &Scheduler{interestStore: interestStore}
+func NewScheduler(interestRepo *repositories.InterestRepo) *Scheduler {
+	return &Scheduler{interestRepo: interestRepo}
 }
 
 // SetInterestScheduleStore sets the interest schedule store for schedule-based processing.
-func (s *Scheduler) SetInterestScheduleStore(iss *store.InterestScheduleStore) {
-	s.interestScheduleStore = iss
+func (s *Scheduler) SetInterestScheduleStore(iss *repositories.InterestScheduleRepo) {
+	s.interestScheduleRepo = iss
 }
 
 // RecalculateAllNextRuns recalculates next_run_at for all active interest schedules
 // using timezone-aware logic. Called on startup to correct existing UTC-midnight values.
 func (s *Scheduler) RecalculateAllNextRuns() {
-	if s.interestScheduleStore == nil {
+	if s.interestScheduleRepo == nil {
 		return
 	}
 
-	schedules, err := s.interestScheduleStore.ListAllActiveWithTimezone()
+	schedules, err := s.interestScheduleRepo.ListAllActiveWithTimezone()
 	if err != nil {
 		log.Printf("Error listing active interest schedules for recalculation: %v", err)
 		return
@@ -40,13 +41,13 @@ func (s *Scheduler) RecalculateAllNextRuns() {
 	now := time.Now().UTC()
 	for _, ds := range schedules {
 		loc := loadTimezone(ds.FamilyTimezone)
-		tmpSched := &store.AllowanceSchedule{
+		tmpSched := &models.AllowanceSchedule{
 			Frequency:  ds.Frequency,
 			DayOfWeek:  ds.DayOfWeek,
 			DayOfMonth: ds.DayOfMonth,
 		}
 		nextRun := allowance.CalculateNextRun(tmpSched, now, loc)
-		if err := s.interestScheduleStore.UpdateNextRunAt(ds.ID, nextRun); err != nil {
+		if err := s.interestScheduleRepo.UpdateNextRunAt(ds.ID, nextRun); err != nil {
 			log.Printf("Error recalculating next_run_at for interest schedule %d: %v", ds.ID, err)
 		}
 	}
@@ -78,7 +79,7 @@ func (s *Scheduler) Start(interval time.Duration, stop <-chan struct{}) {
 
 // processTick chooses between schedule-based and legacy processing.
 func (s *Scheduler) processTick() {
-	if s.interestScheduleStore != nil {
+	if s.interestScheduleRepo != nil {
 		s.ProcessDueSchedules()
 	} else {
 		s.ProcessDue()
@@ -87,14 +88,14 @@ func (s *Scheduler) processTick() {
 
 // ProcessDue finds and applies interest to all eligible children (legacy monthly-only path).
 func (s *Scheduler) ProcessDue() {
-	dues, err := s.interestStore.ListDueForInterest()
+	dues, err := s.interestRepo.ListDueForInterest()
 	if err != nil {
 		log.Printf("Error listing children due for interest: %v", err)
 		return
 	}
 
 	for _, due := range dues {
-		if err := s.interestStore.ApplyInterest(due.ChildID, due.ParentID, due.InterestRateBps, store.FrequencyMonthly); err != nil {
+		if err := s.interestRepo.ApplyInterest(due.ChildID, due.ParentID, due.InterestRateBps, models.FrequencyMonthly); err != nil {
 			log.Printf("Error applying interest for child %d: %v", due.ChildID, err)
 			continue
 		}
@@ -106,7 +107,7 @@ func (s *Scheduler) ProcessDue() {
 // ProcessDueSchedules processes interest accruals based on interest_schedules table.
 func (s *Scheduler) ProcessDueSchedules() {
 	now := time.Now().UTC()
-	schedules, err := s.interestScheduleStore.ListDue(now)
+	schedules, err := s.interestScheduleRepo.ListDue(now)
 	if err != nil {
 		log.Printf("Error listing due interest schedules: %v", err)
 		return
@@ -114,7 +115,7 @@ func (s *Scheduler) ProcessDueSchedules() {
 
 	for _, sched := range schedules {
 		// Get the interest rate for this child
-		rateBps, err := s.interestStore.GetInterestRate(sched.ChildID)
+		rateBps, err := s.interestRepo.GetInterestRate(sched.ChildID)
 		if err != nil {
 			log.Printf("Error getting interest rate for child %d: %v", sched.ChildID, err)
 			continue
@@ -127,7 +128,7 @@ func (s *Scheduler) ProcessDueSchedules() {
 			continue
 		}
 
-		if err := s.interestStore.ApplyInterest(sched.ChildID, sched.ParentID, rateBps, sched.Frequency); err != nil {
+		if err := s.interestRepo.ApplyInterest(sched.ChildID, sched.ParentID, rateBps, sched.Frequency); err != nil {
 			log.Printf("Error applying interest for child %d: %v", sched.ChildID, err)
 			// Still advance next_run_at to avoid retrying zero-interest cases
 			s.advanceNextRun(&sched)
@@ -142,15 +143,15 @@ func (s *Scheduler) ProcessDueSchedules() {
 }
 
 // advanceNextRun calculates and updates the next_run_at for a schedule after execution.
-func (s *Scheduler) advanceNextRun(sched *store.DueInterestSchedule) {
+func (s *Scheduler) advanceNextRun(sched *repositories.DueInterestSchedule) {
 	loc := loadTimezone(sched.FamilyTimezone)
-	tmpSched := &store.AllowanceSchedule{
+	tmpSched := &models.AllowanceSchedule{
 		Frequency:  sched.Frequency,
 		DayOfWeek:  sched.DayOfWeek,
 		DayOfMonth: sched.DayOfMonth,
 	}
 	nextRun := allowance.CalculateNextRunAfterExecution(tmpSched, *sched.NextRunAt, loc)
-	if err := s.interestScheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
+	if err := s.interestScheduleRepo.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		log.Printf("Error updating next_run_at for interest schedule %d: %v", sched.ID, err)
 	}
 }

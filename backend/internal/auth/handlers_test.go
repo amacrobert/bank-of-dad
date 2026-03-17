@@ -2,35 +2,41 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 const defaultTestDSN = "postgres://bankofdad:bankofdad@localhost:5432/bankofdad_test?sslmode=disable"
 
-func setupAuthTestDB(t *testing.T) *sql.DB {
+func setupAuthTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		dsn = defaultTestDSN
 	}
-	db, err := store.Open(dsn)
+	db, err := repositories.Open(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
-		db.Close()
+		result := db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+		if result.Error != nil {
+			t.Logf("cleanup truncate error: %v", result.Error)
+		}
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			sqlDB.Close()
+		}
 	})
-	_, err = db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
-	require.NoError(t, err)
+	result := db.Exec(`TRUNCATE stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+	require.NoError(t, result.Error)
 	return db
 }
 
@@ -42,29 +48,29 @@ func setAuthRequestContext(r *http.Request, userType string, userID, familyID in
 	return r.WithContext(ctx)
 }
 
-func newTestAuthHandlers(t *testing.T) (*Handlers, *store.FamilyStore, *store.ChildStore) {
+func newTestAuthHandlers(t *testing.T) (*Handlers, *repositories.FamilyRepo, *repositories.ChildRepo) {
 	t.Helper()
 	db := setupAuthTestDB(t)
-	parentStore := store.NewParentStore(db)
-	familyStore := store.NewFamilyStore(db)
-	childStore := store.NewChildStore(db)
-	refreshTokenStore := store.NewRefreshTokenStore(db)
-	eventStore := store.NewAuthEventStore(db)
-	h := NewHandlers(parentStore, familyStore, childStore, refreshTokenStore, eventStore, []byte("test-key"))
-	return h, familyStore, childStore
+	parentRepo := repositories.NewParentRepo(db)
+	familyRepo := repositories.NewFamilyRepo(db)
+	childRepo := repositories.NewChildRepo(db)
+	refreshTokenRepo := repositories.NewRefreshTokenRepo(db)
+	eventRepo := repositories.NewAuthEventRepo(db)
+	h := NewHandlers(parentRepo, familyRepo, childRepo, refreshTokenRepo, eventRepo, []byte("test-key"))
+	return h, familyRepo, childRepo
 }
 
 // T007: HandleGetMe includes theme field for child users
 func TestHandleGetMe_ChildIncludesTheme(t *testing.T) {
-	h, familyStore, childStore := newTestAuthHandlers(t)
+	h, familyRepo, childRepo := newTestAuthHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	child, err := childStore.Create(fam.ID, "Alice", "password123", nil)
+	child, err := childRepo.Create(fam.ID, "Alice", "password123", nil)
 	require.NoError(t, err)
 
-	err = childStore.UpdateTheme(child.ID, "sparkle")
+	err = childRepo.UpdateTheme(child.ID, "sparkle")
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/auth/me", nil)
@@ -86,12 +92,12 @@ func TestHandleGetMe_ChildIncludesTheme(t *testing.T) {
 }
 
 func TestHandleGetMe_ChildNilTheme(t *testing.T) {
-	h, familyStore, childStore := newTestAuthHandlers(t)
+	h, familyRepo, childRepo := newTestAuthHandlers(t)
 
-	fam, err := familyStore.Create("test-family")
+	fam, err := familyRepo.Create("test-family")
 	require.NoError(t, err)
 
-	child, err := childStore.Create(fam.ID, "Bob", "password123", nil)
+	child, err := childRepo.Create(fam.ID, "Bob", "password123", nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/auth/me", nil)

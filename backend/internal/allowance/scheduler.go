@@ -4,29 +4,29 @@ import (
 	"log"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 )
 
 // Scheduler processes due allowance schedules in the background.
 type Scheduler struct {
-	scheduleStore *store.ScheduleStore
-	txStore       *store.TransactionStore
-	childStore    *store.ChildStore
+	scheduleRepo *repositories.ScheduleRepo
+	txRepo       *repositories.TransactionRepo
+	childRepo    *repositories.ChildRepo
 }
 
 // NewScheduler creates a new Scheduler.
-func NewScheduler(scheduleStore *store.ScheduleStore, txStore *store.TransactionStore, childStore *store.ChildStore) *Scheduler {
+func NewScheduler(scheduleRepo *repositories.ScheduleRepo, txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo) *Scheduler {
 	return &Scheduler{
-		scheduleStore: scheduleStore,
-		txStore:       txStore,
-		childStore:    childStore,
+		scheduleRepo: scheduleRepo,
+		txRepo:       txRepo,
+		childRepo:    childRepo,
 	}
 }
 
 // RecalculateAllNextRuns recalculates next_run_at for all active schedules
 // using timezone-aware logic. Called on startup to correct existing UTC-midnight values.
 func (s *Scheduler) RecalculateAllNextRuns() {
-	schedules, err := s.scheduleStore.ListAllActiveWithTimezone()
+	schedules, err := s.scheduleRepo.ListAllActiveWithTimezone()
 	if err != nil {
 		log.Printf("Error listing active schedules for recalculation: %v", err)
 		return
@@ -36,7 +36,7 @@ func (s *Scheduler) RecalculateAllNextRuns() {
 	for _, ds := range schedules {
 		loc := loadTimezone(ds.FamilyTimezone)
 		nextRun := CalculateNextRun(&ds.AllowanceSchedule, now, loc)
-		if err := s.scheduleStore.UpdateNextRunAt(ds.ID, nextRun); err != nil {
+		if err := s.scheduleRepo.UpdateNextRunAt(ds.ID, nextRun); err != nil {
 			log.Printf("Error recalculating next_run_at for schedule %d: %v", ds.ID, err)
 		}
 	}
@@ -68,7 +68,7 @@ func (s *Scheduler) Start(interval time.Duration, stop <-chan struct{}) {
 
 // ProcessDueSchedules finds and executes all schedules that are due.
 func (s *Scheduler) ProcessDueSchedules() {
-	schedules, err := s.scheduleStore.ListDue(time.Now())
+	schedules, err := s.scheduleRepo.ListDue(time.Now())
 	if err != nil {
 		log.Printf("Error listing due schedules: %v", err)
 		return
@@ -92,7 +92,7 @@ func loadTimezone(tz string) *time.Location {
 }
 
 // executeSchedule creates a deposit transaction and advances the schedule's next_run_at.
-func (s *Scheduler) executeSchedule(sched store.DueAllowanceSchedule) error {
+func (s *Scheduler) executeSchedule(sched repositories.DueAllowanceSchedule) error {
 	// Build note from schedule
 	var note string
 	if sched.Note != nil {
@@ -100,7 +100,7 @@ func (s *Scheduler) executeSchedule(sched store.DueAllowanceSchedule) error {
 	}
 
 	// Create allowance deposit
-	_, _, err := s.txStore.DepositAllowance(
+	_, _, err := s.txRepo.DepositAllowance(
 		sched.ChildID,
 		sched.ParentID,
 		sched.AmountCents,
@@ -119,7 +119,7 @@ func (s *Scheduler) executeSchedule(sched store.DueAllowanceSchedule) error {
 	}
 	nextRun := CalculateNextRunAfterExecution(&sched.AllowanceSchedule, executedAt, loc)
 
-	if err := s.scheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
+	if err := s.scheduleRepo.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		return err
 	}
 

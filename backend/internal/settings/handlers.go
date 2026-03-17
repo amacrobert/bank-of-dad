@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"bank-of-dad/internal/middleware"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 )
 
 var validBankName = regexp.MustCompile(`^[\p{L}\p{N} '\-]+$`)
 
 type Handlers struct {
-	familyStore *store.FamilyStore
+	familyRepo *repositories.FamilyRepo
 }
 
-func NewHandlers(familyStore *store.FamilyStore) *Handlers {
-	return &Handlers{familyStore: familyStore}
+func NewHandlers(familyRepo *repositories.FamilyRepo) *Handlers {
+	return &Handlers{familyRepo: familyRepo}
 }
 
 func (h *Handlers) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
@@ -29,13 +29,13 @@ func (h *Handlers) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tz, err := h.familyStore.GetTimezone(familyID)
+	tz, err := h.familyRepo.GetTimezone(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
 
-	bankName, err := h.familyStore.GetBankName(familyID)
+	bankName, err := h.familyRepo.GetBankName(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -79,7 +79,7 @@ func (h *Handlers) HandleUpdateTimezone(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.familyStore.UpdateTimezone(familyID, req.Timezone); err != nil {
+	if err := h.familyRepo.UpdateTimezone(familyID, req.Timezone); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
@@ -131,7 +131,7 @@ func (h *Handlers) HandleUpdateBankName(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.familyStore.UpdateBankName(familyID, req.BankName); err != nil {
+	if err := h.familyRepo.UpdateBankName(familyID, req.BankName); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}

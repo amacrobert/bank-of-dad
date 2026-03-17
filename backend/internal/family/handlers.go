@@ -9,30 +9,31 @@ import (
 	"time"
 
 	"bank-of-dad/internal/auth"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 type Handlers struct {
-	familyStore *store.FamilyStore
-	parentStore *store.ParentStore
-	childStore  *store.ChildStore
-	eventStore  *store.AuthEventStore
-	jwtKey      []byte
+	familyRepo *repositories.FamilyRepo
+	parentRepo *repositories.ParentRepo
+	childRepo  *repositories.ChildRepo
+	eventRepo  *repositories.AuthEventRepo
+	jwtKey     []byte
 }
 
 func NewHandlers(
-	familyStore *store.FamilyStore,
-	parentStore *store.ParentStore,
-	childStore *store.ChildStore,
-	eventStore *store.AuthEventStore,
+	familyRepo *repositories.FamilyRepo,
+	parentRepo *repositories.ParentRepo,
+	childRepo *repositories.ChildRepo,
+	eventRepo *repositories.AuthEventRepo,
 	jwtKey []byte,
 ) *Handlers {
 	return &Handlers{
-		familyStore: familyStore,
-		parentStore: parentStore,
-		childStore:  childStore,
-		eventStore:  eventStore,
-		jwtKey:      jwtKey,
+		familyRepo: familyRepo,
+		parentRepo: parentRepo,
+		childRepo:  childRepo,
+		eventRepo:  eventRepo,
+		jwtKey:     jwtKey,
 	}
 }
 
@@ -55,13 +56,13 @@ func (h *Handlers) HandleCreateFamily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := h.familyStore.SlugExists(req.Slug)
+	exists, err := h.familyRepo.SlugExists(req.Slug)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
 	if exists {
-		suggestions := h.familyStore.SuggestSlugs(req.Slug)
+		suggestions := h.familyRepo.SuggestSlugs(req.Slug)
 		writeJSON(w, http.StatusConflict, map[string]interface{}{
 			"error":       "Slug taken",
 			"suggestions": suggestions,
@@ -69,13 +70,13 @@ func (h *Handlers) HandleCreateFamily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fam, err := h.familyStore.Create(req.Slug)
+	fam, err := h.familyRepo.Create(req.Slug)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create family"})
 		return
 	}
 
-	if err := h.parentStore.SetFamilyID(parentID, fam.ID); err != nil {
+	if err := h.parentRepo.SetFamilyID(parentID, fam.ID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to link family"})
 		return
 	}
@@ -104,11 +105,11 @@ func (h *Handlers) HandleCheckSlug(w http.ResponseWriter, r *http.Request) {
 	validErr := ValidateSlug(slug)
 	valid := validErr == nil
 
-	exists, _ := h.familyStore.SlugExists(slug)
+	exists, _ := h.familyRepo.SlugExists(slug)
 
 	var suggestions []string
 	if exists || !valid {
-		suggestions = h.familyStore.SuggestSlugs(slug)
+		suggestions = h.familyRepo.SuggestSlugs(slug)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -126,7 +127,7 @@ func (h *Handlers) HandleGetFamily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fam, err := h.familyStore.GetBySlug(slug)
+	fam, err := h.familyRepo.GetBySlug(slug)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -145,7 +146,7 @@ func (h *Handlers) HandleListFamilyChildren(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	fam, err := h.familyStore.GetBySlug(slug)
+	fam, err := h.familyRepo.GetBySlug(slug)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -155,7 +156,7 @@ func (h *Handlers) HandleListFamilyChildren(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	children, err := h.childStore.ListByFamily(fam.ID)
+	children, err := h.childRepo.ListByFamily(fam.ID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -187,7 +188,7 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hard cap: 20 children per family
-	count, err := h.childStore.CountByFamily(familyID)
+	count, err := h.childRepo.CountByFamily(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to check family size"})
 		return
@@ -232,7 +233,7 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 		avatar = nil
 	}
 
-	child, err := h.childStore.Create(familyID, req.FirstName, req.Password, avatar)
+	child, err := h.childRepo.Create(familyID, req.FirstName, req.Password, avatar)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			writeJSON(w, http.StatusConflict, map[string]interface{}{
@@ -246,13 +247,13 @@ func (h *Handlers) HandleCreateChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine if child should be disabled (free tier limit: 2 enabled children)
-	fam, _ := h.familyStore.GetByID(familyID)
+	fam, _ := h.familyRepo.GetByID(familyID)
 	shouldDisable := false
 	if fam != nil && fam.AccountType != "plus" {
-		enabledCount, err := h.childStore.CountEnabledByFamily(familyID)
+		enabledCount, err := h.childRepo.CountEnabledByFamily(familyID)
 		if err == nil && enabledCount > 2 {
 			shouldDisable = true
-			h.childStore.SetDisabled(child.ID, true) //nolint:errcheck // best-effort
+			h.childRepo.SetDisabled(child.ID, true) //nolint:errcheck // best-effort
 		}
 	}
 
@@ -278,7 +279,7 @@ func (h *Handlers) HandleListChildren(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	children, err := h.childStore.ListByFamily(familyID)
+	children, err := h.childRepo.ListByFamily(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to list children"})
 		return
@@ -318,7 +319,7 @@ func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil || child == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Child not found"})
 		return
@@ -343,12 +344,12 @@ func (h *Handlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wasLocked := child.IsLocked
-	if err := h.childStore.UpdatePassword(childID, req.Password); err != nil {
+	if err := h.childRepo.UpdatePassword(childID, req.Password); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update password"})
 		return
 	}
 
-	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	h.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "password_reset",
 		UserType:  "parent",
 		UserID:    auth.GetUserID(r),
@@ -372,7 +373,7 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil || child == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Child not found"})
 		return
@@ -418,7 +419,7 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		avatar = nil
 	}
 
-	if err := h.childStore.UpdateNameAndAvatar(childID, familyID, req.FirstName, avatar, avatarSet); err != nil {
+	if err := h.childRepo.UpdateNameAndAvatar(childID, familyID, req.FirstName, avatar, avatarSet); err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "Name taken"})
 			return
@@ -428,9 +429,9 @@ func (h *Handlers) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Re-fetch child to get current avatar value
-	updated, _ := h.childStore.GetByID(childID)
+	updated, _ := h.childRepo.GetByID(childID)
 
-	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	h.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "name_updated",
 		UserType:  "parent",
 		UserID:    auth.GetUserID(r),
@@ -460,7 +461,7 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil || child == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Child not found"})
 		return
@@ -472,7 +473,7 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// FR-010: Log audit event BEFORE removing child data
-	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	h.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "account_deleted",
 		UserType:  "parent",
 		UserID:    auth.GetUserID(r),
@@ -482,15 +483,15 @@ func (h *Handlers) HandleDeleteChild(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now().UTC(),
 	})
 
-	if err := h.childStore.Delete(childID); err != nil {
+	if err := h.childRepo.Delete(childID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete child"})
 		return
 	}
 
 	// Re-evaluate child limits after deletion — may re-enable a disabled child on free tier
-	fam, _ := h.familyStore.GetByID(familyID)
+	fam, _ := h.familyRepo.GetByID(familyID)
 	if fam != nil && fam.AccountType != "plus" {
-		h.childStore.ReconcileChildLimits(familyID, 2) //nolint:errcheck // best-effort
+		h.childRepo.ReconcileChildLimits(familyID, 2) //nolint:errcheck // best-effort
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -505,13 +506,13 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for active subscription that hasn't been cancelled
-	info, err := h.familyStore.GetSubscriptionByFamilyID(familyID)
+	info, err := h.familyRepo.GetSubscriptionByFamilyID(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to check subscription status"})
 		return
 	}
-	if info != nil && info.SubscriptionStatus.Valid &&
-		info.SubscriptionStatus.String == "active" &&
+	if info != nil && info.SubscriptionStatus != nil &&
+		*info.SubscriptionStatus == "active" &&
 		!info.SubscriptionCancelAtPeriodEnd {
 		writeJSON(w, http.StatusConflict, map[string]string{
 			"error": "You must cancel your subscription before deleting your account. Go to Subscription settings to manage your plan.",
@@ -520,7 +521,7 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log audit event before deletion (best-effort)
-	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	h.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "account_deleted",
 		UserType:  "parent",
 		UserID:    parentID,
@@ -530,7 +531,7 @@ func (h *Handlers) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now().UTC(),
 	})
 
-	if err := h.familyStore.DeleteAll(familyID, parentID); err != nil {
+	if err := h.familyRepo.DeleteAll(familyID, parentID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete account"})
 		return
 	}
@@ -561,7 +562,7 @@ func (h *Handlers) HandleUpdateAvatar(w http.ResponseWriter, r *http.Request) {
 		avatar = nil
 	}
 
-	if err := h.childStore.UpdateAvatar(childID, avatar); err != nil {
+	if err := h.childRepo.UpdateAvatar(childID, avatar); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update avatar"})
 		return
 	}
@@ -609,7 +610,7 @@ func (h *Handlers) HandleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.childStore.UpdateTheme(childID, req.Theme); err != nil {
+	if err := h.childRepo.UpdateTheme(childID, req.Theme); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update theme"})
 		return
 	}

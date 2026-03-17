@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,8 +168,8 @@ func TestDaysInMonth(t *testing.T) {
 
 func TestCalculateNextRun_Weekly(t *testing.T) {
 	now := date(2026, time.February, 4) // Wednesday
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(5), // Friday
 	}
 	result := CalculateNextRun(sched, now, time.UTC)
@@ -178,8 +178,8 @@ func TestCalculateNextRun_Weekly(t *testing.T) {
 
 func TestCalculateNextRun_Biweekly(t *testing.T) {
 	now := date(2026, time.February, 6) // Friday
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyBiweekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyBiweekly,
 		DayOfWeek: intPtr(5), // Friday
 	}
 	result := CalculateNextRun(sched, now, time.UTC)
@@ -188,8 +188,8 @@ func TestCalculateNextRun_Biweekly(t *testing.T) {
 
 func TestCalculateNextRun_Monthly(t *testing.T) {
 	now := date(2026, time.February, 4)
-	sched := &store.AllowanceSchedule{
-		Frequency:  store.FrequencyMonthly,
+	sched := &models.AllowanceSchedule{
+		Frequency:  models.FrequencyMonthly,
 		DayOfMonth: intPtr(15),
 	}
 	result := CalculateNextRun(sched, now, time.UTC)
@@ -200,8 +200,8 @@ func TestCalculateNextRun_Monthly(t *testing.T) {
 
 func TestCalculateNextRunAfterExecution_Weekly(t *testing.T) {
 	executedAt := date(2026, time.February, 6) // Friday
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(5),
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, time.UTC)
@@ -210,8 +210,8 @@ func TestCalculateNextRunAfterExecution_Weekly(t *testing.T) {
 
 func TestCalculateNextRunAfterExecution_Biweekly(t *testing.T) {
 	executedAt := date(2026, time.February, 6) // Friday
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyBiweekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyBiweekly,
 		DayOfWeek: intPtr(5),
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, time.UTC)
@@ -220,8 +220,8 @@ func TestCalculateNextRunAfterExecution_Biweekly(t *testing.T) {
 
 func TestCalculateNextRunAfterExecution_Monthly(t *testing.T) {
 	executedAt := date(2026, time.January, 15)
-	sched := &store.AllowanceSchedule{
-		Frequency:  store.FrequencyMonthly,
+	sched := &models.AllowanceSchedule{
+		Frequency:  models.FrequencyMonthly,
 		DayOfMonth: intPtr(15),
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, time.UTC)
@@ -230,8 +230,8 @@ func TestCalculateNextRunAfterExecution_Monthly(t *testing.T) {
 
 func TestCalculateNextRunAfterExecution_Monthly_31st(t *testing.T) {
 	executedAt := date(2026, time.January, 31)
-	sched := &store.AllowanceSchedule{
-		Frequency:  store.FrequencyMonthly,
+	sched := &models.AllowanceSchedule{
+		Frequency:  models.FrequencyMonthly,
 		DayOfMonth: intPtr(31),
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, time.UTC)
@@ -317,8 +317,8 @@ func TestCalculateNextRun_Weekly_NewYork(t *testing.T) {
 
 	// Tuesday Feb 17, 2026 at 3pm New York, schedule for Wednesday (3)
 	now := time.Date(2026, time.February, 17, 15, 0, 0, 0, loc)
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(3), // Wednesday
 	}
 	result := CalculateNextRun(sched, now, loc)
@@ -335,8 +335,8 @@ func TestCalculateNextRunAfterExecution_Weekly_NewYork(t *testing.T) {
 
 	// Executed at midnight EST Wednesday Feb 18
 	executedAt := dateIn(2026, time.February, 18, loc)
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(3), // Wednesday
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, loc)
@@ -353,8 +353,8 @@ func TestCalculateNextRunAfterExecution_Monthly_NewYork(t *testing.T) {
 
 	// Executed at midnight EST on the 15th
 	executedAt := dateIn(2026, time.January, 15, loc)
-	sched := &store.AllowanceSchedule{
-		Frequency:  store.FrequencyMonthly,
+	sched := &models.AllowanceSchedule{
+		Frequency:  models.FrequencyMonthly,
 		DayOfMonth: intPtr(15),
 	}
 	result := CalculateNextRunAfterExecution(sched, executedAt, loc)
@@ -377,7 +377,7 @@ func TestNextWeeklyDate_DSTSpringForward(t *testing.T) {
 	result := nextWeeklyDate(0, after, loc)
 
 	// Should be Sunday March 8 at midnight EDT (which is 4am UTC because clocks spring forward)
-	// Actually March 8 midnight is still EST (2am hasn't happened yet), so 5am UTC
+	// Actually March 8 midnight is still EST (before 2am), so 5am UTC
 	expected := dateIn(2026, time.March, 8, loc)
 	assert.Equal(t, expected, result)
 	// Midnight on March 8 is still EST (before 2am), so 5am UTC
@@ -424,8 +424,8 @@ func TestCalculateNextRun_UTCInput_NonUTCLocation(t *testing.T) {
 
 	// 3pm UTC on Tuesday Feb 17 = 10am EST on Tuesday Feb 17
 	now := time.Date(2026, time.February, 17, 15, 0, 0, 0, time.UTC)
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(3), // Wednesday
 	}
 	result := CalculateNextRun(sched, now, loc)
@@ -438,8 +438,8 @@ func TestCalculateNextRun_UTCInput_NonUTCLocation(t *testing.T) {
 func TestCalculateNextRun_UTCTimezoneMatchesOldBehavior(t *testing.T) {
 	// When loc = time.UTC, behavior should match the old UTC-only code
 	now := date(2026, time.February, 4) // Wednesday midnight UTC
-	sched := &store.AllowanceSchedule{
-		Frequency: store.FrequencyWeekly,
+	sched := &models.AllowanceSchedule{
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(5), // Friday
 	}
 	result := CalculateNextRun(sched, now, time.UTC)

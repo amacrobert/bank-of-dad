@@ -3,20 +3,20 @@ package allowance
 import (
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
 )
 
 // CalculateNextRun determines the next run time for a schedule based on its frequency.
 // Used when creating a new schedule or resuming a paused one.
 // The loc parameter specifies the family's timezone — next_run_at is computed as
 // midnight in that timezone, returned as the equivalent UTC time.
-func CalculateNextRun(sched *store.AllowanceSchedule, after time.Time, loc *time.Location) time.Time {
+func CalculateNextRun(sched *models.AllowanceSchedule, after time.Time, loc *time.Location) time.Time {
 	switch sched.Frequency {
-	case store.FrequencyWeekly:
+	case models.FrequencyWeekly:
 		return nextWeeklyDate(*sched.DayOfWeek, after, loc)
-	case store.FrequencyBiweekly:
+	case models.FrequencyBiweekly:
 		return nextBiweeklyDate(*sched.DayOfWeek, after, loc)
-	case store.FrequencyMonthly:
+	case models.FrequencyMonthly:
 		return nextMonthlyDate(*sched.DayOfMonth, after, loc)
 	}
 	return after
@@ -25,17 +25,17 @@ func CalculateNextRun(sched *store.AllowanceSchedule, after time.Time, loc *time
 // CalculateNextRunAfterExecution determines the next run time after a schedule has just executed.
 // For weekly: next week same day. For biweekly: 14 days later. For monthly: same day next month.
 // The loc parameter specifies the family's timezone for midnight calculation.
-func CalculateNextRunAfterExecution(sched *store.AllowanceSchedule, executedAt time.Time, loc *time.Location) time.Time {
+func CalculateNextRunAfterExecution(sched *models.AllowanceSchedule, executedAt time.Time, loc *time.Location) time.Time {
 	// Convert executedAt to the family's timezone to get the correct calendar date
 	localExecuted := executedAt.In(loc)
 	switch sched.Frequency {
-	case store.FrequencyWeekly:
+	case models.FrequencyWeekly:
 		next := localExecuted.AddDate(0, 0, 7)
 		return time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, loc)
-	case store.FrequencyBiweekly:
+	case models.FrequencyBiweekly:
 		next := localExecuted.AddDate(0, 0, 14)
 		return time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, loc)
-	case store.FrequencyMonthly:
+	case models.FrequencyMonthly:
 		return nextMonthlyDate(*sched.DayOfMonth, executedAt, loc)
 	}
 	return executedAt

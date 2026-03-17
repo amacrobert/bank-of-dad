@@ -20,8 +20,8 @@ import (
 	"bank-of-dad/internal/interest"
 	"bank-of-dad/internal/middleware"
 	"bank-of-dad/internal/settings"
-	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/subscription"
+	"bank-of-dad/repositories"
 )
 
 func main() {
@@ -30,25 +30,29 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	db, err := store.Open(cfg.DatabaseURL)
+	db, err := repositories.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
-	defer db.Close() //nolint:errcheck // deferred close on application shutdown
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to get underlying DB: %v", err)
+	}
+	defer sqlDB.Close() //nolint:errcheck // deferred close on application shutdown
 
-	refreshTokenStore := store.NewRefreshTokenStore(db)
+	refreshTokenRepo := repositories.NewRefreshTokenRepo(db)
 
 	// Start refresh token cleanup goroutine (every hour)
 	stopCleanup := make(chan struct{})
 	defer close(stopCleanup)
-	refreshTokenStore.StartCleanupLoop(1*time.Hour, stopCleanup)
+	refreshTokenRepo.StartCleanupLoop(1*time.Hour, stopCleanup)
 
 	jwtKey := cfg.JWTSecret
 
-	parentStore := store.NewParentStore(db)
-	familyStore := store.NewFamilyStore(db)
-	childStore := store.NewChildStore(db)
-	eventStore := store.NewAuthEventStore(db)
+	parentRepo := repositories.NewParentRepo(db)
+	familyRepo := repositories.NewFamilyRepo(db)
+	childRepo := repositories.NewChildRepo(db)
+	eventRepo := repositories.NewAuthEventRepo(db)
 
 	// Set up Brevo
 	brevoConfig := brevo.NewConfiguration()
@@ -60,40 +64,41 @@ func main() {
 		cfg.GoogleClientID,
 		cfg.GoogleClientSecret,
 		cfg.GoogleRedirectURL,
-		parentStore,
-		refreshTokenStore,
-		eventStore,
+		parentRepo,
+		refreshTokenRepo,
+		eventRepo,
 		cfg.FrontendURL,
 		jwtKey,
 	)
 
-	familyHandlers := family.NewHandlers(familyStore, parentStore, childStore, eventStore, jwtKey)
-	authHandlers := auth.NewHandlers(parentStore, familyStore, childStore, refreshTokenStore, eventStore, jwtKey)
-	childAuth := auth.NewChildAuth(familyStore, childStore, refreshTokenStore, eventStore, jwtKey)
-	txStore := store.NewTransactionStore(db)
-	interestStore := store.NewInterestStore(db)
-	interestScheduleStore := store.NewInterestScheduleStore(db)
-	goalStore := store.NewSavingsGoalStore(db)
-	balanceHandler := balance.NewHandler(txStore, childStore, interestStore, interestScheduleStore, goalStore)
-	scheduleStore := store.NewScheduleStore(db)
-	allowanceHandler := allowance.NewHandler(scheduleStore, childStore, familyStore)
-	interestHandler := interest.NewHandler(interestStore, childStore, interestScheduleStore, familyStore)
-	settingsHandlers := settings.NewHandlers(familyStore)
-	goalsHandler := goals.NewHandler(goalStore, childStore)
-	webhookEventStore := store.NewWebhookEventStore(db)
-	subscriptionHandlers := subscription.NewHandlers(familyStore, parentStore, childStore, webhookEventStore, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
-	contactHandler := contact.NewHandler(brevoClient, cfg.ContactRecipientEmail, cfg.ContactRecipientName, parentStore)
+	familyHandlers := family.NewHandlers(familyRepo, parentRepo, childRepo, eventRepo, jwtKey)
+	authHandlers := auth.NewHandlers(parentRepo, familyRepo, childRepo, refreshTokenRepo, eventRepo, jwtKey)
+	childAuth := auth.NewChildAuth(familyRepo, childRepo, refreshTokenRepo, eventRepo, jwtKey)
+	txRepo := repositories.NewTransactionRepo(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	interestScheduleRepo := repositories.NewInterestScheduleRepo(db)
+	goalRepo := repositories.NewSavingsGoalRepo(db)
+	goalAllocationRepo := repositories.NewGoalAllocationRepo(db)
+	balanceHandler := balance.NewHandler(txRepo, childRepo, interestRepo, interestScheduleRepo, goalRepo)
+	scheduleRepo := repositories.NewScheduleRepo(db)
+	allowanceHandler := allowance.NewHandler(scheduleRepo, childRepo, familyRepo)
+	interestHandler := interest.NewHandler(interestRepo, childRepo, interestScheduleRepo, familyRepo)
+	settingsHandlers := settings.NewHandlers(familyRepo)
+	goalsHandler := goals.NewHandler(goalRepo, childRepo, goalAllocationRepo)
+	webhookEventRepo := repositories.NewWebhookEventRepo(db)
+	subscriptionHandlers := subscription.NewHandlers(familyRepo, parentRepo, childRepo, webhookEventRepo, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
+	contactHandler := contact.NewHandler(brevoClient, cfg.ContactRecipientEmail, cfg.ContactRecipientName, parentRepo)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopAllowanceScheduler := make(chan struct{})
 	defer close(stopAllowanceScheduler)
-	allowanceScheduler := allowance.NewScheduler(scheduleStore, txStore, childStore)
+	allowanceScheduler := allowance.NewScheduler(scheduleRepo, txRepo, childRepo)
 	allowanceScheduler.Start(5*time.Minute, stopAllowanceScheduler)
 
 	// Start interest accrual scheduler goroutine (check every hour)
 	stopInterestScheduler := make(chan struct{})
 	defer close(stopInterestScheduler)
-	interestScheduler := interest.NewScheduler(interestStore)
+	interestScheduler := interest.NewScheduler(interestRepo)
 	interestScheduler.Start(1*time.Hour, stopInterestScheduler)
 
 	// Auth middleware

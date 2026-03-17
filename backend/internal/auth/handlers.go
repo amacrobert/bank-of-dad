@@ -5,33 +5,34 @@ import (
 	"net/http"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 type Handlers struct {
-	parentStore       *store.ParentStore
-	familyStore       *store.FamilyStore
-	childStore        *store.ChildStore
-	refreshTokenStore *store.RefreshTokenStore
-	eventStore        *store.AuthEventStore
-	jwtKey            []byte
+	parentRepo       *repositories.ParentRepo
+	familyRepo       *repositories.FamilyRepo
+	childRepo        *repositories.ChildRepo
+	refreshTokenRepo *repositories.RefreshTokenRepo
+	eventRepo        *repositories.AuthEventRepo
+	jwtKey           []byte
 }
 
 func NewHandlers(
-	parentStore *store.ParentStore,
-	familyStore *store.FamilyStore,
-	childStore *store.ChildStore,
-	refreshTokenStore *store.RefreshTokenStore,
-	eventStore *store.AuthEventStore,
+	parentRepo *repositories.ParentRepo,
+	familyRepo *repositories.FamilyRepo,
+	childRepo *repositories.ChildRepo,
+	refreshTokenRepo *repositories.RefreshTokenRepo,
+	eventRepo *repositories.AuthEventRepo,
 	jwtKey []byte,
 ) *Handlers {
 	return &Handlers{
-		parentStore:       parentStore,
-		familyStore:       familyStore,
-		childStore:        childStore,
-		refreshTokenStore: refreshTokenStore,
-		eventStore:        eventStore,
-		jwtKey:            jwtKey,
+		parentRepo:       parentRepo,
+		familyRepo:       familyRepo,
+		childRepo:        childRepo,
+		refreshTokenRepo: refreshTokenRepo,
+		eventRepo:        eventRepo,
+		jwtKey:           jwtKey,
 	}
 }
 
@@ -44,7 +45,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	var accountType string
 	var bankName string
 	if familyID != 0 {
-		fam, err := h.familyStore.GetByID(familyID)
+		fam, err := h.familyRepo.GetByID(familyID)
 		if err == nil && fam != nil {
 			familySlug = fam.Slug
 			accountType = fam.AccountType
@@ -53,7 +54,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userType == "parent" {
-		parent, err := h.parentStore.GetByID(userID)
+		parent, err := h.parentRepo.GetByID(userID)
 		if err != nil || parent == nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 			return
@@ -73,7 +74,7 @@ func (h *Handlers) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Child user
-	child, err := h.childStore.GetByID(userID)
+	child, err := h.childRepo.GetByID(userID)
 	if err != nil || child == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -96,15 +97,15 @@ func (h *Handlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.RefreshToken != "" {
-		tokenHash := store.HashToken(req.RefreshToken)
-		h.refreshTokenStore.DeleteByHash(tokenHash) //nolint:errcheck // best-effort cleanup on logout
+		tokenHash := repositories.HashToken(req.RefreshToken)
+		h.refreshTokenRepo.DeleteByHash(tokenHash) //nolint:errcheck // best-effort cleanup on logout
 	}
 
 	userID := GetUserID(r)
 	familyID := GetFamilyID(r)
 	userType := GetUserType(r)
 
-	h.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	h.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "logout",
 		UserType:  userType,
 		UserID:    userID,
@@ -126,7 +127,7 @@ func (h *Handlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the refresh token
-	rt, err := h.refreshTokenStore.Validate(req.RefreshToken)
+	rt, err := h.refreshTokenRepo.Validate(req.RefreshToken)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -137,20 +138,20 @@ func (h *Handlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete old refresh token (rotation)
-	h.refreshTokenStore.DeleteByHash(rt.TokenHash) //nolint:errcheck // best-effort deletion
+	h.refreshTokenRepo.DeleteByHash(rt.TokenHash) //nolint:errcheck // best-effort deletion
 
 	// Look up current user data to get current family_id
 	var familyID int64
 	switch rt.UserType {
 	case "parent":
-		parent, err := h.parentStore.GetByID(rt.UserID)
+		parent, err := h.parentRepo.GetByID(rt.UserID)
 		if err != nil || parent == nil {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "User not found"})
 			return
 		}
 		familyID = parent.FamilyID
 	case "child":
-		child, err := h.childStore.GetByID(rt.UserID)
+		child, err := h.childRepo.GetByID(rt.UserID)
 		if err != nil || child == nil {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "User not found"})
 			return
@@ -168,7 +169,7 @@ func (h *Handlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create new refresh token
-	newRefreshToken, err := h.refreshTokenStore.Create(rt.UserType, rt.UserID, familyID, ttl)
+	newRefreshToken, err := h.refreshTokenRepo.Create(rt.UserType, rt.UserID, familyID, ttl)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create session"})
 		return

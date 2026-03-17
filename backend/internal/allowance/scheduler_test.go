@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -41,41 +42,41 @@ func TestScheduler_ProcessDueSchedules_CreatesAllowanceTransaction(t *testing.T)
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Create a schedule that's already due
 	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
 	note := "Weekly allowance"
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 1000,
-		Frequency:   store.FrequencyWeekly,
+		Frequency:   models.FrequencyWeekly,
 		DayOfWeek:   intPtr(5),
 		Note:        &note,
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Verify transaction was created
-	txns, err := txStore.ListByChild(child.ID)
+	txns, err := txRepo.ListByChild(child.ID)
 	require.NoError(t, err)
 	require.Len(t, txns, 1)
 	assert.Equal(t, int64(1000), txns[0].AmountCents)
-	assert.Equal(t, store.TransactionTypeAllowance, txns[0].TransactionType)
+	assert.Equal(t, models.TransactionTypeAllowance, txns[0].TransactionType)
 	assert.NotNil(t, txns[0].ScheduleID)
 	assert.Equal(t, created.ID, *txns[0].ScheduleID)
 	assert.Equal(t, "Weekly allowance", *txns[0].Note)
 
 	// Verify child balance was updated
-	balance, err := childStore.GetBalance(child.ID)
+	balance, err := childRepo.GetBalance(child.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1000), balance)
 }
@@ -86,30 +87,30 @@ func TestScheduler_ProcessDueSchedules_AdvancesNextRunAt(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Friday Jan 30 midnight in America/New_York (default family tz) = 05:00 UTC
 	est, _ := time.LoadLocation("America/New_York")
 	pastTime := time.Date(2026, time.January, 30, 0, 0, 0, 0, est)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 1000,
-		Frequency:   store.FrequencyWeekly,
+		Frequency:   models.FrequencyWeekly,
 		DayOfWeek:   intPtr(5), // Friday
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Verify next_run_at was advanced to next Friday (Jan 30 + 7 = Feb 6) at midnight EST
-	updated, err := schedStore.GetByID(created.ID)
+	updated, err := schedRepo.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
 	expectedNextRun := time.Date(2026, time.February, 6, 0, 0, 0, 0, est)
@@ -122,32 +123,32 @@ func TestScheduler_ProcessDueSchedules_SkipsPaused(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 1000,
-		Frequency:   store.FrequencyWeekly,
+		Frequency:   models.FrequencyWeekly,
 		DayOfWeek:   intPtr(5),
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
 	// Pause the schedule
-	err = schedStore.UpdateStatus(created.ID, store.ScheduleStatusPaused)
+	err = schedRepo.UpdateStatus(created.ID, models.ScheduleStatusPaused)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// No transaction should have been created
-	txns, err := txStore.ListByChild(child.ID)
+	txns, err := txRepo.ListByChild(child.ID)
 	require.NoError(t, err)
 	assert.Len(t, txns, 0)
 }
@@ -159,9 +160,9 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Liam")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	pastTime := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
 
@@ -173,37 +174,37 @@ func TestScheduler_ProcessDueSchedules_MultipleDue(t *testing.T) {
 		{child1.ID, 1000},
 		{child2.ID, 2000},
 	} {
-		sched := &store.AllowanceSchedule{
+		sched := &models.AllowanceSchedule{
 			ChildID:     tc.childID,
 			ParentID:    parent.ID,
 			AmountCents: tc.amount,
-			Frequency:   store.FrequencyWeekly,
+			Frequency:   models.FrequencyWeekly,
 			DayOfWeek:   intPtr(5),
-			Status:      store.ScheduleStatusActive,
+			Status:      models.ScheduleStatusActive,
 			NextRunAt:   &pastTime,
 		}
-		_, err := schedStore.Create(sched)
+		_, err := schedRepo.Create(sched)
 		require.NoError(t, err)
 	}
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Each child should have one transaction
-	txns1, err := txStore.ListByChild(child1.ID)
+	txns1, err := txRepo.ListByChild(child1.ID)
 	require.NoError(t, err)
 	assert.Len(t, txns1, 1)
 
-	txns2, err := txStore.ListByChild(child2.ID)
+	txns2, err := txRepo.ListByChild(child2.ID)
 	require.NoError(t, err)
 	assert.Len(t, txns2, 1)
 
 	// Balances should match their allowance amounts
-	balance1, err := childStore.GetBalance(child1.ID)
+	balance1, err := childRepo.GetBalance(child1.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1000), balance1)
 
-	balance2, err := childStore.GetBalance(child2.ID)
+	balance2, err := childRepo.GetBalance(child2.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2000), balance2)
 }
@@ -214,29 +215,29 @@ func TestScheduler_ProcessDueSchedules_HandlesMissed(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Schedule that was due far in the past (simulating downtime)
 	pastTime := time.Date(2025, time.December, 1, 0, 0, 0, 0, time.UTC)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 500,
-		Frequency:   store.FrequencyWeekly,
+		Frequency:   models.FrequencyWeekly,
 		DayOfWeek:   intPtr(1),
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	_, err := schedStore.Create(sched)
+	_, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Transaction should still be created
-	txns, err := txStore.ListByChild(child.ID)
+	txns, err := txRepo.ListByChild(child.ID)
 	require.NoError(t, err)
 	assert.Len(t, txns, 1)
 	assert.Equal(t, int64(500), txns[0].AmountCents)
@@ -252,37 +253,37 @@ func TestScheduler_ProcessDueSchedules_BiweeklyAdvances14Days(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Monday Jan 19 midnight in America/New_York
 	est, _ := time.LoadLocation("America/New_York")
 	pastTime := time.Date(2026, time.January, 19, 0, 0, 0, 0, est)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 2000,
-		Frequency:   store.FrequencyBiweekly,
+		Frequency:   models.FrequencyBiweekly,
 		DayOfWeek:   intPtr(1), // Monday
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Verify next_run_at advanced by 14 days (Feb 2 midnight EST)
-	updated, err := schedStore.GetByID(created.ID)
+	updated, err := schedRepo.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
 	expectedNextRun := time.Date(2026, time.February, 2, 0, 0, 0, 0, est)
 	assert.Equal(t, expectedNextRun.UTC(), updated.NextRunAt.UTC())
 
 	// Verify transaction created
-	txns, err := txStore.ListByChild(child.ID)
+	txns, err := txRepo.ListByChild(child.ID)
 	require.NoError(t, err)
 	require.Len(t, txns, 1)
 	assert.Equal(t, int64(2000), txns[0].AmountCents)
@@ -294,30 +295,30 @@ func TestScheduler_ProcessDueSchedules_MonthlyAdvancesToNextMonth(t *testing.T) 
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Jan 15 midnight in America/New_York
 	est, _ := time.LoadLocation("America/New_York")
 	pastTime := time.Date(2026, time.January, 15, 0, 0, 0, 0, est)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 5000,
-		Frequency:   store.FrequencyMonthly,
+		Frequency:   models.FrequencyMonthly,
 		DayOfMonth:  intPtr(15),
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Verify next_run_at advanced to Feb 15 midnight EST
-	updated, err := schedStore.GetByID(created.ID)
+	updated, err := schedRepo.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
 	expectedNextRun := time.Date(2026, time.February, 15, 0, 0, 0, 0, est)
@@ -330,30 +331,30 @@ func TestScheduler_ProcessDueSchedules_Monthly31stClampsToFeb28(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Schedule due on Jan 31 midnight in America/New_York
 	est, _ := time.LoadLocation("America/New_York")
 	pastTime := time.Date(2026, time.January, 31, 0, 0, 0, 0, est)
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 5000,
-		Frequency:   store.FrequencyMonthly,
+		Frequency:   models.FrequencyMonthly,
 		DayOfMonth:  intPtr(31),
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &pastTime,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.ProcessDueSchedules()
 
 	// Verify next_run_at clamped to Feb 28 midnight EST (2026 is not a leap year)
-	updated, err := schedStore.GetByID(created.ID)
+	updated, err := schedRepo.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
 	expectedNextRun := time.Date(2026, time.February, 28, 0, 0, 0, 0, est)
@@ -371,33 +372,33 @@ func TestScheduler_RecalculateAllNextRuns(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	// Set family timezone to America/New_York
-	fs := store.NewFamilyStore(db)
+	fs := repositories.NewFamilyRepo(db)
 	err := fs.UpdateTimezone(family.ID, "America/New_York")
 	require.NoError(t, err)
 
-	schedStore := store.NewScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	childStore := store.NewChildStore(db)
+	schedRepo := repositories.NewScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	childRepo := repositories.NewChildRepo(db)
 
 	// Create an active weekly schedule with UTC-midnight next_run_at (simulating old behavior)
 	utcMidnight := time.Date(2026, time.February, 13, 0, 0, 0, 0, time.UTC) // Friday
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     child.ID,
 		ParentID:    parent.ID,
 		AmountCents: 1000,
-		Frequency:   store.FrequencyWeekly,
+		Frequency:   models.FrequencyWeekly,
 		DayOfWeek:   intPtr(5), // Friday
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 		NextRunAt:   &utcMidnight,
 	}
-	created, err := schedStore.Create(sched)
+	created, err := schedRepo.Create(sched)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(schedStore, txStore, childStore)
+	scheduler := NewScheduler(schedRepo, txRepo, childRepo)
 	scheduler.RecalculateAllNextRuns()
 
 	// Verify next_run_at was updated to a future Friday at midnight EST (05:00 UTC)
-	updated, err := schedStore.GetByID(created.ID)
+	updated, err := schedRepo.GetByID(created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated.NextRunAt)
 

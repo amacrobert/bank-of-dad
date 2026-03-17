@@ -1,15 +1,16 @@
 package interest
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
-	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/testutil"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // =====================================================
@@ -40,17 +41,17 @@ func TestProcessDue_AppliesInterest(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
 	// Set up: deposit $100 and set 10% rate
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 10000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 1000)
+	err = interestRepo.SetInterestRate(child.ID, 1000)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.ProcessDue()
 
 	// Verify balance increased: 10000 * 1000 / 12 / 10000 = 83.33 → 83
@@ -59,10 +60,10 @@ func TestProcessDue_AppliesInterest(t *testing.T) {
 	assert.Equal(t, int64(10083), balance)
 
 	// Verify interest transaction was created
-	txns, err := txStore.ListByChild(child.ID)
+	txns, err := txRepo.ListByChild(child.ID)
 	require.NoError(t, err)
 	assert.Len(t, txns, 2) // deposit + interest
-	assert.Equal(t, store.TransactionTypeInterest, txns[0].TransactionType)
+	assert.Equal(t, models.TransactionTypeInterest, txns[0].TransactionType)
 }
 
 func TestProcessDue_SkipsAlreadyAccruedThisMonth(t *testing.T) {
@@ -71,16 +72,16 @@ func TestProcessDue_SkipsAlreadyAccruedThisMonth(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 10000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 1000)
+	err = interestRepo.SetInterestRate(child.ID, 1000)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 
 	// First accrual
 	scheduler.ProcessDue()
@@ -101,14 +102,14 @@ func TestProcessDue_SkipsZeroBalance(t *testing.T) {
 	testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	cs := repositories.NewChildRepo(db)
 
 	// Set rate but no balance
-	err := interestStore.SetInterestRate(child.ID, 500)
+	err := interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.ProcessDue()
 
 	balance, err := cs.GetBalance(child.ID)
@@ -122,15 +123,15 @@ func TestProcessDue_SkipsZeroRate(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
 	// Deposit but no rate set (default 0)
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 10000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 10000, "")
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.ProcessDue()
 
 	balance, err := cs.GetBalance(child.ID)
@@ -143,26 +144,26 @@ func TestProcessDue_MultipleChildren(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	parent := testutil.CreateTestParent(t, db, family.ID)
 
-	cs := store.NewChildStore(db)
+	cs := repositories.NewChildRepo(db)
 	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
 	require.NoError(t, err)
 	child2, err := cs.Create(family.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
-	interestStore := store.NewInterestStore(db)
-	txStore := store.NewTransactionStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
 
 	// Both children have balance and rate
-	_, _, err = txStore.Deposit(child1.ID, parent.ID, 10000, "")
+	_, _, err = txRepo.Deposit(child1.ID, parent.ID, 10000, "")
 	require.NoError(t, err)
-	_, _, err = txStore.Deposit(child2.ID, parent.ID, 20000, "")
+	_, _, err = txRepo.Deposit(child2.ID, parent.ID, 20000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child1.ID, 500) // 5%
+	err = interestRepo.SetInterestRate(child1.ID, 500) // 5%
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child2.ID, 1000) // 10%
+	err = interestRepo.SetInterestRate(child2.ID, 1000) // 10%
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.ProcessDue()
 
 	// Child1: 10000 * 500 / 12 / 10000 = 41.67 → 42
@@ -183,28 +184,28 @@ func TestProcessDue_PartialFailure(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	parent := testutil.CreateTestParent(t, db, family.ID)
 
-	cs := store.NewChildStore(db)
+	cs := repositories.NewChildRepo(db)
 	child1, err := cs.Create(family.ID, "Child1", "pass123", nil)
 	require.NoError(t, err)
 	child2, err := cs.Create(family.ID, "Child2", "pass123", nil)
 	require.NoError(t, err)
 
-	interestStore := store.NewInterestStore(db)
-	txStore := store.NewTransactionStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
 
 	// Child1: $1 at 5% → interest rounds to 0, will be skipped (error from ApplyInterest)
-	_, _, err = txStore.Deposit(child1.ID, parent.ID, 100, "")
+	_, _, err = txRepo.Deposit(child1.ID, parent.ID, 100, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child1.ID, 500)
+	err = interestRepo.SetInterestRate(child1.ID, 500)
 	require.NoError(t, err)
 
 	// Child2: $100 at 5% → 42 cents interest, should succeed
-	_, _, err = txStore.Deposit(child2.ID, parent.ID, 10000, "")
+	_, _, err = txRepo.Deposit(child2.ID, parent.ID, 10000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child2.ID, 500)
+	err = interestRepo.SetInterestRate(child2.ID, 500)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.ProcessDue()
 
 	// Child1 should be unchanged (interest rounds to 0)
@@ -220,9 +221,9 @@ func TestProcessDue_PartialFailure(t *testing.T) {
 
 func TestScheduler_StartAndStop(t *testing.T) {
 	db := testutil.SetupTestDB(t)
-	interestStore := store.NewInterestStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	stop := make(chan struct{})
 
 	scheduler.Start(100*time.Millisecond, stop)
@@ -237,16 +238,16 @@ func TestScheduler_StartAndStop(t *testing.T) {
 
 // T024: Tests for schedule-based ProcessDueSchedules
 
-func createTestInterestSchedule(t *testing.T, db *sql.DB, childID, parentID int64, freq store.Frequency, dayOfWeek, dayOfMonth *int, nextRunAt time.Time) *store.InterestSchedule {
+func createTestInterestSchedule(t *testing.T, db *gorm.DB, childID, parentID int64, freq models.Frequency, dayOfWeek, dayOfMonth *int, nextRunAt time.Time) *models.InterestSchedule {
 	t.Helper()
-	iss := store.NewInterestScheduleStore(db)
-	sched := &store.InterestSchedule{
+	iss := repositories.NewInterestScheduleRepo(db)
+	sched := &models.InterestSchedule{
 		ChildID:    childID,
 		ParentID:   parentID,
 		Frequency:  freq,
 		DayOfWeek:  dayOfWeek,
 		DayOfMonth: dayOfMonth,
-		Status:     store.ScheduleStatusActive,
+		Status:     models.ScheduleStatusActive,
 		NextRunAt:  &nextRunAt,
 	}
 	created, err := iss.Create(sched)
@@ -260,23 +261,23 @@ func TestProcessDueSchedules_WeeklyProration(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
 	// Deposit $1000, set 5% rate
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 500)
+	err = interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
 	// Create weekly interest schedule due in the past
 	dow := 5 // Friday
 	pastDue := time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC) // a past Friday
-	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyWeekly, &dow, nil, pastDue)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyWeekly, &dow, nil, pastDue)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -292,21 +293,21 @@ func TestProcessDueSchedules_BiweeklyProration(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 500)
+	err = interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
 	dow := 5
 	pastDue := time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC)
-	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyBiweekly, &dow, nil, pastDue)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyBiweekly, &dow, nil, pastDue)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -322,21 +323,21 @@ func TestProcessDueSchedules_MonthlyProration(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 500)
+	err = interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
 	dom := 15
 	pastDue := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
-	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyMonthly, nil, &dom, pastDue)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyMonthly, nil, &dom, pastDue)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -352,20 +353,20 @@ func TestProcessDueSchedules_UpdatesNextRunAt(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 500)
+	err = interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
 	dow := 5 // Friday
 	pastDue := time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC)
-	sched := createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyWeekly, &dow, nil, pastDue)
+	sched := createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyWeekly, &dow, nil, pastDue)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -382,25 +383,25 @@ func TestProcessDueSchedules_SkipsPaused(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
-	err = interestStore.SetInterestRate(child.ID, 500)
+	err = interestRepo.SetInterestRate(child.ID, 500)
 	require.NoError(t, err)
 
 	dow := 5
 	pastDue := time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC)
-	sched := createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyWeekly, &dow, nil, pastDue)
+	sched := createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyWeekly, &dow, nil, pastDue)
 
 	// Pause it
-	err = iss.UpdateStatus(sched.ID, store.ScheduleStatusPaused)
+	err = iss.UpdateStatus(sched.ID, models.ScheduleStatusPaused)
 	require.NoError(t, err)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -415,20 +416,20 @@ func TestProcessDueSchedules_SkipsZeroRate(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
-	txStore := store.NewTransactionStore(db)
-	cs := store.NewChildStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
+	txRepo := repositories.NewTransactionRepo(db)
+	cs := repositories.NewChildRepo(db)
 
-	_, _, err := txStore.Deposit(child.ID, parent.ID, 100000, "")
+	_, _, err := txRepo.Deposit(child.ID, parent.ID, 100000, "")
 	require.NoError(t, err)
 	// No interest rate set (default 0)
 
 	dow := 5
 	pastDue := time.Date(2025, 1, 3, 0, 0, 0, 0, time.UTC)
-	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyWeekly, &dow, nil, pastDue)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyWeekly, &dow, nil, pastDue)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.ProcessDueSchedules()
 
@@ -448,19 +449,19 @@ func TestScheduler_RecalculateAllNextRuns(t *testing.T) {
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
 	// Set family timezone to America/New_York
-	fs := store.NewFamilyStore(db)
+	fs := repositories.NewFamilyRepo(db)
 	err := fs.UpdateTimezone(family.ID, "America/New_York")
 	require.NoError(t, err)
 
-	interestStore := store.NewInterestStore(db)
-	iss := store.NewInterestScheduleStore(db)
+	interestRepo := repositories.NewInterestRepo(db)
+	iss := repositories.NewInterestScheduleRepo(db)
 
 	// Create an active monthly schedule with UTC-midnight next_run_at
 	dom := 15
 	utcMidnight := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
-	createTestInterestSchedule(t, db, child.ID, parent.ID, store.FrequencyMonthly, nil, &dom, utcMidnight)
+	createTestInterestSchedule(t, db, child.ID, parent.ID, models.FrequencyMonthly, nil, &dom, utcMidnight)
 
-	scheduler := NewScheduler(interestStore)
+	scheduler := NewScheduler(interestRepo)
 	scheduler.SetInterestScheduleStore(iss)
 	scheduler.RecalculateAllNextRuns()
 
@@ -477,8 +478,9 @@ func TestScheduler_RecalculateAllNextRuns(t *testing.T) {
 }
 
 func TestScheduler_RecalculateAllNextRuns_NilStore(t *testing.T) {
-	interestStore := store.NewInterestStore(nil)
-	scheduler := NewScheduler(interestStore)
-	// interestScheduleStore is nil — should not panic
+	db := testutil.SetupTestDB(t)
+	interestRepo := repositories.NewInterestRepo(db)
+	scheduler := NewScheduler(interestRepo)
+	// interestScheduleRepo is nil — should not panic
 	scheduler.RecalculateAllNextRuns()
 }

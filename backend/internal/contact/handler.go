@@ -1,7 +1,7 @@
 package contact
 
 import (
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 	"encoding/json"
 	"net/http"
 
@@ -14,19 +14,19 @@ type Handler struct {
 	brevoClient    *brevo.APIClient
 	recipientEmail string
 	recipientName  string
-	parentStore    *store.ParentStore
+	parentRepo     *repositories.ParentRepo
 }
 
 func NewHandler(
 	brevoClient *brevo.APIClient,
 	recipientEmail,
 	recipientName string,
-	parentStore *store.ParentStore) *Handler {
+	parentRepo *repositories.ParentRepo) *Handler {
 	return &Handler{
 		brevoClient,
 		recipientEmail,
 		recipientName,
-		parentStore,
+		parentRepo,
 	}
 }
 
@@ -59,7 +59,7 @@ func (h *Handler) HandleContactSubmission(w http.ResponseWriter, r *http.Request
 	}
 
 	parentID := middleware.GetUserID(r)
-	parent, _ := h.parentStore.GetByID(parentID)
+	parent, _ := h.parentRepo.GetByID(parentID)
 
 	// TODO: Replace with interface
 	_, _, err := h.brevoClient.TransactionalEmailsApi.SendTransacEmail(r.Context(), brevo.SendSmtpEmail{

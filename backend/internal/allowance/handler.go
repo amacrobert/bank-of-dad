@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
+
 	"bank-of-dad/internal/middleware"
-	"bank-of-dad/internal/store"
 )
 
 const (
@@ -16,25 +18,32 @@ const (
 	MaxNoteLength  = 500
 )
 
+// UpcomingAllowance represents a child's next scheduled allowance deposit.
+type UpcomingAllowance struct {
+	AmountCents int64     `json:"amount_cents"`
+	NextDate    time.Time `json:"next_date"`
+	Note        *string   `json:"note,omitempty"`
+}
+
 // Handler handles allowance schedule HTTP requests.
 type Handler struct {
-	scheduleStore *store.ScheduleStore
-	childStore    *store.ChildStore
-	familyStore   *store.FamilyStore
+	scheduleRepo *repositories.ScheduleRepo
+	childRepo    *repositories.ChildRepo
+	familyRepo   *repositories.FamilyRepo
 }
 
 // NewHandler creates a new allowance handler.
-func NewHandler(scheduleStore *store.ScheduleStore, childStore *store.ChildStore, familyStore *store.FamilyStore) *Handler {
+func NewHandler(scheduleRepo *repositories.ScheduleRepo, childRepo *repositories.ChildRepo, familyRepo *repositories.FamilyRepo) *Handler {
 	return &Handler{
-		scheduleStore: scheduleStore,
-		childStore:    childStore,
-		familyStore:   familyStore,
+		scheduleRepo: scheduleRepo,
+		childRepo:    childRepo,
+		familyRepo:   familyRepo,
 	}
 }
 
 // getFamilyTimezone loads the *time.Location for a family, falling back to UTC.
 func (h *Handler) getFamilyTimezone(familyID int64) *time.Location {
-	tz, err := h.familyStore.GetTimezone(familyID)
+	tz, err := h.familyRepo.GetTimezone(familyID)
 	if err != nil || tz == "" {
 		return time.UTC
 	}
@@ -53,31 +62,31 @@ type ErrorResponse struct {
 
 // CreateScheduleRequest represents a request to create a schedule.
 type CreateScheduleRequest struct {
-	ChildID     int64           `json:"child_id"`
-	AmountCents int64           `json:"amount_cents"`
-	Frequency   store.Frequency `json:"frequency"`
-	DayOfWeek   *int            `json:"day_of_week,omitempty"`
-	DayOfMonth  *int            `json:"day_of_month,omitempty"`
-	Note        string          `json:"note,omitempty"`
+	ChildID     int64            `json:"child_id"`
+	AmountCents int64            `json:"amount_cents"`
+	Frequency   models.Frequency `json:"frequency"`
+	DayOfWeek   *int             `json:"day_of_week,omitempty"`
+	DayOfMonth  *int             `json:"day_of_month,omitempty"`
+	Note        string           `json:"note,omitempty"`
 }
 
 // UpdateScheduleRequest represents a request to update a schedule.
 type UpdateScheduleRequest struct {
-	AmountCents *int64           `json:"amount_cents,omitempty"`
-	Frequency   *store.Frequency `json:"frequency,omitempty"`
-	DayOfWeek   *int             `json:"day_of_week,omitempty"`
-	DayOfMonth  *int             `json:"day_of_month,omitempty"`
-	Note        *string          `json:"note,omitempty"`
+	AmountCents *int64            `json:"amount_cents,omitempty"`
+	Frequency   *models.Frequency `json:"frequency,omitempty"`
+	DayOfWeek   *int              `json:"day_of_week,omitempty"`
+	DayOfMonth  *int              `json:"day_of_month,omitempty"`
+	Note        *string           `json:"note,omitempty"`
 }
 
 // ScheduleListResponse wraps a list of schedules with child names.
 type ScheduleListResponse struct {
-	Schedules []store.ScheduleWithChild `json:"schedules"`
+	Schedules []repositories.ScheduleWithChild `json:"schedules"`
 }
 
 // UpcomingAllowancesResponse wraps a list of upcoming allowances.
 type UpcomingAllowancesResponse struct {
-	Allowances []store.UpcomingAllowance `json:"allowances"`
+	Allowances []UpcomingAllowance `json:"allowances"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
@@ -135,7 +144,7 @@ func (h *Handler) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify child exists and belongs to parent's family
-	child, dbErr := h.childStore.GetByID(req.ChildID)
+	child, dbErr := h.childRepo.GetByID(req.ChildID)
 	if dbErr != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -163,14 +172,14 @@ func (h *Handler) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 	parentID := middleware.GetUserID(r)
 
 	// Build schedule
-	sched := &store.AllowanceSchedule{
+	sched := &models.AllowanceSchedule{
 		ChildID:     req.ChildID,
 		ParentID:    parentID,
 		AmountCents: req.AmountCents,
 		Frequency:   req.Frequency,
 		DayOfWeek:   req.DayOfWeek,
 		DayOfMonth:  req.DayOfMonth,
-		Status:      store.ScheduleStatusActive,
+		Status:      models.ScheduleStatusActive,
 	}
 	if note != "" {
 		sched.Note = &note
@@ -181,7 +190,7 @@ func (h *Handler) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 	sched.NextRunAt = &nextRun
 
-	created, dbErr := h.scheduleStore.Create(sched)
+	created, dbErr := h.scheduleRepo.Create(sched)
 	if dbErr != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -205,7 +214,7 @@ func (h *Handler) HandleListSchedules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	familyID := middleware.GetFamilyID(r)
-	schedules, err := h.scheduleStore.ListByParentFamily(familyID)
+	schedules, err := h.scheduleRepo.ListByParentFamily(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -215,7 +224,7 @@ func (h *Handler) HandleListSchedules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if schedules == nil {
-		schedules = []store.ScheduleWithChild{}
+		schedules = []repositories.ScheduleWithChild{}
 	}
 
 	writeJSON(w, http.StatusOK, ScheduleListResponse{Schedules: schedules})
@@ -241,7 +250,7 @@ func (h *Handler) HandleGetSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByID(scheduleID)
+	sched, err := h.scheduleRepo.GetByID(scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -258,7 +267,7 @@ func (h *Handler) HandleGetSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the schedule belongs to the parent's family
-	child, err := h.childStore.GetByID(sched.ChildID)
+	child, err := h.childRepo.GetByID(sched.ChildID)
 	if err != nil || child == nil || child.FamilyID != middleware.GetFamilyID(r) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{
 			Error:   "not_found",
@@ -290,7 +299,7 @@ func (h *Handler) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByID(scheduleID)
+	sched, err := h.scheduleRepo.GetByID(scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -307,7 +316,7 @@ func (h *Handler) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify family ownership
-	child, err := h.childStore.GetByID(sched.ChildID)
+	child, err := h.childRepo.GetByID(sched.ChildID)
 	if err != nil || child == nil || child.FamilyID != middleware.GetFamilyID(r) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{
 			Error:   "not_found",
@@ -379,7 +388,7 @@ func (h *Handler) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 		sched.NextRunAt = &nextRun
 	}
 
-	updated, err := h.scheduleStore.Update(sched)
+	updated, err := h.scheduleRepo.Update(sched)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -411,7 +420,7 @@ func (h *Handler) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByID(scheduleID)
+	sched, err := h.scheduleRepo.GetByID(scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -427,7 +436,7 @@ func (h *Handler) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(sched.ChildID)
+	child, err := h.childRepo.GetByID(sched.ChildID)
 	if err != nil || child == nil || child.FamilyID != middleware.GetFamilyID(r) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{
 			Error:   "not_found",
@@ -436,7 +445,7 @@ func (h *Handler) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.scheduleStore.Delete(scheduleID); err != nil {
+	if err := h.scheduleRepo.Delete(scheduleID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Message: "Failed to delete schedule.",
@@ -467,7 +476,7 @@ func (h *Handler) HandlePauseSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByID(scheduleID)
+	sched, err := h.scheduleRepo.GetByID(scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -483,7 +492,7 @@ func (h *Handler) HandlePauseSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(sched.ChildID)
+	child, err := h.childRepo.GetByID(sched.ChildID)
 	if err != nil || child == nil || child.FamilyID != middleware.GetFamilyID(r) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{
 			Error:   "not_found",
@@ -492,7 +501,7 @@ func (h *Handler) HandlePauseSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sched.Status == store.ScheduleStatusPaused {
+	if sched.Status == models.ScheduleStatusPaused {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "already_paused",
 			Message: "Schedule is already paused.",
@@ -500,7 +509,7 @@ func (h *Handler) HandlePauseSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.scheduleStore.UpdateStatus(scheduleID, store.ScheduleStatusPaused); err != nil {
+	if err := h.scheduleRepo.UpdateStatus(scheduleID, models.ScheduleStatusPaused); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Message: "Failed to pause schedule.",
@@ -508,7 +517,7 @@ func (h *Handler) HandlePauseSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, _ := h.scheduleStore.GetByID(scheduleID)
+	updated, _ := h.scheduleRepo.GetByID(scheduleID)
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -532,7 +541,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByID(scheduleID)
+	sched, err := h.scheduleRepo.GetByID(scheduleID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -548,7 +557,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(sched.ChildID)
+	child, err := h.childRepo.GetByID(sched.ChildID)
 	if err != nil || child == nil || child.FamilyID != middleware.GetFamilyID(r) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{
 			Error:   "not_found",
@@ -557,7 +566,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sched.Status == store.ScheduleStatusActive {
+	if sched.Status == models.ScheduleStatusActive {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "already_active",
 			Message: "Schedule is already active.",
@@ -565,7 +574,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.scheduleStore.UpdateStatus(scheduleID, store.ScheduleStatusActive); err != nil {
+	if err := h.scheduleRepo.UpdateStatus(scheduleID, models.ScheduleStatusActive); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Message: "Failed to resume schedule.",
@@ -576,7 +585,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 	// Recalculate next_run_at from now using family timezone
 	loc := h.getFamilyTimezone(middleware.GetFamilyID(r))
 	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
-	if err := h.scheduleStore.UpdateNextRunAt(scheduleID, nextRun); err != nil {
+	if err := h.scheduleRepo.UpdateNextRunAt(scheduleID, nextRun); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Message: "Failed to update schedule.",
@@ -584,7 +593,7 @@ func (h *Handler) HandleResumeSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, _ := h.scheduleStore.GetByID(scheduleID)
+	updated, _ := h.scheduleRepo.GetByID(scheduleID)
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -600,7 +609,7 @@ func (h *Handler) HandleGetUpcomingAllowances(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -637,7 +646,7 @@ func (h *Handler) HandleGetUpcomingAllowances(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	schedules, err := h.scheduleStore.ListActiveByChild(childID)
+	schedules, err := h.scheduleRepo.ListActiveByChild(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -646,10 +655,10 @@ func (h *Handler) HandleGetUpcomingAllowances(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	allowances := make([]store.UpcomingAllowance, 0, len(schedules))
+	allowances := make([]UpcomingAllowance, 0, len(schedules))
 	for _, s := range schedules {
 		if s.NextRunAt != nil {
-			allowances = append(allowances, store.UpcomingAllowance{
+			allowances = append(allowances, UpcomingAllowance{
 				AmountCents: s.AmountCents,
 				NextDate:    *s.NextRunAt,
 				Note:        s.Note,
@@ -662,11 +671,11 @@ func (h *Handler) HandleGetUpcomingAllowances(w http.ResponseWriter, r *http.Req
 
 // SetChildAllowanceRequest represents a request to create or update a child's allowance.
 type SetChildAllowanceRequest struct {
-	AmountCents int64           `json:"amount_cents"`
-	Frequency   store.Frequency `json:"frequency"`
-	DayOfWeek   *int            `json:"day_of_week,omitempty"`
-	DayOfMonth  *int            `json:"day_of_month,omitempty"`
-	Note        string          `json:"note,omitempty"`
+	AmountCents int64            `json:"amount_cents"`
+	Frequency   models.Frequency `json:"frequency"`
+	DayOfWeek   *int             `json:"day_of_week,omitempty"`
+	DayOfMonth  *int             `json:"day_of_month,omitempty"`
+	Note        string           `json:"note,omitempty"`
 }
 
 // HandleGetChildAllowance handles GET /api/children/{childId}/allowance
@@ -677,7 +686,7 @@ func (h *Handler) HandleGetChildAllowance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -700,7 +709,7 @@ func (h *Handler) HandleGetChildAllowance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByChildID(childID)
+	sched, err := h.scheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get allowance."})
 		return
@@ -723,7 +732,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -764,7 +773,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 	parentID := middleware.GetUserID(r)
 
 	// Check if schedule already exists for this child
-	existing, err := h.scheduleStore.GetByChildID(childID)
+	existing, err := h.scheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to check existing allowance."})
 		return
@@ -786,7 +795,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		nextRun := CalculateNextRun(existing, time.Now().UTC(), loc)
 		existing.NextRunAt = &nextRun
 
-		updated, err := h.scheduleStore.Update(existing)
+		updated, err := h.scheduleRepo.Update(existing)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update allowance."})
 			return
@@ -794,14 +803,14 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusOK, updated)
 	} else {
 		// Create new schedule
-		sched := &store.AllowanceSchedule{
+		sched := &models.AllowanceSchedule{
 			ChildID:     childID,
 			ParentID:    parentID,
 			AmountCents: req.AmountCents,
 			Frequency:   req.Frequency,
 			DayOfWeek:   req.DayOfWeek,
 			DayOfMonth:  req.DayOfMonth,
-			Status:      store.ScheduleStatusActive,
+			Status:      models.ScheduleStatusActive,
 		}
 		if note != "" {
 			sched.Note = &note
@@ -809,7 +818,7 @@ func (h *Handler) HandleSetChildAllowance(w http.ResponseWriter, r *http.Request
 		nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
 		sched.NextRunAt = &nextRun
 
-		created, err := h.scheduleStore.Create(sched)
+		created, err := h.scheduleRepo.Create(sched)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to create allowance."})
 			return
@@ -832,7 +841,7 @@ func (h *Handler) HandleDeleteChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -842,7 +851,7 @@ func (h *Handler) HandleDeleteChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByChildID(childID)
+	sched, err := h.scheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get allowance."})
 		return
@@ -852,7 +861,7 @@ func (h *Handler) HandleDeleteChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.scheduleStore.Delete(sched.ID); err != nil {
+	if err := h.scheduleRepo.Delete(sched.ID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to delete allowance."})
 		return
 	}
@@ -874,7 +883,7 @@ func (h *Handler) HandlePauseChildAllowance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -884,7 +893,7 @@ func (h *Handler) HandlePauseChildAllowance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByChildID(childID)
+	sched, err := h.scheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get allowance."})
 		return
@@ -894,17 +903,17 @@ func (h *Handler) HandlePauseChildAllowance(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if sched.Status == store.ScheduleStatusPaused {
+	if sched.Status == models.ScheduleStatusPaused {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "already_paused", Message: "Allowance is already paused."})
 		return
 	}
 
-	if err := h.scheduleStore.UpdateStatus(sched.ID, store.ScheduleStatusPaused); err != nil {
+	if err := h.scheduleRepo.UpdateStatus(sched.ID, models.ScheduleStatusPaused); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to pause allowance."})
 		return
 	}
 
-	updated, _ := h.scheduleStore.GetByID(sched.ID)
+	updated, _ := h.scheduleRepo.GetByID(sched.ID)
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -922,7 +931,7 @@ func (h *Handler) HandleResumeChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -932,7 +941,7 @@ func (h *Handler) HandleResumeChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sched, err := h.scheduleStore.GetByChildID(childID)
+	sched, err := h.scheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get allowance."})
 		return
@@ -942,38 +951,38 @@ func (h *Handler) HandleResumeChildAllowance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if sched.Status == store.ScheduleStatusActive {
+	if sched.Status == models.ScheduleStatusActive {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "already_active", Message: "Allowance is already active."})
 		return
 	}
 
-	if err := h.scheduleStore.UpdateStatus(sched.ID, store.ScheduleStatusActive); err != nil {
+	if err := h.scheduleRepo.UpdateStatus(sched.ID, models.ScheduleStatusActive); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to resume allowance."})
 		return
 	}
 
 	loc := h.getFamilyTimezone(middleware.GetFamilyID(r))
 	nextRun := CalculateNextRun(sched, time.Now().UTC(), loc)
-	if err := h.scheduleStore.UpdateNextRunAt(sched.ID, nextRun); err != nil {
+	if err := h.scheduleRepo.UpdateNextRunAt(sched.ID, nextRun); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update allowance."})
 		return
 	}
 
-	updated, _ := h.scheduleStore.GetByID(sched.ID)
+	updated, _ := h.scheduleRepo.GetByID(sched.ID)
 	writeJSON(w, http.StatusOK, updated)
 }
 
 // ValidateFrequencyAndDay returns an error message if the frequency/day combination is invalid.
-func ValidateFrequencyAndDay(freq store.Frequency, dayOfWeek *int, dayOfMonth *int) string {
+func ValidateFrequencyAndDay(freq models.Frequency, dayOfWeek *int, dayOfMonth *int) string {
 	switch freq {
-	case store.FrequencyWeekly, store.FrequencyBiweekly:
+	case models.FrequencyWeekly, models.FrequencyBiweekly:
 		if dayOfWeek == nil {
 			return "day_of_week is required for weekly and biweekly schedules."
 		}
 		if *dayOfWeek < 0 || *dayOfWeek > 6 {
 			return "day_of_week must be between 0 (Sunday) and 6 (Saturday)."
 		}
-	case store.FrequencyMonthly:
+	case models.FrequencyMonthly:
 		if dayOfMonth == nil {
 			return "day_of_month is required for monthly schedules."
 		}

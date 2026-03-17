@@ -2,18 +2,19 @@ package allowance
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 	"bank-of-dad/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // =====================================================
@@ -26,7 +27,7 @@ func TestHandleCreateSchedule_Success_Weekly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5,"note":"Weekly allowance"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -37,14 +38,14 @@ func TestHandleCreateSchedule_Success_Weekly(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, rr.Code)
 
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1000), sched.AmountCents)
-	assert.Equal(t, store.FrequencyWeekly, sched.Frequency)
+	assert.Equal(t, models.FrequencyWeekly, sched.Frequency)
 	assert.Equal(t, 5, *sched.DayOfWeek)
 	assert.Equal(t, "Weekly allowance", *sched.Note)
-	assert.Equal(t, store.ScheduleStatusActive, sched.Status)
+	assert.Equal(t, models.ScheduleStatusActive, sched.Status)
 	assert.NotNil(t, sched.NextRunAt)
 }
 
@@ -54,7 +55,7 @@ func TestHandleCreateSchedule_InvalidFrequency(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"daily","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -72,7 +73,7 @@ func TestHandleCreateSchedule_MissingDayOfWeek(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -89,11 +90,11 @@ func TestHandleCreateSchedule_ChildNotInFamily(t *testing.T) {
 	family1 := testutil.CreateTestFamily(t, db)
 	parent := testutil.CreateTestParent(t, db, family1.ID)
 
-	fs := store.NewFamilyStore(db)
+	fs := repositories.NewFamilyRepo(db)
 	family2, _ := fs.Create("other-family")
 	child := testutil.CreateTestChild(t, db, family2.ID, "Other")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -111,7 +112,7 @@ func TestHandleCreateSchedule_ChildRoleForbidden(t *testing.T) {
 	testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"weekly","day_of_week":5}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -129,7 +130,7 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	// Zero amount
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":0,"frequency":"weekly","day_of_week":5}`, child.ID)
@@ -152,9 +153,9 @@ func TestHandleCreateSchedule_InvalidAmount(t *testing.T) {
 // T018: Tests for US2 - Schedule management handlers
 // =====================================================
 
-func createScheduleViaHandler(t *testing.T, db *sql.DB, parentID, familyID, childID int64, frequency string, dayOfWeek *int, dayOfMonth *int) store.AllowanceSchedule {
+func createScheduleViaHandler(t *testing.T, db *gorm.DB, parentID, familyID, childID int64, frequency string, dayOfWeek *int, dayOfMonth *int) models.AllowanceSchedule {
 	t.Helper()
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	var body string
 	if dayOfWeek != nil {
@@ -168,7 +169,7 @@ func createScheduleViaHandler(t *testing.T, db *sql.DB, parentID, familyID, chil
 	handler.HandleCreateSchedule(rr, req)
 	require.Equal(t, http.StatusCreated, rr.Code)
 
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
 	return sched
@@ -180,7 +181,7 @@ func TestHandleListSchedules_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -204,7 +205,7 @@ func TestHandleListSchedules_EmptyList(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	parent := testutil.CreateTestParent(t, db, family.ID)
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	req := httptest.NewRequest("GET", "/api/schedules", nil)
 	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
@@ -224,7 +225,7 @@ func TestHandleGetSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -235,7 +236,7 @@ func TestHandleGetSchedule_Success(t *testing.T) {
 	handler.HandleGetSchedule(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, sched.ID)
@@ -247,10 +248,10 @@ func TestHandleGetSchedule_WrongFamily(t *testing.T) {
 	parent1 := testutil.CreateTestParent(t, db, family1.ID)
 	child1 := testutil.CreateTestChild(t, db, family1.ID, "Emma")
 
-	fs := store.NewFamilyStore(db)
+	fs := repositories.NewFamilyRepo(db)
 	family2, _ := fs.Create("other-family")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent1.ID, family1.ID, child1.ID, "weekly", &dow, nil)
 
@@ -270,7 +271,7 @@ func TestHandleUpdateSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -282,7 +283,7 @@ func TestHandleUpdateSchedule_Success(t *testing.T) {
 	handler.HandleUpdateSchedule(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var updated store.AllowanceSchedule
+	var updated models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &updated)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2000), updated.AmountCents)
@@ -295,7 +296,7 @@ func TestHandleDeleteSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -322,7 +323,7 @@ func TestHandlePauseSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -333,10 +334,10 @@ func TestHandlePauseSchedule_Success(t *testing.T) {
 	handler.HandlePauseSchedule(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var paused store.AllowanceSchedule
+	var paused models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &paused)
 	require.NoError(t, err)
-	assert.Equal(t, store.ScheduleStatusPaused, paused.Status)
+	assert.Equal(t, models.ScheduleStatusPaused, paused.Status)
 }
 
 func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
@@ -345,7 +346,7 @@ func TestHandlePauseSchedule_AlreadyPaused(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -372,7 +373,7 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -392,10 +393,10 @@ func TestHandleResumeSchedule_Success(t *testing.T) {
 	handler.HandleResumeSchedule(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var resumed store.AllowanceSchedule
+	var resumed models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &resumed)
 	require.NoError(t, err)
-	assert.Equal(t, store.ScheduleStatusActive, resumed.Status)
+	assert.Equal(t, models.ScheduleStatusActive, resumed.Status)
 	assert.NotNil(t, resumed.NextRunAt)
 }
 
@@ -405,7 +406,7 @@ func TestHandleResumeSchedule_AlreadyActive(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	created := createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -428,7 +429,7 @@ func TestHandleCreateSchedule_Success_Biweekly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":2000,"frequency":"biweekly","day_of_week":1}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -437,10 +438,10 @@ func TestHandleCreateSchedule_Success_Biweekly(t *testing.T) {
 	handler.HandleCreateSchedule(rr, req)
 
 	assert.Equal(t, http.StatusCreated, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
-	assert.Equal(t, store.FrequencyBiweekly, sched.Frequency)
+	assert.Equal(t, models.FrequencyBiweekly, sched.Frequency)
 	assert.Equal(t, 1, *sched.DayOfWeek)
 	assert.NotNil(t, sched.NextRunAt)
 }
@@ -451,7 +452,7 @@ func TestHandleCreateSchedule_Success_Monthly(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":5000,"frequency":"monthly","day_of_month":15}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -460,10 +461,10 @@ func TestHandleCreateSchedule_Success_Monthly(t *testing.T) {
 	handler.HandleCreateSchedule(rr, req)
 
 	assert.Equal(t, http.StatusCreated, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
-	assert.Equal(t, store.FrequencyMonthly, sched.Frequency)
+	assert.Equal(t, models.FrequencyMonthly, sched.Frequency)
 	assert.Equal(t, 15, *sched.DayOfMonth)
 	assert.NotNil(t, sched.NextRunAt)
 }
@@ -474,7 +475,7 @@ func TestHandleCreateSchedule_MonthlyMissingDayOfMonth(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"monthly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -491,7 +492,7 @@ func TestHandleCreateSchedule_BiweeklyMissingDayOfWeek(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := fmt.Sprintf(`{"child_id":%d,"amount_cents":1000,"frequency":"biweekly"}`, child.ID)
 	req := httptest.NewRequest("POST", "/api/schedules", bytes.NewBufferString(body))
@@ -512,7 +513,7 @@ func TestHandleGetUpcomingAllowances_ParentSuccess(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -536,7 +537,7 @@ func TestHandleGetUpcomingAllowances_ChildSeesOwn(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -560,7 +561,7 @@ func TestHandleGetUpcomingAllowances_ChildCannotSeeOther(t *testing.T) {
 	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child1.ID, "weekly", &dow, nil)
 
@@ -580,7 +581,7 @@ func TestHandleGetUpcomingAllowances_NoSchedules(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/upcoming-allowances", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -605,7 +606,7 @@ func TestHandleGetChildAllowance_Exists(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	// Create allowance first
 	dow := 5
@@ -618,11 +619,11 @@ func TestHandleGetChildAllowance_Exists(t *testing.T) {
 	handler.HandleGetChildAllowance(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1000), sched.AmountCents)
-	assert.Equal(t, store.FrequencyWeekly, sched.Frequency)
+	assert.Equal(t, models.FrequencyWeekly, sched.Frequency)
 }
 
 func TestHandleGetChildAllowance_None(t *testing.T) {
@@ -631,7 +632,7 @@ func TestHandleGetChildAllowance_None(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -649,7 +650,7 @@ func TestHandleGetChildAllowance_ChildSeesOwn(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -669,7 +670,7 @@ func TestHandleGetChildAllowance_ChildCannotSeeOther(t *testing.T) {
 	child1 := testutil.CreateTestChild(t, db, family.ID, "Emma")
 	child2 := testutil.CreateTestChild(t, db, family.ID, "Jack")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child1.ID, "weekly", &dow, nil)
 
@@ -688,7 +689,7 @@ func TestHandleSetChildAllowance_Create(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := `{"amount_cents":1500,"frequency":"weekly","day_of_week":3,"note":"Wednesday allowance"}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -698,14 +699,14 @@ func TestHandleSetChildAllowance_Create(t *testing.T) {
 	handler.HandleSetChildAllowance(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1500), sched.AmountCents)
-	assert.Equal(t, store.FrequencyWeekly, sched.Frequency)
+	assert.Equal(t, models.FrequencyWeekly, sched.Frequency)
 	assert.Equal(t, 3, *sched.DayOfWeek)
 	assert.Equal(t, "Wednesday allowance", *sched.Note)
-	assert.Equal(t, store.ScheduleStatusActive, sched.Status)
+	assert.Equal(t, models.ScheduleStatusActive, sched.Status)
 	assert.NotNil(t, sched.NextRunAt)
 }
 
@@ -715,7 +716,7 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	// Create first
 	body1 := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
@@ -735,11 +736,11 @@ func TestHandleSetChildAllowance_Update(t *testing.T) {
 	handler.HandleSetChildAllowance(rr2, req2)
 
 	assert.Equal(t, http.StatusOK, rr2.Code)
-	var updated store.AllowanceSchedule
+	var updated models.AllowanceSchedule
 	err := json.Unmarshal(rr2.Body.Bytes(), &updated)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2000), updated.AmountCents)
-	assert.Equal(t, store.FrequencyMonthly, updated.Frequency)
+	assert.Equal(t, models.FrequencyMonthly, updated.Frequency)
 	assert.Equal(t, 15, *updated.DayOfMonth)
 }
 
@@ -748,7 +749,7 @@ func TestHandleSetChildAllowance_ChildForbidden(t *testing.T) {
 	family := testutil.CreateTestFamily(t, db)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := `{"amount_cents":1000,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -766,7 +767,7 @@ func TestHandleSetChildAllowance_InvalidAmount(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	body := `{"amount_cents":0,"frequency":"weekly","day_of_week":5}`
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/children/%d/allowance", child.ID), bytes.NewBufferString(body))
@@ -784,7 +785,7 @@ func TestHandleDeleteChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -812,7 +813,7 @@ func TestHandleDeleteChildAllowance_NotFound(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/children/%d/allowance", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -829,7 +830,7 @@ func TestHandlePauseChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -840,10 +841,10 @@ func TestHandlePauseChildAllowance_Success(t *testing.T) {
 	handler.HandlePauseChildAllowance(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
-	assert.Equal(t, store.ScheduleStatusPaused, sched.Status)
+	assert.Equal(t, models.ScheduleStatusPaused, sched.Status)
 }
 
 func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
@@ -852,7 +853,7 @@ func TestHandlePauseChildAllowance_NotFound(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/children/%d/allowance/pause", child.ID), nil)
 	req.SetPathValue("childId", fmt.Sprintf("%d", child.ID))
@@ -869,7 +870,7 @@ func TestHandleResumeChildAllowance_Success(t *testing.T) {
 	parent := testutil.CreateTestParent(t, db, family.ID)
 	child := testutil.CreateTestChild(t, db, family.ID, "Emma")
 
-	handler := NewHandler(store.NewScheduleStore(db), store.NewChildStore(db), store.NewFamilyStore(db))
+	handler := NewHandler(repositories.NewScheduleRepo(db), repositories.NewChildRepo(db), repositories.NewFamilyRepo(db))
 	dow := 5
 	createScheduleViaHandler(t, db, parent.ID, family.ID, child.ID, "weekly", &dow, nil)
 
@@ -889,9 +890,9 @@ func TestHandleResumeChildAllowance_Success(t *testing.T) {
 	handler.HandleResumeChildAllowance(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var sched store.AllowanceSchedule
+	var sched models.AllowanceSchedule
 	err := json.Unmarshal(rr.Body.Bytes(), &sched)
 	require.NoError(t, err)
-	assert.Equal(t, store.ScheduleStatusActive, sched.Status)
+	assert.Equal(t, models.ScheduleStatusActive, sched.Status)
 	assert.NotNil(t, sched.NextRunAt)
 }

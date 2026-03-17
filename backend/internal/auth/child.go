@@ -6,30 +6,31 @@ import (
 	"net/http"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 type ChildAuth struct {
-	familyStore       *store.FamilyStore
-	childStore        *store.ChildStore
-	refreshTokenStore *store.RefreshTokenStore
-	eventStore        *store.AuthEventStore
-	jwtKey            []byte
+	familyRepo       *repositories.FamilyRepo
+	childRepo        *repositories.ChildRepo
+	refreshTokenRepo *repositories.RefreshTokenRepo
+	eventRepo        *repositories.AuthEventRepo
+	jwtKey           []byte
 }
 
 func NewChildAuth(
-	familyStore *store.FamilyStore,
-	childStore *store.ChildStore,
-	refreshTokenStore *store.RefreshTokenStore,
-	eventStore *store.AuthEventStore,
+	familyRepo *repositories.FamilyRepo,
+	childRepo *repositories.ChildRepo,
+	refreshTokenRepo *repositories.RefreshTokenRepo,
+	eventRepo *repositories.AuthEventRepo,
 	jwtKey []byte,
 ) *ChildAuth {
 	return &ChildAuth{
-		familyStore:       familyStore,
-		childStore:        childStore,
-		refreshTokenStore: refreshTokenStore,
-		eventStore:        eventStore,
-		jwtKey:            jwtKey,
+		familyRepo:       familyRepo,
+		childRepo:        childRepo,
+		refreshTokenRepo: refreshTokenRepo,
+		eventRepo:        eventRepo,
+		jwtKey:           jwtKey,
 	}
 }
 
@@ -45,7 +46,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find family
-	fam, err := ca.familyStore.GetBySlug(req.FamilySlug)
+	fam, err := ca.familyRepo.GetBySlug(req.FamilySlug)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -56,13 +57,13 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find child
-	child, err := ca.childStore.GetByFamilyAndName(fam.ID, req.FirstName)
+	child, err := ca.childRepo.GetByFamilyAndName(fam.ID, req.FirstName)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
 	if child == nil {
-		ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+		ca.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "login_failure",
 			UserType:  "child",
 			FamilyID:  fam.ID,
@@ -96,10 +97,10 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check password
-	if !ca.childStore.CheckPassword(child, req.Password) {
-		attempts, _ := ca.childStore.IncrementFailedAttempts(child.ID)
+	if !ca.childRepo.CheckPassword(child, req.Password) {
+		attempts, _ := ca.childRepo.IncrementFailedAttempts(child.ID)
 
-		ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+		ca.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "login_failure",
 			UserType:  "child",
 			UserID:    child.ID,
@@ -110,8 +111,8 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if attempts >= 5 {
-			ca.childStore.LockAccount(child.ID)       //nolint:errcheck // best-effort cleanup
-			ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+			ca.childRepo.LockAccount(child.ID)       //nolint:errcheck // best-effort cleanup
+			ca.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 				EventType: "account_locked",
 				UserType:  "child",
 				UserID:    child.ID,
@@ -135,7 +136,7 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Password correct — reset failed attempts
-	ca.childStore.ResetFailedAttempts(child.ID) //nolint:errcheck // best-effort cleanup
+	ca.childRepo.ResetFailedAttempts(child.ID) //nolint:errcheck // best-effort cleanup
 
 	// Generate JWT access token + refresh token (24-hour TTL for children)
 	accessToken, err := GenerateAccessToken(ca.jwtKey, "child", child.ID, fam.ID)
@@ -144,13 +145,13 @@ func (ca *ChildAuth) HandleChildLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := ca.refreshTokenStore.Create("child", child.ID, fam.ID, 24*time.Hour)
+	refreshToken, err := ca.refreshTokenRepo.Create("child", child.ID, fam.ID, 24*time.Hour)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create session"})
 		return
 	}
 
-	ca.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	ca.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
 		UserType:  "child",
 		UserID:    child.ID,
