@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"bank-of-dad/internal/middleware"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 const (
@@ -18,15 +19,17 @@ const (
 
 // Handler handles savings goal HTTP requests.
 type Handler struct {
-	goalStore  *store.SavingsGoalStore
-	childStore *store.ChildStore
+	goalRepo           *repositories.SavingsGoalRepo
+	childRepo          *repositories.ChildRepo
+	goalAllocationRepo *repositories.GoalAllocationRepo
 }
 
 // NewHandler creates a new goals handler.
-func NewHandler(goalStore *store.SavingsGoalStore, childStore *store.ChildStore) *Handler {
+func NewHandler(goalRepo *repositories.SavingsGoalRepo, childRepo *repositories.ChildRepo, goalAllocationRepo *repositories.GoalAllocationRepo) *Handler {
 	return &Handler{
-		goalStore:  goalStore,
-		childStore: childStore,
+		goalRepo:           goalRepo,
+		childRepo:          childRepo,
+		goalAllocationRepo: goalAllocationRepo,
 	}
 }
 
@@ -55,7 +58,7 @@ func parseGoalID(r *http.Request) (int64, error) {
 // verifyChildAccess checks that the authenticated user can access the given child's data.
 // Children can only access their own data. Parents can access any child in their family.
 func (h *Handler) verifyChildAccess(r *http.Request, childID int64) (int, *ErrorResponse) {
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		return http.StatusInternalServerError, &ErrorResponse{
 			Error:   "internal_error",
@@ -112,9 +115,9 @@ type CreateRequest struct {
 
 // SavingsGoalsResponse represents the response for listing goals.
 type SavingsGoalsResponse struct {
-	Goals                 []*store.SavingsGoal `json:"goals"`
-	AvailableBalanceCents int64                `json:"available_balance_cents"`
-	TotalSavedCents       int64                `json:"total_saved_cents"`
+	Goals                 []*models.SavingsGoal `json:"goals"`
+	AvailableBalanceCents int64                 `json:"available_balance_cents"`
+	TotalSavedCents       int64                 `json:"total_saved_cents"`
 }
 
 // HandleCreate handles POST /api/children/{id}/savings-goals
@@ -158,7 +161,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check max active goals
-	count, err := h.goalStore.CountActiveByChild(childID)
+	count, err := h.goalRepo.CountActiveByChild(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to check active goals."})
 		return
@@ -168,7 +171,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	goal, err := h.goalStore.Create(childID, name, req.TargetCents, req.Emoji)
+	goal, err := h.goalRepo.Create(childID, name, req.TargetCents, req.Emoji)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to create goal."})
 		return
@@ -190,14 +193,14 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	goals, err := h.goalStore.ListByChild(childID)
+	goals, err := h.goalRepo.ListByChild(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to list goals."})
 		return
 	}
 
 	if goals == nil {
-		goals = []*store.SavingsGoal{}
+		goals = []*models.SavingsGoal{}
 	}
 
 	// Compute totals from active goals
@@ -209,7 +212,7 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get child's total balance to compute available balance
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get balance."})
 		return
@@ -282,7 +285,7 @@ func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build update params
-	params := &store.UpdateGoalParams{
+	params := &repositories.UpdateGoalParams{
 		Name:        req.Name,
 		TargetCents: req.TargetCents,
 	}
@@ -296,9 +299,9 @@ func (h *Handler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		params.EmojiSet = true
 	}
 
-	goal, err := h.goalStore.Update(goalID, childID, params)
+	goal, err := h.goalRepo.Update(goalID, childID, params)
 	if err != nil {
-		if err == store.ErrGoalNotFound {
+		if err == repositories.ErrGoalNotFound {
 			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
 			return
 		}
@@ -334,9 +337,9 @@ func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	releasedCents, err := h.goalStore.Delete(goalID, childID)
+	releasedCents, err := h.goalRepo.Delete(goalID, childID)
 	if err != nil {
-		if err == store.ErrGoalNotFound {
+		if err == repositories.ErrGoalNotFound {
 			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
 			return
 		}
@@ -345,7 +348,7 @@ func (h *Handler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated available balance
-	availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+	availableBalance, err := h.goalRepo.GetAvailableBalance(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get available balance."})
 		return
@@ -364,14 +367,14 @@ type AllocateRequest struct {
 
 // AllocateResponse represents the response after allocating funds to a goal.
 type AllocateResponse struct {
-	Goal                  *store.SavingsGoal `json:"goal"`
-	AvailableBalanceCents int64              `json:"available_balance_cents"`
-	Completed             bool               `json:"completed"`
+	Goal                  *models.SavingsGoal `json:"goal"`
+	AvailableBalanceCents int64               `json:"available_balance_cents"`
+	Completed             bool                `json:"completed"`
 }
 
 // AllocationsListResponse represents a list of goal allocations.
 type AllocationsListResponse struct {
-	Allocations []*store.GoalAllocation `json:"allocations"`
+	Allocations []*models.GoalAllocation `json:"allocations"`
 }
 
 // HandleAllocate handles POST /api/children/{id}/savings-goals/{goalId}/allocate
@@ -404,16 +407,16 @@ func (h *Handler) HandleAllocate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	goal, err := h.goalStore.Allocate(goalID, childID, req.AmountCents)
+	goal, err := h.goalRepo.Allocate(goalID, childID, req.AmountCents)
 	if err != nil {
 		switch err {
-		case store.ErrGoalNotFound:
+		case repositories.ErrGoalNotFound:
 			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "not_found", Message: "Goal not found or not active."})
-		case store.ErrInsufficientAvailable:
+		case repositories.ErrInsufficientAvailable:
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "insufficient_balance", Message: "Amount exceeds available balance."})
-		case store.ErrDeallocationExceedsSaved:
+		case repositories.ErrDeallocationExceedsSaved:
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "exceeds_saved", Message: "De-allocation amount exceeds saved amount."})
-		case store.ErrZeroAllocation:
+		case repositories.ErrZeroAllocation:
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid_amount", Message: "Amount must be non-zero."})
 		default:
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to allocate funds."})
@@ -422,7 +425,7 @@ func (h *Handler) HandleAllocate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get updated available balance
-	availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+	availableBalance, err := h.goalRepo.GetAvailableBalance(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get available balance."})
 		return
@@ -455,7 +458,7 @@ func (h *Handler) HandleListAllocations(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify the goal belongs to this child
-	goal, err := h.goalStore.GetByID(goalID)
+	goal, err := h.goalRepo.GetByID(goalID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup goal."})
 		return
@@ -465,14 +468,14 @@ func (h *Handler) HandleListAllocations(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	allocations, err := h.goalStore.ListAllocationsByGoal(goalID)
+	allocations, err := h.goalAllocationRepo.ListByGoal(goalID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to list allocations."})
 		return
 	}
 
 	if allocations == nil {
-		allocations = []*store.GoalAllocation{}
+		allocations = []*models.GoalAllocation{}
 	}
 
 	writeJSON(w, http.StatusOK, AllocationsListResponse{

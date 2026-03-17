@@ -11,26 +11,27 @@ import (
 	"strings"
 	"time"
 
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 type GoogleAuth struct {
-	config            *oauth2.Config
-	parentStore       *store.ParentStore
-	refreshTokenStore *store.RefreshTokenStore
-	eventStore        *store.AuthEventStore
-	frontendURL       string
-	jwtKey            []byte
+	config           *oauth2.Config
+	parentRepo       *repositories.ParentRepo
+	refreshTokenRepo *repositories.RefreshTokenRepo
+	eventRepo        *repositories.AuthEventRepo
+	frontendURL      string
+	jwtKey           []byte
 }
 
 func NewGoogleAuth(
 	clientID, clientSecret, redirectURL string,
-	parentStore *store.ParentStore,
-	refreshTokenStore *store.RefreshTokenStore,
-	eventStore *store.AuthEventStore,
+	parentRepo *repositories.ParentRepo,
+	refreshTokenRepo *repositories.RefreshTokenRepo,
+	eventRepo *repositories.AuthEventRepo,
 	frontendURL string,
 	jwtKey []byte,
 ) *GoogleAuth {
@@ -42,11 +43,11 @@ func NewGoogleAuth(
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint:     google.Endpoint,
 		},
-		parentStore:       parentStore,
-		refreshTokenStore: refreshTokenStore,
-		eventStore:        eventStore,
-		frontendURL:       frontendURL,
-		jwtKey:            jwtKey,
+		parentRepo:       parentRepo,
+		refreshTokenRepo: refreshTokenRepo,
+		eventRepo:        eventRepo,
+		frontendURL:      frontendURL,
+		jwtKey:           jwtKey,
 	}
 }
 
@@ -133,7 +134,7 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find or create parent
-	parent, err := g.parentStore.GetByGoogleID(userInfo.ID)
+	parent, err := g.parentRepo.GetByGoogleID(userInfo.ID)
 	if err != nil {
 		http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
 		return
@@ -141,13 +142,13 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	isNewUser := parent == nil
 	if isNewUser {
-		parent, err = g.parentStore.Create(userInfo.ID, userInfo.Email, userInfo.Name)
+		parent, err = g.parentRepo.Create(userInfo.ID, userInfo.Email, userInfo.Name)
 		if err != nil {
 			http.Error(w, `{"error":"Failed to create account"}`, http.StatusInternalServerError)
 			return
 		}
 
-		g.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+		g.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 			EventType: "account_created",
 			UserType:  "parent",
 			UserID:    parent.ID,
@@ -164,13 +165,13 @@ func (g *GoogleAuth) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := g.refreshTokenStore.Create("parent", parent.ID, parent.FamilyID, 7*24*time.Hour)
+	refreshToken, err := g.refreshTokenRepo.Create("parent", parent.ID, parent.FamilyID, 7*24*time.Hour)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to create session"}`, http.StatusInternalServerError)
 		return
 	}
 
-	g.eventStore.LogEvent(store.AuthEvent{ //nolint:errcheck // best-effort audit logging
+	g.eventRepo.Log(models.AuthEvent{ //nolint:errcheck // best-effort audit logging
 		EventType: "login_success",
 		UserType:  "parent",
 		UserID:    parent.ID,

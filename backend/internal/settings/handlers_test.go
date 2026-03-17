@@ -7,19 +7,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/testutil"
+	"bank-of-dad/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newTestHandlers(t *testing.T) (*Handlers, *store.FamilyStore) {
+func newTestHandlers(t *testing.T) (*Handlers, *repositories.FamilyRepo) {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
-	familyStore := store.NewFamilyStore(db)
-	h := NewHandlers(familyStore)
-	return h, familyStore
+	familyRepo := repositories.NewFamilyRepo(db)
+	h := NewHandlers(familyRepo)
+	return h, familyRepo
 }
 
 // --- GET /api/settings ---

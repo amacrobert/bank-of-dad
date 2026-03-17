@@ -19,8 +19,8 @@
 
 **Purpose**: Add GORM dependencies and create directory structure
 
-- [ ] T001 Add GORM dependencies to backend/go.mod: `go get gorm.io/gorm gorm.io/driver/postgres`
-- [ ] T002 Create directory structure: `backend/models/` and `backend/repositories/`
+- [x] T001 Add GORM dependencies to backend/go.mod: `go get gorm.io/gorm gorm.io/driver/postgres`
+- [x] T000 Create directory structure: `backend/models/` and `backend/repositories/`
 
 ---
 
@@ -30,8 +30,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Create GORM connection setup in backend/repositories/db.go — implement `Open(dsn string) (*gorm.DB, error)` that wraps `gorm.Open()` with postgres driver, extracts underlying `*sql.DB` to run existing `golang-migrate` migrations, and returns `*gorm.DB`. Port migration logic from backend/internal/store/postgres.go. Do NOT use GORM AutoMigrate.
-- [ ] T004 Create shared test helper in backend/repositories/test_helpers_test.go — implement `testDB()` returning `*gorm.DB` connected to `bankofdad_test` database via `TEST_DATABASE_URL` env var. Include TRUNCATE helper that clears all tables with `RESTART IDENTITY CASCADE`. Reference existing pattern in backend/internal/store/store_test_helpers_test.go.
+- [x] T000 Create GORM connection setup in backend/repositories/db.go — implement `Open(dsn string) (*gorm.DB, error)` that wraps `gorm.Open()` with postgres driver, extracts underlying `*sql.DB` to run existing `golang-migrate` migrations, and returns `*gorm.DB`. Port migration logic from backend/internal/store/postgres.go. Do NOT use GORM AutoMigrate.
+- [x] T000 Create shared test helper in backend/repositories/test_helpers_test.go — implement `testDB()` returning `*gorm.DB` connected to `bankofdad_test` database via `TEST_DATABASE_URL` env var. Include TRUNCATE helper that clears all tables with `RESTART IDENTITY CASCADE`. Reference existing pattern in backend/internal/store/store_test_helpers_test.go.
 
 **Checkpoint**: Foundation ready — model and repository implementation can begin
 
@@ -45,17 +45,17 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] Create Family model in backend/models/family.go — define `Family` struct with all fields from data-model.md (ID, Slug, Timezone, AccountType, Stripe fields, BankName, CreatedAt). Include GORM tags for primaryKey, uniqueIndex, not null, defaults. Add `HasMany` associations for Parents and Children. Set `TableName()` to "families".
-- [ ] T006 [P] [US1] Create Parent model in backend/models/parent.go — define `Parent` struct (ID, GoogleID, Email, DisplayName, FamilyID, CreatedAt). Include GORM tags and `BelongsTo` Family association.
-- [ ] T007 [P] [US1] Create Child model in backend/models/child.go — define `Child` struct (ID, FamilyID, FirstName, PasswordHash, IsLocked, IsDisabled, FailedLoginAttempts, BalanceCents int64, InterestRateBps, LastInterestAt, Avatar, Theme, CreatedAt, UpdatedAt). Use composite `uniqueIndex:idx_family_child` on FamilyID+FirstName. Add `BelongsTo` Family and `HasMany` associations.
-- [ ] T008 [P] [US1] Create Transaction model in backend/models/transaction.go — define `Transaction` struct (ID, ChildID, ParentID, AmountCents int64, TransactionType, Note, ScheduleID, CreatedAt). Include `BelongsTo` associations for Child, Parent, and optional AllowanceSchedule.
-- [ ] T009 [P] [US1] Create AllowanceSchedule model in backend/models/allowance_schedule.go — define `AllowanceSchedule` struct (ID, ChildID, ParentID, AmountCents int64, Frequency, DayOfWeek *int, DayOfMonth *int, Note, Status, NextRunAt, CreatedAt, UpdatedAt). Include `BelongsTo` Child/Parent and `HasMany` Transactions.
-- [ ] T010 [P] [US1] Create InterestSchedule model in backend/models/interest_schedule.go — define `InterestSchedule` struct (ID, ChildID uniqueIndex, ParentID, Frequency, DayOfWeek *int, DayOfMonth *int, Status, NextRunAt, CreatedAt, UpdatedAt). Include `BelongsTo` Child/Parent.
-- [ ] T011 [P] [US1] Create RefreshToken model in backend/models/refresh_token.go — define `RefreshToken` struct (ID, TokenHash uniqueIndex, UserType, UserID, FamilyID, ExpiresAt, CreatedAt). No GORM associations (polymorphic user ref).
-- [ ] T012 [P] [US1] Create AuthEvent model in backend/models/auth_event.go — define `AuthEvent` struct (ID, EventType, UserType, UserID *int64, FamilyID *int64, IPAddress, Details *string, CreatedAt). No GORM associations (audit log).
-- [ ] T013 [P] [US1] Create StripeWebhookEvent model in backend/models/webhook_event.go — define `StripeWebhookEvent` struct with `StripeEventID string` as primaryKey (not SERIAL), EventType, ProcessedAt. Set `TableName()` to "stripe_webhook_events".
-- [ ] T014 [P] [US1] Create SavingsGoal model in backend/models/savings_goal.go — define `SavingsGoal` struct (ID, ChildID, Name, TargetCents int64, SavedCents int64, Emoji *string, Status, CompletedAt *time.Time, CreatedAt, UpdatedAt). Include `BelongsTo` Child and `HasMany` GoalAllocations.
-- [ ] T015 [P] [US1] Create GoalAllocation model in backend/models/goal_allocation.go — define `GoalAllocation` struct (ID, GoalID, ChildID, AmountCents int64, CreatedAt). Include `BelongsTo` SavingsGoal and Child.
+- [x] T000 [P] [US1] Create Family model in backend/models/family.go — define `Family` struct with all fields from data-model.md (ID, Slug, Timezone, AccountType, Stripe fields, BankName, CreatedAt). Include GORM tags for primaryKey, uniqueIndex, not null, defaults. Add `HasMany` associations for Parents and Children. Set `TableName()` to "families".
+- [x] T000 [P] [US1] Create Parent model in backend/models/parent.go — define `Parent` struct (ID, GoogleID, Email, DisplayName, FamilyID, CreatedAt). Include GORM tags and `BelongsTo` Family association.
+- [x] T000 [P] [US1] Create Child model in backend/models/child.go — define `Child` struct (ID, FamilyID, FirstName, PasswordHash, IsLocked, IsDisabled, FailedLoginAttempts, BalanceCents int64, InterestRateBps, LastInterestAt, Avatar, Theme, CreatedAt, UpdatedAt). Use composite `uniqueIndex:idx_family_child` on FamilyID+FirstName. Add `BelongsTo` Family and `HasMany` associations.
+- [x] T000 [P] [US1] Create Transaction model in backend/models/transaction.go — define `Transaction` struct (ID, ChildID, ParentID, AmountCents int64, TransactionType, Note, ScheduleID, CreatedAt). Include `BelongsTo` associations for Child, Parent, and optional AllowanceSchedule.
+- [x] T000 [P] [US1] Create AllowanceSchedule model in backend/models/allowance_schedule.go — define `AllowanceSchedule` struct (ID, ChildID, ParentID, AmountCents int64, Frequency, DayOfWeek *int, DayOfMonth *int, Note, Status, NextRunAt, CreatedAt, UpdatedAt). Include `BelongsTo` Child/Parent and `HasMany` Transactions.
+- [x] T00 [P] [US1] Create InterestSchedule model in backend/models/interest_schedule.go — define `InterestSchedule` struct (ID, ChildID uniqueIndex, ParentID, Frequency, DayOfWeek *int, DayOfMonth *int, Status, NextRunAt, CreatedAt, UpdatedAt). Include `BelongsTo` Child/Parent.
+- [x] T00 [P] [US1] Create RefreshToken model in backend/models/refresh_token.go — define `RefreshToken` struct (ID, TokenHash uniqueIndex, UserType, UserID, FamilyID, ExpiresAt, CreatedAt). No GORM associations (polymorphic user ref).
+- [x] T00 [P] [US1] Create AuthEvent model in backend/models/auth_event.go — define `AuthEvent` struct (ID, EventType, UserType, UserID *int64, FamilyID *int64, IPAddress, Details *string, CreatedAt). No GORM associations (audit log).
+- [x] T00 [P] [US1] Create StripeWebhookEvent model in backend/models/webhook_event.go — define `StripeWebhookEvent` struct with `StripeEventID string` as primaryKey (not SERIAL), EventType, ProcessedAt. Set `TableName()` to "stripe_webhook_events".
+- [x] T00 [P] [US1] Create SavingsGoal model in backend/models/savings_goal.go — define `SavingsGoal` struct (ID, ChildID, Name, TargetCents int64, SavedCents int64, Emoji *string, Status, CompletedAt *time.Time, CreatedAt, UpdatedAt). Include `BelongsTo` Child and `HasMany` GoalAllocations.
+- [x] T00 [P] [US1] Create GoalAllocation model in backend/models/goal_allocation.go — define `GoalAllocation` struct (ID, GoalID, ChildID, AmountCents int64, CreatedAt). Include `BelongsTo` SavingsGoal and Child.
 
 **Checkpoint**: All 11 models compile. `cd backend && go build ./models/` succeeds. Models match existing schema per data-model.md.
 
@@ -71,34 +71,34 @@
 
 > **NOTE: Write tests FIRST per TDD. Reference existing store tests for expected behavior. Tests must FAIL before implementation.**
 
-- [ ] T016 [P] [US2] Write tests for FamilyRepo in backend/repositories/family_repo_test.go — cover Create, GetByID, GetBySlug, SlugExists, SuggestSlugs, UpdateTimezone, UpdateBankName, Stripe-related methods, UpdateAccountType. Mirror test cases from backend/internal/store/family_test.go. Use testDB() helper.
-- [ ] T017 [P] [US2] Write tests for ParentRepo in backend/repositories/parent_repo_test.go — cover GetOrCreate (new + existing), GetByID, SetFamily, GetByFamilyID. Mirror backend/internal/store/parent_test.go.
-- [ ] T018 [P] [US2] Write tests for ChildRepo in backend/repositories/child_repo_test.go — cover Create (including duplicate name error), GetByID, GetByName, ListByFamily, GetBalance, all Update methods, IncrementFailedLogins, Lock, ResetFailedLogins, SetDisabled, CountByFamily, DeleteAll. Mirror backend/internal/store/child_test.go.
-- [ ] T019 [P] [US2] Write tests for TransactionRepo in backend/repositories/transaction_repo_test.go — cover Deposit (balance update + transaction record), Withdraw (including insufficient funds), ListByChild (with pagination), GetMonthlySummary, CreateAllowanceTransaction, CreateInterestTransaction. Mirror backend/internal/store/transaction_test.go.
-- [ ] T020 [P] [US2] Write tests for ScheduleRepo in backend/repositories/schedule_repo_test.go — cover Create, GetByID, ListByChild, ListByFamily, Update, UpdateStatus, Delete, ListDue (with past/future dates), UpdateNextRun. Mirror backend/internal/store/schedule_test.go.
-- [ ] T021 [P] [US2] Write tests for InterestScheduleRepo in backend/repositories/interest_schedule_repo_test.go — cover Create, GetByChildID, ListByFamily, Update, UpdateStatus, Delete, ListDue, UpdateNextRun. Mirror backend/internal/store/interest_schedule_test.go.
-- [ ] T022 [P] [US2] Write tests for InterestRepo in backend/repositories/interest_repo_test.go — cover AccrueInterest (balance update + transaction + interest calculation from basis points), UpdateLastInterestAt. Mirror backend/internal/store/interest_test.go.
-- [ ] T023 [P] [US2] Write tests for RefreshTokenRepo in backend/repositories/refresh_token_repo_test.go — cover Create, GetByHash, DeleteByHash, DeleteByUser, DeleteExpired. Mirror backend/internal/store/refresh_token_test.go.
-- [ ] T024 [P] [US2] Write tests for AuthEventRepo in backend/repositories/auth_event_repo_test.go — cover Log, ListByFamily. Mirror backend/internal/store/auth_event_test.go.
-- [ ] T025 [P] [US2] Write tests for WebhookEventRepo in backend/repositories/webhook_event_repo_test.go — cover Exists, Create (including idempotency). Mirror backend/internal/store/webhook_event_test.go.
-- [ ] T026 [P] [US2] Write tests for SavingsGoalRepo in backend/repositories/savings_goal_repo_test.go — cover Create, GetByID, ListByChild, Update, Delete, Allocate (with goal saved_cents update), Deallocate. Mirror backend/internal/store/savings_goal_test.go.
-- [ ] T027 [P] [US2] Write tests for GoalAllocationRepo in backend/repositories/goal_allocation_repo_test.go — cover ListByGoal, ListByChild. Mirror backend/internal/store/savings_goal_test.go (allocation tests).
+- [x] T00 [P] [US2] Write tests for FamilyRepo in backend/repositories/family_repo_test.go — cover Create, GetByID, GetBySlug, SlugExists, SuggestSlugs, UpdateTimezone, UpdateBankName, Stripe-related methods, UpdateAccountType. Mirror test cases from backend/internal/store/family_test.go. Use testDB() helper.
+- [x] T00 [P] [US2] Write tests for ParentRepo in backend/repositories/parent_repo_test.go — cover GetOrCreate (new + existing), GetByID, SetFamily, GetByFamilyID. Mirror backend/internal/store/parent_test.go.
+- [x] T00 [P] [US2] Write tests for ChildRepo in backend/repositories/child_repo_test.go — cover Create (including duplicate name error), GetByID, GetByName, ListByFamily, GetBalance, all Update methods, IncrementFailedLogins, Lock, ResetFailedLogins, SetDisabled, CountByFamily, DeleteAll. Mirror backend/internal/store/child_test.go.
+- [x] T00 [P] [US2] Write tests for TransactionRepo in backend/repositories/transaction_repo_test.go — cover Deposit (balance update + transaction record), Withdraw (including insufficient funds), ListByChild (with pagination), GetMonthlySummary, CreateAllowanceTransaction, CreateInterestTransaction. Mirror backend/internal/store/transaction_test.go.
+- [x] T00 [P] [US2] Write tests for ScheduleRepo in backend/repositories/schedule_repo_test.go — cover Create, GetByID, ListByChild, ListByFamily, Update, UpdateStatus, Delete, ListDue (with past/future dates), UpdateNextRun. Mirror backend/internal/store/schedule_test.go.
+- [x] T00 [P] [US2] Write tests for InterestScheduleRepo in backend/repositories/interest_schedule_repo_test.go — cover Create, GetByChildID, ListByFamily, Update, UpdateStatus, Delete, ListDue, UpdateNextRun. Mirror backend/internal/store/interest_schedule_test.go.
+- [x] T00 [P] [US2] Write tests for InterestRepo in backend/repositories/interest_repo_test.go — cover AccrueInterest (balance update + transaction + interest calculation from basis points), UpdateLastInterestAt. Mirror backend/internal/store/interest_test.go.
+- [x] T00 [P] [US2] Write tests for RefreshTokenRepo in backend/repositories/refresh_token_repo_test.go — cover Create, GetByHash, DeleteByHash, DeleteByUser, DeleteExpired. Mirror backend/internal/store/refresh_token_test.go.
+- [x] T00 [P] [US2] Write tests for AuthEventRepo in backend/repositories/auth_event_repo_test.go — cover Log, ListByFamily. Mirror backend/internal/store/auth_event_test.go.
+- [x] T00 [P] [US2] Write tests for WebhookEventRepo in backend/repositories/webhook_event_repo_test.go — cover Exists, Create (including idempotency). Mirror backend/internal/store/webhook_event_test.go.
+- [x] T00 [P] [US2] Write tests for SavingsGoalRepo in backend/repositories/savings_goal_repo_test.go — cover Create, GetByID, ListByChild, Update, Delete, Allocate (with goal saved_cents update), Deallocate. Mirror backend/internal/store/savings_goal_test.go.
+- [x] T00 [P] [US2] Write tests for GoalAllocationRepo in backend/repositories/goal_allocation_repo_test.go — cover ListByGoal, ListByChild. Mirror backend/internal/store/savings_goal_test.go (allocation tests).
 
 ### Implementation for User Story 2
 
-- [ ] T028 [P] [US2] Implement FamilyRepo in backend/repositories/family_repo.go — all methods per contracts/repository-interfaces.md. Use GORM builder for CRUD, `db.Raw()` for SuggestSlugs. Handle `gorm.ErrRecordNotFound` → `(nil, nil)`. Handle duplicate slug errors with user-friendly message.
-- [ ] T029 [P] [US2] Implement ParentRepo in backend/repositories/parent_repo.go — all methods per contracts. GetOrCreate uses GORM's `FirstOrCreate` or manual check+insert. Return `(parent, isNew, error)`.
-- [ ] T030 [P] [US2] Implement ChildRepo in backend/repositories/child_repo.go — all methods per contracts. Use `db.Transaction()` for DeleteAll. Handle duplicate `(family_id, first_name)` constraint with user-friendly error. GetBalance returns int64 cents.
-- [ ] T031 [P] [US2] Implement TransactionRepo in backend/repositories/transaction_repo.go — all methods per contracts. Deposit/Withdraw use `db.Transaction()` for atomicity (update child balance + insert transaction). Use `db.Raw()` for GetMonthlySummary (to_char aggregation). Define `MonthlySummary` helper struct in this file.
-- [ ] T032 [P] [US2] Implement ScheduleRepo in backend/repositories/schedule_repo.go — all methods per contracts. ListByFamily requires JOIN with children table. ListDue filters by `next_run_at <= now AND status = 'active'`.
-- [ ] T033 [P] [US2] Implement InterestScheduleRepo in backend/repositories/interest_schedule_repo.go — all methods per contracts. Similar patterns to ScheduleRepo. ListByFamily requires JOIN with children table.
-- [ ] T034 [P] [US2] Implement InterestRepo in backend/repositories/interest_repo.go — all methods per contracts. AccrueInterest uses `db.Transaction()` to calculate interest from basis points, update child balance, insert interest transaction, and update last_interest_at atomically.
-- [ ] T035 [P] [US2] Implement RefreshTokenRepo in backend/repositories/refresh_token_repo.go — all methods per contracts. DeleteExpired deletes tokens where `expires_at < NOW()` and returns count of deleted rows.
-- [ ] T036 [P] [US2] Implement AuthEventRepo in backend/repositories/auth_event_repo.go — all methods per contracts. Log inserts a new auth event. ListByFamily orders by created_at DESC with limit.
-- [ ] T037 [P] [US2] Implement WebhookEventRepo in backend/repositories/webhook_event_repo.go — all methods per contracts. Exists checks by primary key (stripe_event_id). Create inserts with idempotency.
-- [ ] T038 [P] [US2] Implement SavingsGoalRepo in backend/repositories/savings_goal_repo.go — all methods per contracts. Allocate/Deallocate use `db.Transaction()` to update goal's saved_cents and insert goal_allocation atomically.
-- [ ] T039 [P] [US2] Implement GoalAllocationRepo in backend/repositories/goal_allocation_repo.go — all methods per contracts. ListByGoal and ListByChild order by created_at DESC.
-- [ ] T040 [US2] Run full repository test suite: `cd backend && go test -p 1 ./repositories/...` — all tests must pass
+- [x] T00 [P] [US2] Implement FamilyRepo in backend/repositories/family_repo.go — all methods per contracts/repository-interfaces.md. Use GORM builder for CRUD, `db.Raw()` for SuggestSlugs. Handle `gorm.ErrRecordNotFound` → `(nil, nil)`. Handle duplicate slug errors with user-friendly message.
+- [x] T00 [P] [US2] Implement ParentRepo in backend/repositories/parent_repo.go — all methods per contracts. GetOrCreate uses GORM's `FirstOrCreate` or manual check+insert. Return `(parent, isNew, error)`.
+- [x] T00 [P] [US2] Implement ChildRepo in backend/repositories/child_repo.go — all methods per contracts. Use `db.Transaction()` for DeleteAll. Handle duplicate `(family_id, first_name)` constraint with user-friendly error. GetBalance returns int64 cents.
+- [x] T00 [P] [US2] Implement TransactionRepo in backend/repositories/transaction_repo.go — all methods per contracts. Deposit/Withdraw use `db.Transaction()` for atomicity (update child balance + insert transaction). Use `db.Raw()` for GetMonthlySummary (to_char aggregation). Define `MonthlySummary` helper struct in this file.
+- [x] T00 [P] [US2] Implement ScheduleRepo in backend/repositories/schedule_repo.go — all methods per contracts. ListByFamily requires JOIN with children table. ListDue filters by `next_run_at <= now AND status = 'active'`.
+- [x] T00 [P] [US2] Implement InterestScheduleRepo in backend/repositories/interest_schedule_repo.go — all methods per contracts. Similar patterns to ScheduleRepo. ListByFamily requires JOIN with children table.
+- [x] T00 [P] [US2] Implement InterestRepo in backend/repositories/interest_repo.go — all methods per contracts. AccrueInterest uses `db.Transaction()` to calculate interest from basis points, update child balance, insert interest transaction, and update last_interest_at atomically.
+- [x] T00 [P] [US2] Implement RefreshTokenRepo in backend/repositories/refresh_token_repo.go — all methods per contracts. DeleteExpired deletes tokens where `expires_at < NOW()` and returns count of deleted rows.
+- [x] T00 [P] [US2] Implement AuthEventRepo in backend/repositories/auth_event_repo.go — all methods per contracts. Log inserts a new auth event. ListByFamily orders by created_at DESC with limit.
+- [x] T00 [P] [US2] Implement WebhookEventRepo in backend/repositories/webhook_event_repo.go — all methods per contracts. Exists checks by primary key (stripe_event_id). Create inserts with idempotency.
+- [x] T00 [P] [US2] Implement SavingsGoalRepo in backend/repositories/savings_goal_repo.go — all methods per contracts. Allocate/Deallocate use `db.Transaction()` to update goal's saved_cents and insert goal_allocation atomically.
+- [x] T00 [P] [US2] Implement GoalAllocationRepo in backend/repositories/goal_allocation_repo.go — all methods per contracts. ListByGoal and ListByChild order by created_at DESC.
+- [x] T00 [US2] Run full repository test suite: `cd backend && go test -p 1 ./repositories/...` — all tests must pass
 
 **Checkpoint**: All 12 repositories implemented and tested. `go test -p 1 ./repositories/...` passes. Each repo method produces identical behavior to its store counterpart.
 
@@ -112,15 +112,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Update backend/main.go — replace `store.Open()` with `repositories.Open()`, instantiate all repository structs instead of store structs, pass repositories to handler constructors. Keep the `*gorm.DB` instance for all repos.
-- [ ] T042 [P] [US3] Migrate backend/internal/family/ handlers — change constructor to accept `*repositories.FamilyRepo`, `*repositories.ParentRepo`, `*repositories.ChildRepo`, `*repositories.AuthEventRepo`. Update all method calls from store types to repository types. Update imports.
-- [ ] T043 [P] [US3] Migrate backend/internal/auth/ handlers — change constructor to accept repository types for ParentRepo, FamilyRepo, ChildRepo, RefreshTokenRepo, AuthEventRepo. Update all method calls and imports.
-- [ ] T044 [P] [US3] Migrate backend/internal/balance/ handlers — change constructor to accept TransactionRepo, ChildRepo, InterestRepo, InterestScheduleRepo, SavingsGoalRepo. Update all method calls and imports.
-- [ ] T045 [P] [US3] Migrate backend/internal/allowance/ handlers — change constructor to accept ScheduleRepo, ChildRepo, FamilyRepo. Update all method calls and imports.
-- [ ] T046 [P] [US3] Migrate backend/internal/interest/ handlers and scheduler — change constructor to accept InterestScheduleRepo, InterestRepo, ChildRepo. Update scheduler goroutine to use repository methods.
-- [ ] T047 [P] [US3] Migrate backend/internal/goals/ handlers — change constructor to accept SavingsGoalRepo, GoalAllocationRepo, ChildRepo. Update all method calls and imports.
-- [ ] T048 [P] [US3] Migrate backend/internal/settings/ handlers — change constructor to accept FamilyRepo. Update all method calls and imports.
-- [ ] T049 [P] [US3] Migrate backend/internal/subscription/ handlers — change constructor to accept FamilyRepo, WebhookEventRepo, ChildRepo. Update all method calls and imports.
+- [x] T00 [US3] Update backend/main.go — replace `store.Open()` with `repositories.Open()`, instantiate all repository structs instead of store structs, pass repositories to handler constructors. Keep the `*gorm.DB` instance for all repos.
+- [x] T00 [P] [US3] Migrate backend/internal/family/ handlers — change constructor to accept `*repositories.FamilyRepo`, `*repositories.ParentRepo`, `*repositories.ChildRepo`, `*repositories.AuthEventRepo`. Update all method calls from store types to repository types. Update imports.
+- [x] T00 [P] [US3] Migrate backend/internal/auth/ handlers — change constructor to accept repository types for ParentRepo, FamilyRepo, ChildRepo, RefreshTokenRepo, AuthEventRepo. Update all method calls and imports.
+- [x] T00 [P] [US3] Migrate backend/internal/balance/ handlers — change constructor to accept TransactionRepo, ChildRepo, InterestRepo, InterestScheduleRepo, SavingsGoalRepo. Update all method calls and imports.
+- [x] T00 [P] [US3] Migrate backend/internal/allowance/ handlers — change constructor to accept ScheduleRepo, ChildRepo, FamilyRepo. Update all method calls and imports.
+- [x] T00 [P] [US3] Migrate backend/internal/interest/ handlers and scheduler — change constructor to accept InterestScheduleRepo, InterestRepo, ChildRepo. Update scheduler goroutine to use repository methods.
+- [x] T00 [P] [US3] Migrate backend/internal/goals/ handlers — change constructor to accept SavingsGoalRepo, GoalAllocationRepo, ChildRepo. Update all method calls and imports.
+- [x] T00 [P] [US3] Migrate backend/internal/settings/ handlers — change constructor to accept FamilyRepo. Update all method calls and imports.
+- [x] T00 [P] [US3] Migrate backend/internal/subscription/ handlers — change constructor to accept FamilyRepo, WebhookEventRepo, ChildRepo. Update all method calls and imports.
 - [ ] T050 [P] [US3] Migrate backend/internal/contact/ handlers — update constructor to accept any repository dependencies. Update imports.
 - [ ] T051 [P] [US3] Migrate backend/internal/allowance/ processor/scheduler — update the allowance processor goroutine to use ScheduleRepo and TransactionRepo instead of store types.
 - [ ] T052 [US3] Update backend/internal/testutil/ — update shared test helpers to work with `*gorm.DB` if any test utilities reference the DB connection type.

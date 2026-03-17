@@ -1,13 +1,13 @@
 package family
 
 import (
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 	"fmt"
 	"strings"
 )
 
 func ValidateSlug(slug string) error {
-	return store.ValidateSlug(slug)
+	return repositories.ValidateSlug(slug)
 }
 
 func ValidateChildPassword(password string) error {

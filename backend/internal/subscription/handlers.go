@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"bank-of-dad/internal/auth"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/repositories"
 
 	"github.com/stripe/stripe-go/v82"
 	portalsession "github.com/stripe/stripe-go/v82/billingportal/session"
@@ -21,29 +21,29 @@ import (
 )
 
 type Handlers struct {
-	familyStore         *store.FamilyStore
-	parentStore         *store.ParentStore
-	childStore          *store.ChildStore
-	webhookEventStore   *store.WebhookEventStore
+	familyRepo          *repositories.FamilyRepo
+	parentRepo          *repositories.ParentRepo
+	childRepo           *repositories.ChildRepo
+	webhookEventRepo    *repositories.WebhookEventRepo
 	stripeSecretKey     string
 	stripeWebhookSecret string
 	frontendURL         string
 }
 
 func NewHandlers(
-	familyStore *store.FamilyStore,
-	parentStore *store.ParentStore,
-	childStore *store.ChildStore,
-	webhookEventStore *store.WebhookEventStore,
+	familyRepo *repositories.FamilyRepo,
+	parentRepo *repositories.ParentRepo,
+	childRepo *repositories.ChildRepo,
+	webhookEventRepo *repositories.WebhookEventRepo,
 	stripeSecretKey string,
 	stripeWebhookSecret string,
 	frontendURL string,
 ) *Handlers {
 	return &Handlers{
-		familyStore:         familyStore,
-		parentStore:         parentStore,
-		childStore:          childStore,
-		webhookEventStore:   webhookEventStore,
+		familyRepo:          familyRepo,
+		parentRepo:          parentRepo,
+		childRepo:           childRepo,
+		webhookEventRepo:    webhookEventRepo,
 		stripeSecretKey:     stripeSecretKey,
 		stripeWebhookSecret: stripeWebhookSecret,
 		frontendURL:         frontendURL,
@@ -58,7 +58,7 @@ var validPriceLookupKeys = map[string]bool{
 func (h *Handlers) HandleGetSubscription(w http.ResponseWriter, r *http.Request) {
 	familyID := auth.GetFamilyID(r)
 
-	info, err := h.familyStore.GetSubscriptionByFamilyID(familyID)
+	info, err := h.familyRepo.GetSubscriptionByFamilyID(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -69,13 +69,13 @@ func (h *Handlers) HandleGetSubscription(w http.ResponseWriter, r *http.Request)
 	}
 
 	var subscriptionStatus interface{}
-	if info.SubscriptionStatus.Valid {
-		subscriptionStatus = info.SubscriptionStatus.String
+	if info.SubscriptionStatus != nil {
+		subscriptionStatus = *info.SubscriptionStatus
 	}
 
 	var currentPeriodEnd interface{}
-	if info.SubscriptionCurrentPeriodEnd.Valid {
-		currentPeriodEnd = info.SubscriptionCurrentPeriodEnd.Time.UTC().Format(time.RFC3339)
+	if info.SubscriptionCurrentPeriodEnd != nil {
+		currentPeriodEnd = info.SubscriptionCurrentPeriodEnd.UTC().Format(time.RFC3339)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -104,18 +104,18 @@ func (h *Handlers) HandleCreateCheckout(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Check if family already has active subscription
-	info, err := h.familyStore.GetSubscriptionByFamilyID(familyID)
+	info, err := h.familyRepo.GetSubscriptionByFamilyID(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
-	if info != nil && info.SubscriptionStatus.Valid && info.SubscriptionStatus.String == "active" {
+	if info != nil && info.SubscriptionStatus != nil && *info.SubscriptionStatus == "active" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Family already has an active subscription"})
 		return
 	}
 
 	// Get parent email for Stripe checkout
-	parent, err := h.parentStore.GetByID(userID)
+	parent, err := h.parentRepo.GetByID(userID)
 	if err != nil || parent == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
@@ -173,12 +173,12 @@ func (h *Handlers) HandleCreateCheckout(w http.ResponseWriter, r *http.Request) 
 func (h *Handlers) HandleCreatePortal(w http.ResponseWriter, r *http.Request) {
 	familyID := auth.GetFamilyID(r)
 
-	info, err := h.familyStore.GetSubscriptionByFamilyID(familyID)
+	info, err := h.familyRepo.GetSubscriptionByFamilyID(familyID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 		return
 	}
-	if info == nil || !info.StripeCustomerID.Valid {
+	if info == nil || info.StripeCustomerID == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No active subscription to manage"})
 		return
 	}
@@ -187,7 +187,7 @@ func (h *Handlers) HandleCreatePortal(w http.ResponseWriter, r *http.Request) {
 
 	returnURL := fmt.Sprintf("%s/settings/subscription", h.frontendURL)
 	params := &stripe.BillingPortalSessionParams{
-		Customer:  stripe.String(info.StripeCustomerID.String),
+		Customer:  stripe.String(*info.StripeCustomerID),
 		ReturnURL: stripe.String(returnURL),
 	}
 
@@ -217,7 +217,7 @@ func (h *Handlers) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Idempotency check
-	processed, err := h.webhookEventStore.IsProcessed(event.ID)
+	processed, err := h.webhookEventRepo.HasBeenProcessed(event.ID)
 	if err != nil {
 		log.Printf("Error checking webhook idempotency: %v", err)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "error"})
@@ -242,7 +242,7 @@ func (h *Handlers) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark event as processed
-	if err := h.webhookEventStore.MarkProcessed(event.ID, string(event.Type)); err != nil {
+	if err := h.webhookEventRepo.RecordEvent(event.ID, string(event.Type)); err != nil {
 		log.Printf("Error marking webhook event as processed: %v", err)
 	}
 
@@ -316,12 +316,12 @@ func (h *Handlers) handleCheckoutCompleted(event stripe.Event) {
 		log.Printf("checkout.session.completed: error fetching subscription: %v", err)
 		// Use current time + 30 days as fallback
 		periodEnd := time.Now().UTC().Add(30 * 24 * time.Hour)
-		if err := h.familyStore.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, "active", periodEnd); err != nil {
+		if err := h.familyRepo.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, "active", periodEnd); err != nil {
 			log.Printf("checkout.session.completed: error updating family: %v", err)
 			return
 		}
 		// Enable all disabled children now that family is Plus
-		if err := h.childStore.EnableAllChildren(familyID); err != nil {
+		if err := h.childRepo.EnableAllChildren(familyID); err != nil {
 			log.Printf("checkout.session.completed: error enabling children for family %d: %v", familyID, err)
 		}
 		return
@@ -337,13 +337,13 @@ func (h *Handlers) handleCheckoutCompleted(event stripe.Event) {
 	}
 
 	periodEnd := time.Unix(periodEndUnix, 0).UTC()
-	if err := h.familyStore.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, string(sub.Status), periodEnd); err != nil {
+	if err := h.familyRepo.UpdateSubscriptionFromCheckout(familyID, customerID, subscriptionID, string(sub.Status), periodEnd); err != nil {
 		log.Printf("checkout.session.completed: error updating family: %v", err)
 		return
 	}
 
 	// Enable all disabled children now that family is Plus
-	if err := h.childStore.EnableAllChildren(familyID); err != nil {
+	if err := h.childRepo.EnableAllChildren(familyID); err != nil {
 		log.Printf("checkout.session.completed: error enabling children for family %d: %v", familyID, err)
 	}
 }
@@ -356,7 +356,7 @@ func (h *Handlers) handleSubscriptionUpdated(event stripe.Event) {
 	}
 
 	periodEnd := time.Unix(sub.getPeriodEnd(), 0).UTC()
-	if err := h.familyStore.UpdateSubscriptionStatus(sub.ID, sub.Status, periodEnd, sub.CancelAtPeriodEnd); err != nil {
+	if err := h.familyRepo.UpdateSubscriptionStatus(sub.ID, sub.Status, periodEnd, sub.CancelAtPeriodEnd); err != nil {
 		log.Printf("customer.subscription.updated: family not found for subscription %s: %v", sub.ID, err)
 	}
 }
@@ -369,19 +369,19 @@ func (h *Handlers) handleSubscriptionDeleted(event stripe.Event) {
 	}
 
 	// Look up family BEFORE clearing subscription (ClearSubscription NULLs the subscription ID)
-	fam, err := h.familyStore.GetFamilyByStripeSubscriptionID(sub.ID)
+	fam, err := h.familyRepo.GetFamilyByStripeSubscriptionID(sub.ID)
 	if err != nil {
 		log.Printf("customer.subscription.deleted: error looking up family for subscription %s: %v", sub.ID, err)
 	}
 
-	if err := h.familyStore.ClearSubscription(sub.ID); err != nil {
+	if err := h.familyRepo.ClearSubscription(sub.ID); err != nil {
 		log.Printf("customer.subscription.deleted: family not found for subscription %s: %v", sub.ID, err)
 		return
 	}
 
 	// Disable excess children now that family is back to free tier (limit: 2)
 	if fam != nil {
-		if err := h.childStore.ReconcileChildLimits(fam.ID, 2); err != nil {
+		if err := h.childRepo.ReconcileChildLimits(fam.ID, 2); err != nil {
 			log.Printf("customer.subscription.deleted: error reconciling children for family %d: %v", fam.ID, err)
 		}
 	}

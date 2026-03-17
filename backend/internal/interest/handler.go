@@ -9,30 +9,31 @@ import (
 
 	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/middleware"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 // Handler handles interest-related HTTP requests.
 type Handler struct {
-	interestStore         *store.InterestStore
-	interestScheduleStore *store.InterestScheduleStore
-	childStore            *store.ChildStore
-	familyStore           *store.FamilyStore
+	interestRepo         *repositories.InterestRepo
+	interestScheduleRepo *repositories.InterestScheduleRepo
+	childRepo            *repositories.ChildRepo
+	familyRepo           *repositories.FamilyRepo
 }
 
 // NewHandler creates a new interest handler.
-func NewHandler(interestStore *store.InterestStore, childStore *store.ChildStore, interestScheduleStore *store.InterestScheduleStore, familyStore *store.FamilyStore) *Handler {
+func NewHandler(interestRepo *repositories.InterestRepo, childRepo *repositories.ChildRepo, interestScheduleRepo *repositories.InterestScheduleRepo, familyRepo *repositories.FamilyRepo) *Handler {
 	return &Handler{
-		interestStore:         interestStore,
-		interestScheduleStore: interestScheduleStore,
-		childStore:            childStore,
-		familyStore:           familyStore,
+		interestRepo:         interestRepo,
+		interestScheduleRepo: interestScheduleRepo,
+		childRepo:            childRepo,
+		familyRepo:           familyRepo,
 	}
 }
 
 // getFamilyTimezone loads the *time.Location for a family, falling back to UTC.
 func (h *Handler) getFamilyTimezone(familyID int64) *time.Location {
-	tz, err := h.familyStore.GetTimezone(familyID)
+	tz, err := h.familyRepo.GetTimezone(familyID)
 	if err != nil || tz == "" {
 		return time.UTC
 	}
@@ -57,16 +58,16 @@ func FormatRateDisplay(bps int) string {
 // SetInterestRequest represents the combined request body for setting interest rate and schedule.
 type SetInterestRequest struct {
 	InterestRateBps int              `json:"interest_rate_bps"`
-	Frequency       store.Frequency  `json:"frequency,omitempty"`
+	Frequency       models.Frequency `json:"frequency,omitempty"`
 	DayOfWeek       *int             `json:"day_of_week,omitempty"`
 	DayOfMonth      *int             `json:"day_of_month,omitempty"`
 }
 
 // SetInterestResponse represents the combined response after setting interest rate and schedule.
 type SetInterestResponse struct {
-	InterestRateBps     int                     `json:"interest_rate_bps"`
-	InterestRateDisplay string                  `json:"interest_rate_display"`
-	Schedule            *store.InterestSchedule `json:"schedule"`
+	InterestRateBps     int                      `json:"interest_rate_bps"`
+	InterestRateDisplay string                   `json:"interest_rate_display"`
+	Schedule            *models.InterestSchedule `json:"schedule"`
 }
 
 // HandleSetInterest handles PUT /api/children/{id}/interest
@@ -86,7 +87,7 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -122,24 +123,24 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set the interest rate
-	if err := h.interestStore.SetInterestRate(childID, req.InterestRateBps); err != nil {
+	if err := h.interestRepo.SetInterestRate(childID, req.InterestRateBps); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to set interest rate."})
 		return
 	}
 
-	var schedule *store.InterestSchedule
+	var schedule *models.InterestSchedule
 
 	if req.InterestRateBps == 0 {
 		// Rate is 0: delete any existing schedule
-		existing, err := h.interestScheduleStore.GetByChildID(childID)
+		existing, err := h.interestScheduleRepo.GetByChildID(childID)
 		if err == nil && existing != nil {
-			h.interestScheduleStore.Delete(existing.ID) //nolint:errcheck // best-effort cleanup
+			h.interestScheduleRepo.Delete(existing.ID) //nolint:errcheck // best-effort cleanup
 		}
 	} else {
 		// Rate > 0: create or update schedule
 		parentID := middleware.GetUserID(r)
 		loc := h.getFamilyTimezone(familyID)
-		existing, err := h.interestScheduleStore.GetByChildID(childID)
+		existing, err := h.interestScheduleRepo.GetByChildID(childID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to check existing schedule."})
 			return
@@ -152,24 +153,24 @@ func (h *Handler) HandleSetInterest(w http.ResponseWriter, r *http.Request) {
 			nextRun := calculateInterestNextRun(existing, time.Now().UTC(), loc)
 			existing.NextRunAt = &nextRun
 
-			schedule, err = h.interestScheduleStore.Update(existing)
+			schedule, err = h.interestScheduleRepo.Update(existing)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to update schedule."})
 				return
 			}
 		} else {
-			sched := &store.InterestSchedule{
+			sched := &models.InterestSchedule{
 				ChildID:    childID,
 				ParentID:   parentID,
 				Frequency:  req.Frequency,
 				DayOfWeek:  req.DayOfWeek,
 				DayOfMonth: req.DayOfMonth,
-				Status:     store.ScheduleStatusActive,
+				Status:     models.ScheduleStatusActive,
 			}
 			nextRun := calculateInterestNextRun(sched, time.Now().UTC(), loc)
 			sched.NextRunAt = &nextRun
 
-			schedule, err = h.interestScheduleStore.Create(sched)
+			schedule, err = h.interestScheduleRepo.Create(sched)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to create schedule."})
 				return
@@ -192,7 +193,7 @@ func (h *Handler) HandleGetInterestSchedule(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to lookup child."})
 		return
@@ -215,7 +216,7 @@ func (h *Handler) HandleGetInterestSchedule(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	sched, err := h.interestScheduleStore.GetByChildID(childID)
+	sched, err := h.interestScheduleRepo.GetByChildID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal_error", Message: "Failed to get schedule."})
 		return
@@ -225,9 +226,9 @@ func (h *Handler) HandleGetInterestSchedule(w http.ResponseWriter, r *http.Reque
 }
 
 // calculateInterestNextRun reuses the allowance schedule calculation logic for interest schedules.
-func calculateInterestNextRun(sched *store.InterestSchedule, now time.Time, loc *time.Location) time.Time {
+func calculateInterestNextRun(sched *models.InterestSchedule, now time.Time, loc *time.Location) time.Time {
 	// Create a temporary AllowanceSchedule to reuse CalculateNextRun
-	tmpSched := &store.AllowanceSchedule{
+	tmpSched := &models.AllowanceSchedule{
 		Frequency:  sched.Frequency,
 		DayOfWeek:  sched.DayOfWeek,
 		DayOfMonth: sched.DayOfMonth,

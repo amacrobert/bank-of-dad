@@ -1,23 +1,24 @@
 package interest
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"bank-of-dad/internal/store"
 	"bank-of-dad/internal/testutil"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
-func newTestHandler(t *testing.T, db *sql.DB) *Handler {
+func newTestHandler(t *testing.T, db *gorm.DB) *Handler {
 	t.Helper()
-	return NewHandler(store.NewInterestStore(db), store.NewChildStore(db), store.NewInterestScheduleStore(db), store.NewFamilyStore(db))
+	return NewHandler(repositories.NewInterestRepo(db), repositories.NewChildRepo(db), repositories.NewInterestScheduleRepo(db), repositories.NewFamilyRepo(db))
 }
 
 func intPtr(i int) *int {
@@ -34,14 +35,14 @@ func TestHandleGetInterestSchedule_Exists(t *testing.T) {
 
 	h := newTestHandler(t, db)
 
-	// Create schedule directly via store
-	iss := store.NewInterestScheduleStore(db)
-	_, err := iss.Create(&store.InterestSchedule{
+	// Create schedule directly via repo
+	iss := repositories.NewInterestScheduleRepo(db)
+	_, err := iss.Create(&models.InterestSchedule{
 		ChildID:    child.ID,
 		ParentID:   parent.ID,
-		Frequency:  store.FrequencyMonthly,
+		Frequency:  models.FrequencyMonthly,
 		DayOfMonth: intPtr(15),
-		Status:     store.ScheduleStatusActive,
+		Status:     models.ScheduleStatusActive,
 	})
 	require.NoError(t, err)
 
@@ -54,11 +55,11 @@ func TestHandleGetInterestSchedule_Exists(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var resp store.InterestSchedule
+	var resp models.InterestSchedule
 	err = json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.Equal(t, child.ID, resp.ChildID)
-	assert.Equal(t, store.FrequencyMonthly, resp.Frequency)
+	assert.Equal(t, models.FrequencyMonthly, resp.Frequency)
 }
 
 func TestHandleGetInterestSchedule_None(t *testing.T) {
@@ -87,14 +88,14 @@ func TestHandleGetInterestSchedule_ChildSeesOwn(t *testing.T) {
 
 	h := newTestHandler(t, db)
 
-	// Create schedule directly via store
-	iss := store.NewInterestScheduleStore(db)
-	_, err := iss.Create(&store.InterestSchedule{
+	// Create schedule directly via repo
+	iss := repositories.NewInterestScheduleRepo(db)
+	_, err := iss.Create(&models.InterestSchedule{
 		ChildID:   child.ID,
 		ParentID:  parent.ID,
-		Frequency: store.FrequencyWeekly,
+		Frequency: models.FrequencyWeekly,
 		DayOfWeek: intPtr(5),
-		Status:    store.ScheduleStatusActive,
+		Status:    models.ScheduleStatusActive,
 	})
 	require.NoError(t, err)
 

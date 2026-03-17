@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"bank-of-dad/internal/middleware"
-	"bank-of-dad/internal/store"
+	"bank-of-dad/models"
+	"bank-of-dad/repositories"
 )
 
 const (
@@ -20,21 +21,21 @@ const (
 
 // Handler handles balance-related HTTP requests.
 type Handler struct {
-	txStore               *store.TransactionStore
-	childStore            *store.ChildStore
-	interestStore         *store.InterestStore
-	interestScheduleStore *store.InterestScheduleStore
-	goalStore             *store.SavingsGoalStore
+	txRepo               *repositories.TransactionRepo
+	childRepo            *repositories.ChildRepo
+	interestRepo         *repositories.InterestRepo
+	interestScheduleRepo *repositories.InterestScheduleRepo
+	goalRepo             *repositories.SavingsGoalRepo
 }
 
 // NewHandler creates a new balance handler.
-func NewHandler(txStore *store.TransactionStore, childStore *store.ChildStore, interestStore *store.InterestStore, interestScheduleStore *store.InterestScheduleStore, goalStore *store.SavingsGoalStore) *Handler {
+func NewHandler(txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo, interestRepo *repositories.InterestRepo, interestScheduleRepo *repositories.InterestScheduleRepo, goalRepo *repositories.SavingsGoalRepo) *Handler {
 	return &Handler{
-		txStore:               txStore,
-		childStore:            childStore,
-		interestStore:         interestStore,
-		interestScheduleStore: interestScheduleStore,
-		goalStore:             goalStore,
+		txRepo:               txRepo,
+		childRepo:            childRepo,
+		interestRepo:         interestRepo,
+		interestScheduleRepo: interestScheduleRepo,
+		goalRepo:             goalRepo,
 	}
 }
 
@@ -53,8 +54,8 @@ type WithdrawRequest struct {
 
 // TransactionResponse represents the response after a successful transaction.
 type TransactionResponse struct {
-	Transaction     *store.Transaction `json:"transaction"`
-	NewBalanceCents int64              `json:"new_balance_cents"`
+	Transaction     *models.Transaction `json:"transaction"`
+	NewBalanceCents int64               `json:"new_balance_cents"`
 }
 
 // ErrorResponse represents an error response.
@@ -87,7 +88,7 @@ func (h *Handler) HandleDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get child and verify authorization
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -153,7 +154,7 @@ func (h *Handler) HandleDeposit(w http.ResponseWriter, r *http.Request) {
 
 	// Perform deposit
 	parentID := middleware.GetUserID(r)
-	tx, newBalance, err := h.txStore.Deposit(childID, parentID, req.AmountCents, note)
+	tx, newBalance, err := h.txRepo.Deposit(childID, parentID, req.AmountCents, note)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -192,7 +193,7 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get child and verify authorization
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -259,15 +260,15 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 	// Check for goal impact before withdrawal
 	parentID := middleware.GetUserID(r)
 
-	if h.goalStore != nil {
-		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+	if h.goalRepo != nil {
+		totalSaved, err := h.goalRepo.GetTotalSavedByChild(childID)
 		if err == nil && totalSaved > 0 {
 			// Balance after withdrawal
 			newBalanceAfter := child.BalanceCents - req.AmountCents
 			if newBalanceAfter < totalSaved && !req.ConfirmGoalImpact {
 				// Goals would be impacted — return warning
 				totalToRelease := totalSaved - newBalanceAfter
-				affectedGoals, err := h.goalStore.GetAffectedGoals(childID, totalToRelease)
+				affectedGoals, err := h.goalRepo.GetAffectedGoals(childID, totalToRelease)
 				if err == nil && len(affectedGoals) > 0 {
 					writeJSON(w, http.StatusConflict, map[string]interface{}{
 						"error":              "goal_impact_warning",
@@ -282,9 +283,9 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Perform withdrawal
-	tx, newBalance, err := h.txStore.Withdraw(childID, parentID, req.AmountCents, note)
+	tx, newBalance, err := h.txRepo.Withdraw(childID, parentID, req.AmountCents, note)
 	if err != nil {
-		if err == store.ErrInsufficientFunds {
+		if err == models.ErrInsufficientFunds {
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{
 				Error:   "insufficient_funds",
 				Message: formatInsufficientFundsMessage(req.AmountCents, newBalance),
@@ -299,11 +300,11 @@ func (h *Handler) HandleWithdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If goals were impacted and confirmed, reduce them proportionally
-	if h.goalStore != nil && req.ConfirmGoalImpact {
-		totalSaved, err := h.goalStore.GetTotalSavedByChild(childID)
+	if h.goalRepo != nil && req.ConfirmGoalImpact {
+		totalSaved, err := h.goalRepo.GetTotalSavedByChild(childID)
 		if err == nil && totalSaved > newBalance {
 			totalToRelease := totalSaved - newBalance
-			if err := h.goalStore.ReduceGoalsProportionally(childID, totalToRelease); err != nil {
+			if err := h.goalRepo.ReduceGoalsProportionally(childID, totalToRelease); err != nil {
 				log.Printf("WARN: failed to reduce goals proportionally for child %d: %v", childID, err)
 			}
 		}
@@ -340,7 +341,7 @@ type BalanceResponse struct {
 
 // TransactionListResponse represents a list of transactions.
 type TransactionListResponse struct {
-	Transactions []store.Transaction `json:"transactions"`
+	Transactions []models.Transaction `json:"transactions"`
 }
 
 // HandleGetBalance handles GET /api/children/{id}/balance
@@ -357,7 +358,7 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get child
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -398,15 +399,15 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 
 	// Get interest rate
 	rateBps := 0
-	if h.interestStore != nil {
-		rateBps, _ = h.interestStore.GetInterestRate(childID)
+	if h.interestRepo != nil {
+		rateBps, _ = h.interestRepo.GetInterestRate(childID)
 	}
 
 	// Get next interest payment date
 	var nextInterestAt *string
-	if h.interestScheduleStore != nil {
-		sched, err := h.interestScheduleStore.GetByChildID(childID)
-		if err == nil && sched != nil && sched.NextRunAt != nil && sched.Status == store.ScheduleStatusActive {
+	if h.interestScheduleRepo != nil {
+		sched, err := h.interestScheduleRepo.GetByChildID(childID)
+		if err == nil && sched != nil && sched.NextRunAt != nil && sched.Status == models.ScheduleStatusActive {
 			s := sched.NextRunAt.Format(time.RFC3339)
 			nextInterestAt = &s
 		}
@@ -421,15 +422,15 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 		NextInterestAt:      nextInterestAt,
 	}
 
-	// Include savings goal information if goalStore is available
-	if h.goalStore != nil {
-		availableBalance, err := h.goalStore.GetAvailableBalance(childID)
+	// Include savings goal information if goalRepo is available
+	if h.goalRepo != nil {
+		availableBalance, err := h.goalRepo.GetAvailableBalance(childID)
 		if err == nil {
 			totalSaved := child.BalanceCents - availableBalance
 			resp.AvailableBalanceCents = &availableBalance
 			resp.TotalSavedCents = &totalSaved
 		}
-		activeCount, err := h.goalStore.CountActiveByChild(childID)
+		activeCount, err := h.goalRepo.CountActiveByChild(childID)
 		if err == nil {
 			resp.ActiveGoalsCount = &activeCount
 		}
@@ -452,7 +453,7 @@ func (h *Handler) HandleGetTransactions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get child to verify existence and family
-	child, err := h.childStore.GetByID(childID)
+	child, err := h.childRepo.GetByID(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -492,7 +493,7 @@ func (h *Handler) HandleGetTransactions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get transactions
-	transactions, err := h.txStore.ListByChild(childID)
+	transactions, err := h.txRepo.ListByChild(childID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
@@ -503,7 +504,7 @@ func (h *Handler) HandleGetTransactions(w http.ResponseWriter, r *http.Request) 
 
 	// Return empty array instead of null for no transactions
 	if transactions == nil {
-		transactions = []store.Transaction{}
+		transactions = []models.Transaction{}
 	}
 
 	writeJSON(w, http.StatusOK, TransactionListResponse{
