@@ -50,7 +50,7 @@ func (r *ChildRepo) Create(familyID int64, firstName, password string, avatar *s
 		return nil, fmt.Errorf("insert child: %w", err)
 	}
 
-	return r.GetByID(child.ID)
+	return &child, nil
 }
 
 // GetByID returns a child by primary key, or (nil, nil) if not found.

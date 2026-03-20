@@ -54,7 +54,7 @@ func (r *SavingsGoalRepo) Create(childID int64, name string, targetCents int64, 
 	if err := r.db.Create(&goal).Error; err != nil {
 		return nil, fmt.Errorf("insert savings goal: %w", err)
 	}
-	return r.GetByID(goal.ID)
+	return &goal, nil
 }
 
 // GetByID retrieves a savings goal by its ID. Returns (nil, nil) if not found.
