@@ -1,9 +1,7 @@
 package repositories
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"bank-of-dad/models"
 
@@ -46,7 +44,7 @@ func (r *ChildRepo) Create(familyID int64, firstName, password string, avatar *s
 	}
 
 	if err := r.db.Create(&child).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
+		if isDuplicateKey(err) {
 			return nil, fmt.Errorf("child named %q already exists in this family", firstName)
 		}
 		return nil, fmt.Errorf("insert child: %w", err)
@@ -169,7 +167,7 @@ func (r *ChildRepo) UpdateNameAndAvatar(id, familyID int64, newName string, avat
 		).Error
 	}
 	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
+		if isDuplicateKey(err) {
 			return fmt.Errorf("child named %q already exists in this family", newName)
 		}
 		return fmt.Errorf("update name: %w", err)
@@ -316,7 +314,3 @@ func (r *ChildRepo) GetBalance(id int64) (int64, error) {
 	return child.BalanceCents, nil
 }
 
-// isNotFound checks whether the error is a GORM record-not-found error.
-func isNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
-}

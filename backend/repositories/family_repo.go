@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"bank-of-dad/models"
@@ -36,7 +35,7 @@ func NewFamilyRepo(db *gorm.DB) *FamilyRepo {
 func (r *FamilyRepo) Create(slug string) (*models.Family, error) {
 	f := models.Family{Slug: slug}
 	if err := r.db.Create(&f).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
+		if isDuplicateKey(err) {
 			return nil, fmt.Errorf("slug already taken: %s", slug)
 		}
 		return nil, fmt.Errorf("insert family: %w", err)
