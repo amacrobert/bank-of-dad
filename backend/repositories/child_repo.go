@@ -97,19 +97,14 @@ func (r *ChildRepo) CheckPassword(child *models.Child, password string) bool {
 // IncrementFailedAttempts atomically increments the failed login attempts counter
 // and returns the new count.
 func (r *ChildRepo) IncrementFailedAttempts(id int64) (int, error) {
-	err := r.db.Exec(
-		`UPDATE children SET failed_login_attempts = failed_login_attempts + 1, updated_at = NOW() WHERE id = ?`, id,
-	).Error
+	var attempts int
+	err := r.db.Raw(
+		`UPDATE children SET failed_login_attempts = failed_login_attempts + 1, updated_at = NOW() WHERE id = ? RETURNING failed_login_attempts`, id,
+	).Scan(&attempts).Error
 	if err != nil {
 		return 0, fmt.Errorf("increment failed attempts: %w", err)
 	}
-
-	var child models.Child
-	err = r.db.Select("failed_login_attempts").First(&child, id).Error
-	if err != nil {
-		return 0, fmt.Errorf("read failed attempts: %w", err)
-	}
-	return child.FailedLoginAttempts, nil
+	return attempts, nil
 }
 
 // LockAccount sets is_locked to true for the given child.
