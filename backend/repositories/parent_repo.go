@@ -3,7 +3,6 @@ package repositories
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"bank-of-dad/models"
 
@@ -28,7 +27,7 @@ func (r *ParentRepo) Create(googleID, email, displayName string) (*models.Parent
 		DisplayName: displayName,
 	}
 	if err := r.db.Create(&p).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
+		if isDuplicateKey(err) {
 			return nil, fmt.Errorf("google account already registered")
 		}
 		return nil, fmt.Errorf("insert parent: %w", err)
