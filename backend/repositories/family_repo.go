@@ -131,19 +131,38 @@ func (r *FamilyRepo) SlugExists(slug string) (bool, error) {
 
 // SuggestSlugs returns available slug alternatives based on a base string.
 func (r *FamilyRepo) SuggestSlugs(base string) []string {
-	suggestions := []string{
+	candidates := []string{
 		base + "-1",
 		base + "-2",
 		"the-" + base,
 	}
 
-	var available []string
-	for _, sug := range suggestions {
+	// Filter to only valid slugs
+	var valid []string
+	for _, sug := range candidates {
 		if models.ValidateSlug(sug) == nil {
-			exists, err := r.SlugExists(sug)
-			if err == nil && !exists {
-				available = append(available, sug)
-			}
+			valid = append(valid, sug)
+		}
+	}
+	if len(valid) == 0 {
+		return nil
+	}
+
+	// Batch query for existing slugs
+	var existing []string
+	if err := r.db.Model(&models.Family{}).Where("slug IN ?", valid).Pluck("slug", &existing).Error; err != nil {
+		return nil
+	}
+
+	taken := make(map[string]bool, len(existing))
+	for _, s := range existing {
+		taken[s] = true
+	}
+
+	var available []string
+	for _, sug := range valid {
+		if !taken[sug] {
+			available = append(available, sug)
 		}
 	}
 	return available
