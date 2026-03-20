@@ -40,7 +40,7 @@ func (r *FamilyRepo) Create(slug string) (*models.Family, error) {
 		}
 		return nil, fmt.Errorf("insert family: %w", err)
 	}
-	return r.GetByID(f.ID)
+	return &f, nil
 }
 
 // GetByID retrieves a family by its ID. Returns (nil, nil) if not found.

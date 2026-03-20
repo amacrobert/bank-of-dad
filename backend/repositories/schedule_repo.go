@@ -37,7 +37,7 @@ func (r *ScheduleRepo) Create(sched *models.AllowanceSchedule) (*models.Allowanc
 	if err := r.db.Create(sched).Error; err != nil {
 		return nil, fmt.Errorf("insert schedule: %w", err)
 	}
-	return r.GetByID(sched.ID)
+	return sched, nil
 }
 
 // GetByID retrieves a schedule by its ID. Returns (nil, nil) if not found.

@@ -31,7 +31,7 @@ func (r *InterestScheduleRepo) Create(sched *models.InterestSchedule) (*models.I
 	if err := r.db.Create(sched).Error; err != nil {
 		return nil, fmt.Errorf("insert interest schedule: %w", err)
 	}
-	return r.GetByID(sched.ID)
+	return sched, nil
 }
 
 // GetByID retrieves an interest schedule by its ID. Returns (nil, nil) if not found.

@@ -32,7 +32,7 @@ func (r *ParentRepo) Create(googleID, email, displayName string) (*models.Parent
 		}
 		return nil, fmt.Errorf("insert parent: %w", err)
 	}
-	return r.GetByID(p.ID)
+	return &p, nil
 }
 
 // GetByGoogleID retrieves a parent by Google ID. Returns (nil, nil) if not found.
