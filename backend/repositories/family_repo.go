@@ -71,15 +71,15 @@ func (r *FamilyRepo) GetBySlug(slug string) (*models.Family, error) {
 
 // GetTimezone returns the timezone for a family.
 func (r *FamilyRepo) GetTimezone(familyID int64) (string, error) {
-	var tz string
-	err := r.db.Model(&models.Family{}).Where("id = ?", familyID).Pluck("timezone", &tz).Error
+	var f models.Family
+	err := r.db.Select("timezone").First(&f, familyID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", fmt.Errorf("get timezone: %w", gorm.ErrRecordNotFound)
+	}
 	if err != nil {
 		return "", fmt.Errorf("get timezone: %w", err)
 	}
-	if tz == "" {
-		return "", fmt.Errorf("get timezone: %w", gorm.ErrRecordNotFound)
-	}
-	return tz, nil
+	return f.Timezone, nil
 }
 
 // UpdateTimezone updates the timezone for a family.
@@ -96,15 +96,15 @@ func (r *FamilyRepo) UpdateTimezone(familyID int64, timezone string) error {
 
 // GetBankName returns the bank name for a family.
 func (r *FamilyRepo) GetBankName(familyID int64) (string, error) {
-	var bankName string
-	err := r.db.Model(&models.Family{}).Where("id = ?", familyID).Pluck("bank_name", &bankName).Error
+	var f models.Family
+	err := r.db.Select("bank_name").First(&f, familyID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", fmt.Errorf("get bank name: %w", gorm.ErrRecordNotFound)
+	}
 	if err != nil {
 		return "", fmt.Errorf("get bank name: %w", err)
 	}
-	if bankName == "" {
-		return "", fmt.Errorf("get bank name: %w", gorm.ErrRecordNotFound)
-	}
-	return bankName, nil
+	return f.BankName, nil
 }
 
 // UpdateBankName updates the bank name for a family.
