@@ -77,6 +77,8 @@ cd frontend && npm run lint
 - PostgreSQL 17 — 1 new column (`is_disabled`) on existing `children` table (028-child-account-limits)
 - Go 1.24 + GORM (`gorm.io/gorm`), GORM PostgreSQL driver (`gorm.io/driver/postgres`), existing `golang-migrate/migrate/v4` (retained), `jackc/pgx/v5` (retained as underlying driver) (029-gorm-backend-refactor)
 - PostgreSQL 17 — 12 tables, schema managed by `golang-migrate` (unchanged) (029-gorm-backend-refactor)
+- Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + GORM (gorm.io/gorm), pgx/v5 (driver), Vite, Tailwind CSS 4, lucide-reac (031-chore-system)
+- PostgreSQL 17 — 3 new tables (`chores`, `chore_assignments`, `chore_instances`), 1 new transaction type (031-chore-system)
 
 ## Recent Changes
 - 024-stripe-subscription: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `github.com/stripe/stripe-go/v82` (new), pgx/v5 (existing), Vite + Tailwind CSS 4 (existing)

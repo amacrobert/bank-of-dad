@@ -12,6 +12,8 @@ import GrowthPage from "./pages/GrowthPage";
 import SettingsPage from "./pages/SettingsPage";
 import ChildSettingsPage from "./pages/ChildSettingsPage";
 import SavingsGoalsPage from "./pages/SavingsGoalsPage";
+import ParentChoresPage from "./pages/ParentChores";
+import ChildChoresPage from "./pages/ChildChores";
 import NotFound from "./pages/NotFound";
 
 function App() {
@@ -27,6 +29,7 @@ function App() {
         {/* Parent routes — shared Layout */}
         <Route element={<AuthenticatedLayout userType="parent" />}>
           <Route path="/dashboard/:childName?" element={<ParentDashboard />} />
+          <Route path="/chores" element={<ParentChoresPage />} />
           <Route path="/growth/:childName?" element={<GrowthPage />} />
           <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
           <Route path="/settings/children/:childName" element={<SettingsPage />} />
@@ -36,6 +39,7 @@ function App() {
         {/* Child routes — shared Layout */}
         <Route element={<AuthenticatedLayout userType="child" />}>
           <Route path="/child/dashboard" element={<ChildDashboard />} />
+          <Route path="/child/chores" element={<ChildChoresPage />} />
           <Route path="/child/goals" element={<SavingsGoalsPage />} />
           <Route path="/child/growth" element={<GrowthPage />} />
           <Route path="/child/settings" element={<ChildSettingsPage />} />

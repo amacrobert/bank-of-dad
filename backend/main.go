@@ -14,6 +14,7 @@ import (
 	"bank-of-dad/internal/allowance"
 	"bank-of-dad/internal/auth"
 	"bank-of-dad/internal/balance"
+	"bank-of-dad/internal/chore"
 	"bank-of-dad/internal/config"
 	"bank-of-dad/internal/family"
 	"bank-of-dad/internal/goals"
@@ -88,12 +89,21 @@ func main() {
 	webhookEventRepo := repositories.NewWebhookEventRepo(db)
 	subscriptionHandlers := subscription.NewHandlers(familyRepo, parentRepo, childRepo, webhookEventRepo, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
 	contactHandler := contact.NewHandler(brevoClient, cfg.ContactRecipientEmail, cfg.ContactRecipientName, parentRepo)
+	choreRepo := repositories.NewChoreRepo(db)
+	choreInstanceRepo := repositories.NewChoreInstanceRepo(db)
+	choreHandler := chore.NewHandler(choreRepo, choreInstanceRepo, txRepo, childRepo)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopAllowanceScheduler := make(chan struct{})
 	defer close(stopAllowanceScheduler)
 	allowanceScheduler := allowance.NewScheduler(scheduleRepo, txRepo, childRepo)
 	allowanceScheduler.Start(5*time.Minute, stopAllowanceScheduler)
+
+	// Start chore scheduler goroutine (check every 5 minutes)
+	stopChoreScheduler := make(chan struct{})
+	defer close(stopChoreScheduler)
+	choreScheduler := chore.NewScheduler(choreRepo, choreInstanceRepo, childRepo, familyRepo)
+	choreScheduler.Start(5*time.Minute, stopChoreScheduler)
 
 	// Start interest accrual scheduler goroutine (check every hour)
 	stopInterestScheduler := make(chan struct{})
@@ -199,6 +209,24 @@ func main() {
 	mux.Handle("DELETE /api/children/{childId}/allowance", requireParent(http.HandlerFunc(allowanceHandler.HandleDeleteChildAllowance)))
 	mux.Handle("POST /api/children/{childId}/allowance/pause", requireParent(http.HandlerFunc(allowanceHandler.HandlePauseChildAllowance)))
 	mux.Handle("POST /api/children/{childId}/allowance/resume", requireParent(http.HandlerFunc(allowanceHandler.HandleResumeChildAllowance)))
+
+	// Chore System (031-chore-system)
+	mux.Handle("POST /api/chores", requireParent(http.HandlerFunc(choreHandler.HandleCreateChore)))
+	mux.Handle("GET /api/chores", requireParent(http.HandlerFunc(choreHandler.HandleListChores)))
+
+	// Chore instances — child endpoints
+	mux.Handle("GET /api/child/chores", requireAuth(http.HandlerFunc(choreHandler.HandleChildListChores)))
+	mux.Handle("POST /api/child/chores/{id}/complete", requireAuth(http.HandlerFunc(choreHandler.HandleCompleteChore)))
+	mux.Handle("GET /api/child/chores/earnings", requireAuth(http.HandlerFunc(choreHandler.HandleChildEarnings)))
+
+	// Chore instances — parent endpoints
+	mux.Handle("GET /api/chores/pending", requireParent(http.HandlerFunc(choreHandler.HandleListPending)))
+	mux.Handle("POST /api/chore-instances/{id}/approve", requireParent(http.HandlerFunc(choreHandler.HandleApprove)))
+	mux.Handle("POST /api/chore-instances/{id}/reject", requireParent(http.HandlerFunc(choreHandler.HandleReject)))
+	mux.Handle("PUT /api/chores/{id}", requireParent(http.HandlerFunc(choreHandler.HandleUpdateChore)))
+	mux.Handle("DELETE /api/chores/{id}", requireParent(http.HandlerFunc(choreHandler.HandleDeleteChore)))
+	mux.Handle("PATCH /api/chores/{id}/activate", requireParent(http.HandlerFunc(choreHandler.HandleActivate)))
+	mux.Handle("PATCH /api/chores/{id}/deactivate", requireParent(http.HandlerFunc(choreHandler.HandleDeactivate)))
 
 	// Apply middleware chain: CORS → Logging → Routes
 	corsMiddleware := middleware.CORS(cfg.FrontendURL)

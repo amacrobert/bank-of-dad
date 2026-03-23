@@ -31,7 +31,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 
 	t.Cleanup(func() {
 		// Truncate all tables in dependency order
-		result := db.Exec(`TRUNCATE goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+		result := db.Exec(`TRUNCATE chore_instances, chore_assignments, chores, goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 		if result.Error != nil {
 			t.Logf("cleanup truncate error: %v", result.Error)
 		}
@@ -40,7 +40,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	})
 
 	// Truncate before each test to ensure clean state
-	result := db.Exec(`TRUNCATE goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+	result := db.Exec(`TRUNCATE chore_instances, chore_assignments, chores, goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 	require.NoError(t, result.Error)
 
 	return db

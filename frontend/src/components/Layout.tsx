@@ -4,7 +4,7 @@ import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings } from "lucide-react";
+import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings, ClipboardList } from "lucide-react";
 import Footer from "./Footer";
 import ContactFormModal from "./ContactFormModal";
 
@@ -66,6 +66,20 @@ export default function Layout({ user, children }: LayoutProps) {
                 Dashboard
               </button>
               <button
+                onClick={() => navigate("/chores")}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname.startsWith("/chores")
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                Chores
+              </button>
+              <button
                 onClick={() => navigate("/growth")}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
@@ -123,6 +137,20 @@ export default function Layout({ user, children }: LayoutProps) {
               >
                 <Target className="h-4 w-4" aria-hidden="true" />
                 Goals
+              </button>
+              <button
+                onClick={() => navigate("/child/chores")}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                  transition-colors text-left cursor-pointer
+                  ${location.pathname.startsWith("/child/chores")
+                    ? "bg-forest text-white"
+                    : "text-bark-light hover:bg-cream-dark"
+                  }
+                `}
+              >
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                Chores
               </button>
               <button
                 onClick={() => navigate("/child/growth")}
@@ -192,6 +220,13 @@ export default function Layout({ user, children }: LayoutProps) {
                 <span className="text-xs font-semibold">Dashboard</span>
               </button>
               <button
+                onClick={() => navigate("/chores")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/chores") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <ClipboardList className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Chores</span>
+              </button>
+              <button
                 onClick={() => navigate("/growth")}
                 className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/growth") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
               >
@@ -221,6 +256,13 @@ export default function Layout({ user, children }: LayoutProps) {
               >
                 <Target className="h-6 w-6" aria-hidden="true" />
                 <span className="text-xs font-semibold">Goals</span>
+              </button>
+              <button
+                onClick={() => navigate("/child/chores")}
+                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/chores") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+              >
+                <ClipboardList className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">Chores</span>
               </button>
               <button
                 onClick={() => navigate("/child/growth")}

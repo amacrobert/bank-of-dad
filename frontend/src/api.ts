@@ -272,3 +272,73 @@ export function deleteAccount(): Promise<void> {
   return request<void>("/account", { method: "DELETE" });
 }
 
+// Chore System API functions (031-chore-system)
+import {
+  Chore,
+  ChoreInstance,
+  ChoreListResponse,
+  ChoreInstanceListResponse,
+  PendingInstancesResponse,
+  ApproveResponse,
+  ChoreEarningsResponse,
+  ChoreRecurrence,
+} from "./types";
+
+export interface CreateChoreRequest {
+  name: string;
+  description?: string;
+  reward_cents: number;
+  recurrence: ChoreRecurrence;
+  day_of_week?: number;
+  day_of_month?: number;
+  child_ids: number[];
+}
+
+export function getChores(): Promise<ChoreListResponse> {
+  return get<ChoreListResponse>("/chores");
+}
+
+export function createChore(data: CreateChoreRequest): Promise<{ chore: Chore }> {
+  return post<{ chore: Chore }>("/chores", data);
+}
+
+export function getChildChores(): Promise<ChoreInstanceListResponse> {
+  return get<ChoreInstanceListResponse>("/child/chores");
+}
+
+export function completeChore(instanceId: number): Promise<{ instance: ChoreInstance }> {
+  return post<{ instance: ChoreInstance }>(`/child/chores/${instanceId}/complete`);
+}
+
+export function getPendingChores(): Promise<PendingInstancesResponse> {
+  return get<PendingInstancesResponse>("/chores/pending");
+}
+
+export function approveChore(instanceId: number): Promise<ApproveResponse> {
+  return post<ApproveResponse>(`/chore-instances/${instanceId}/approve`);
+}
+
+export function rejectChore(instanceId: number, reason?: string): Promise<{ instance: ChoreInstance }> {
+  return post<{ instance: ChoreInstance }>(`/chore-instances/${instanceId}/reject`, reason ? { reason } : {});
+}
+
+export function getChoreEarnings(): Promise<ChoreEarningsResponse> {
+  return get<ChoreEarningsResponse>("/child/chores/earnings");
+}
+
+export function activateChore(choreId: number): Promise<{ chore: Chore }> {
+  return request<{ chore: Chore }>(`/chores/${choreId}/activate`, { method: "PATCH" });
+}
+
+export function deactivateChore(choreId: number): Promise<{ chore: Chore }> {
+  return request<{ chore: Chore }>(`/chores/${choreId}/deactivate`, { method: "PATCH" });
+}
+
+export function updateChore(choreId: number, data: Partial<CreateChoreRequest>): Promise<{ chore: Chore }> {
+  return put<{ chore: Chore }>(`/chores/${choreId}`, data);
+}
+
+export function deleteChore(choreId: number): Promise<void> {
+  return request<void>(`/chores/${choreId}`, { method: "DELETE" });
+}
+

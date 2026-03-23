@@ -220,6 +220,55 @@ func (r *TransactionRepo) DepositAllowance(childID, parentID, amountCents, sched
 	return &transaction, newBalance, nil
 }
 
+// DepositChore adds money to a child's account as a chore reward transaction.
+// Similar to Deposit but uses "chore" transaction type.
+func (r *TransactionRepo) DepositChore(childID, parentID int64, amountCents int64, note string) (*models.Transaction, int64, error) {
+	if amountCents < 0 {
+		return nil, 0, fmt.Errorf("amount must not be negative")
+	}
+
+	var transaction models.Transaction
+	var newBalance int64
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		notePtr := nullableString(note)
+		transaction = models.Transaction{
+			ChildID:         childID,
+			ParentID:        parentID,
+			AmountCents:     amountCents,
+			TransactionType: models.TransactionTypeChore,
+			Note:            notePtr,
+		}
+		if err := tx.Create(&transaction).Error; err != nil {
+			return fmt.Errorf("insert transaction: %w", err)
+		}
+
+		if amountCents > 0 {
+			// Update balance
+			if err := tx.Exec(
+				`UPDATE children SET balance_cents = balance_cents + ?, updated_at = NOW() WHERE id = ?`,
+				amountCents, childID,
+			).Error; err != nil {
+				return fmt.Errorf("update balance: %w", err)
+			}
+		}
+
+		// Get current balance
+		var child models.Child
+		if err := tx.Select("balance_cents").First(&child, childID).Error; err != nil {
+			return fmt.Errorf("get new balance: %w", err)
+		}
+		newBalance = child.BalanceCents
+
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &transaction, newBalance, nil
+}
+
 // nullableString returns nil for empty strings, otherwise a pointer to the trimmed string.
 func nullableString(s string) *string {
 	trimmed := strings.TrimSpace(s)
