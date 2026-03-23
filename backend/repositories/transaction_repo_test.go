@@ -342,3 +342,54 @@ func TestListByChildPaginated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, page3, 1)
 }
+
+func TestTransactionRepo_DepositChore(t *testing.T) {
+	db, _, parent, child, tr := setupTransactionTest(t)
+
+	// Verify initial balance is 0
+	var c models.Child
+	require.NoError(t, db.Select("balance_cents").First(&c, child.ID).Error)
+	assert.Equal(t, int64(0), c.BalanceCents)
+
+	// Deposit chore reward
+	tx, newBalance, err := tr.DepositChore(child.ID, parent.ID, 500, "Cleaned room")
+	require.NoError(t, err)
+	assert.NotNil(t, tx)
+	assert.Equal(t, int64(500), tx.AmountCents)
+	assert.Equal(t, models.TransactionTypeChore, tx.TransactionType)
+	assert.NotNil(t, tx.Note)
+	assert.Equal(t, "Cleaned room", *tx.Note)
+	assert.Equal(t, child.ID, tx.ChildID)
+	assert.Equal(t, parent.ID, tx.ParentID)
+	assert.Nil(t, tx.ScheduleID)
+	assert.Equal(t, int64(500), newBalance)
+
+	// Verify balance updated
+	require.NoError(t, db.Select("balance_cents").First(&c, child.ID).Error)
+	assert.Equal(t, int64(500), c.BalanceCents)
+}
+
+func TestTransactionRepo_DepositChore_ZeroAmount(t *testing.T) {
+	db, _, parent, child, tr := setupTransactionTest(t)
+
+	// Deposit chore with zero amount
+	tx, balance, err := tr.DepositChore(child.ID, parent.ID, 0, "Good effort")
+	require.NoError(t, err)
+	assert.NotNil(t, tx)
+	assert.Equal(t, int64(0), tx.AmountCents)
+	assert.Equal(t, models.TransactionTypeChore, tx.TransactionType)
+	assert.NotNil(t, tx.Note)
+	assert.Equal(t, "Good effort", *tx.Note)
+	assert.Nil(t, tx.ScheduleID)
+	assert.Equal(t, int64(0), balance)
+
+	// Verify balance unchanged
+	var c models.Child
+	require.NoError(t, db.Select("balance_cents").First(&c, child.ID).Error)
+	assert.Equal(t, int64(0), c.BalanceCents)
+
+	// Verify transaction record was still created
+	transactions, err := tr.ListByChild(child.ID)
+	require.NoError(t, err)
+	assert.Len(t, transactions, 1)
+}

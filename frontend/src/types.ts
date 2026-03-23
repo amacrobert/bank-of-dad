@@ -79,7 +79,7 @@ export interface ChildListResponse {
 
 // Account Balances Feature (002-account-balances)
 
-export type TransactionType = 'deposit' | 'withdrawal' | 'allowance' | 'interest';
+export type TransactionType = 'deposit' | 'withdrawal' | 'allowance' | 'interest' | 'chore';
 
 export interface Transaction {
   id: number;
@@ -315,6 +315,80 @@ export interface ScenarioTitleContext {
   weeklyDirection: WeeklyDirection;
   oneTimeAmountCents: number;
   oneTimeDirection: OneTimeDirection;
+}
+
+// Chore System Feature (031-chore-system)
+
+export type ChoreRecurrence = 'one_time' | 'daily' | 'weekly' | 'monthly';
+export type ChoreInstanceStatus = 'available' | 'pending_approval' | 'approved' | 'expired';
+
+export interface Chore {
+  id: number;
+  family_id: number;
+  created_by_parent_id: number;
+  name: string;
+  description?: string;
+  reward_cents: number;
+  recurrence: ChoreRecurrence;
+  day_of_week?: number;
+  day_of_month?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  assignments?: ChoreAssignment[];
+  pending_count?: number;
+}
+
+export interface ChoreAssignment {
+  child_id: number;
+  child_name: string;
+}
+
+export interface ChoreInstance {
+  id: number;
+  chore_id: number;
+  chore_name?: string;
+  chore_description?: string;
+  child_id: number;
+  child_name?: string;
+  reward_cents: number;
+  status: ChoreInstanceStatus;
+  period_start?: string;
+  period_end?: string;
+  completed_at?: string;
+  reviewed_at?: string;
+  rejection_reason?: string;
+  transaction_id?: number;
+  created_at: string;
+}
+
+export interface ChoreListResponse {
+  chores: Chore[];
+}
+
+export interface ChoreInstanceListResponse {
+  available: ChoreInstance[];
+  pending: ChoreInstance[];
+  completed: ChoreInstance[];
+}
+
+export interface PendingInstancesResponse {
+  instances: ChoreInstance[];
+}
+
+export interface ApproveResponse {
+  instance: ChoreInstance;
+  new_balance: number;
+}
+
+export interface ChoreEarningsResponse {
+  total_earned_cents: number;
+  chores_completed: number;
+  recent: {
+    chore_name: string;
+    reward_cents: number;
+    approved_at: string;
+  }[];
 }
 
 export const SCENARIO_COLORS = [
