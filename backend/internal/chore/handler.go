@@ -529,6 +529,61 @@ func (h *Handler) HandleListPending(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"instances": instances})
 }
 
+// HandleListCompleted handles GET /api/chores/completed?limit=10&offset=0
+func (h *Handler) HandleListCompleted(w http.ResponseWriter, r *http.Request) {
+	if middleware.GetUserType(r) != "parent" {
+		writeJSON(w, http.StatusForbidden, ErrorResponse{
+			Error:   "forbidden",
+			Message: "Only parents can view completed chores.",
+		})
+		return
+	}
+
+	familyID := middleware.GetFamilyID(r)
+
+	limit := 10
+	offset := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	completedInstances, total, err := h.choreInstanceRepo.ListCompletedByFamily(familyID, limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+			Error:   "internal_error",
+			Message: "Failed to list completed chores.",
+		})
+		return
+	}
+
+	instances := make([]InstanceResponse, len(completedInstances))
+	for i, p := range completedInstances {
+		instances[i] = InstanceResponse{
+			ID:          p.ID,
+			ChoreID:     p.ChoreID,
+			ChoreName:   p.ChoreName,
+			ChildID:     p.ChildID,
+			ChildName:   p.ChildName,
+			RewardCents: p.RewardCents,
+			Status:      p.Status,
+			PeriodStart: p.PeriodStart,
+			PeriodEnd:   p.PeriodEnd,
+			CompletedAt: p.CompletedAt,
+			ReviewedAt:  p.ReviewedAt,
+			CreatedAt:   p.CreatedAt,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"instances": instances, "total": total})
+}
+
 // HandleApprove handles POST /api/chore-instances/{id}/approve
 func (h *Handler) HandleApprove(w http.ResponseWriter, r *http.Request) {
 	if middleware.GetUserType(r) != "parent" {

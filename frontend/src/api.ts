@@ -314,6 +314,10 @@ export function getPendingChores(): Promise<PendingInstancesResponse> {
   return get<PendingInstancesResponse>("/chores/pending");
 }
 
+export function getCompletedChores(limit: number, offset: number): Promise<{ instances: ChoreInstance[]; total: number }> {
+  return get<{ instances: ChoreInstance[]; total: number }>(`/chores/completed?limit=${limit}&offset=${offset}`);
+}
+
 export function approveChore(instanceId: number): Promise<ApproveResponse> {
   return post<ApproveResponse>(`/chore-instances/${instanceId}/approve`);
 }
