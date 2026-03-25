@@ -1,12 +1,23 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef, useEffect, ComponentType } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { post } from "../api";
 import { getRefreshToken, clearTokens } from "../auth";
 import { AuthUser } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings, ClipboardList } from "lucide-react";
+import { Leaf, LayoutDashboard, Home, Target, TrendingUp, LogOut, Settings, ClipboardList, MoreHorizontal } from "lucide-react";
 import Footer from "./Footer";
 import ContactFormModal from "./ContactFormModal";
+
+interface NavItem {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  path: string;
+  pathMatch: string;
+  action?: () => void;
+  variant?: "danger";
+}
+
+const MAX_VISIBLE_MOBILE_ITEMS = 4;
 
 interface LayoutProps {
   user: AuthUser;
@@ -36,6 +47,60 @@ export default function Layout({ user, children }: LayoutProps) {
       navigate("/");
     }
   };
+
+  const navItems: NavItem[] = user.user_type === "parent"
+    ? [
+        { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", pathMatch: "/dashboard" },
+        { label: "Chores", icon: ClipboardList, path: "/chores", pathMatch: "/chores" },
+        { label: "Growth", icon: TrendingUp, path: "/growth", pathMatch: "/growth" },
+        { label: "Settings", icon: Settings, path: "/settings", pathMatch: "/settings" },
+        { label: "Log out", icon: LogOut, path: "", pathMatch: "", action: handleLogout, variant: "danger" },
+      ]
+    : [
+        { label: "Home", icon: Home, path: "/child/dashboard", pathMatch: "/child/dashboard" },
+        { label: "Goals", icon: Target, path: "/child/goals", pathMatch: "/child/goals" },
+        { label: "Chores", icon: ClipboardList, path: "/child/chores", pathMatch: "/child/chores" },
+        { label: "Growth", icon: TrendingUp, path: "/child/growth", pathMatch: "/child/growth" },
+        { label: "Settings", icon: Settings, path: "/child/settings", pathMatch: "/child/settings" },
+        { label: "Log out", icon: LogOut, path: "", pathMatch: "", action: handleLogout, variant: "danger" },
+      ];
+
+  const visibleItems = navItems.slice(0, MAX_VISIBLE_MOBILE_ITEMS);
+  const overflowItems = navItems.slice(MAX_VISIBLE_MOBILE_ITEMS);
+  const hasOverflow = overflowItems.length > 0;
+  const isMoreActive = overflowItems.some(
+    item => item.pathMatch && location.pathname.startsWith(item.pathMatch)
+  );
+
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close More menu on outside click
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreMenuOpen]);
+
+  // Close More menu on navigation
+  useEffect(() => {
+    setMoreMenuOpen(false);
+  }, [location.pathname]);
+
+  // Close More menu on Escape
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [moreMenuOpen]);
 
   return (
     <div className={`min-h-screen flex flex-col lg:flex-row ${user.user_type === "parent" ? "bg-cream" : ""}`}>
@@ -208,85 +273,66 @@ export default function Layout({ user, children }: LayoutProps) {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sand px-4 py-2" aria-label="Mobile navigation">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sand px-2 py-2 z-40" aria-label="Mobile navigation">
         <div className="flex items-center justify-around">
-          {user.user_type === "parent" ? (
-            <>
+          {visibleItems.map(item => (
+            <button
+              key={item.label}
+              onClick={() => {
+                if (item.action) item.action();
+                else navigate(item.path);
+              }}
+              className={`flex flex-col items-center gap-1 py-2 px-2 cursor-pointer ${
+                item.variant === "danger"
+                  ? "text-bark-light hover:text-terracotta transition-colors"
+                  : location.pathname.startsWith(item.pathMatch)
+                    ? "text-forest"
+                    : "text-bark-light hover:text-forest transition-colors"
+              }`}
+            >
+              <item.icon className="h-6 w-6" aria-hidden="true" />
+              <span className="text-xs font-semibold">{item.label}</span>
+            </button>
+          ))}
+          {hasOverflow && (
+            <div className="relative" ref={moreMenuRef}>
               <button
-                onClick={() => navigate("/dashboard")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/dashboard") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
+                onClick={() => setMoreMenuOpen(prev => !prev)}
+                className={`flex flex-col items-center gap-1 py-2 px-2 cursor-pointer ${
+                  isMoreActive || moreMenuOpen
+                    ? "text-forest"
+                    : "text-bark-light hover:text-forest transition-colors"
+                }`}
               >
-                <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Dashboard</span>
+                <MoreHorizontal className="h-6 w-6" aria-hidden="true" />
+                <span className="text-xs font-semibold">More</span>
               </button>
-              <button
-                onClick={() => navigate("/chores")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/chores") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <ClipboardList className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Chores</span>
-              </button>
-              <button
-                onClick={() => navigate("/growth")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/growth") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <TrendingUp className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Growth</span>
-              </button>
-              <button
-                onClick={() => navigate("/settings")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/settings") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <Settings className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Settings</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => navigate("/child/dashboard")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/dashboard") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <Home className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Home</span>
-              </button>
-              <button
-                onClick={() => navigate("/child/goals")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/goals") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <Target className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Goals</span>
-              </button>
-              <button
-                onClick={() => navigate("/child/chores")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/chores") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <ClipboardList className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Chores</span>
-              </button>
-              <button
-                onClick={() => navigate("/child/growth")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/growth") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <TrendingUp className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Growth</span>
-              </button>
-              <button
-                onClick={() => navigate("/child/settings")}
-                className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer ${location.pathname.startsWith("/child/settings") ? "text-forest" : "text-bark-light hover:text-forest transition-colors"}`}
-              >
-                <Settings className="h-6 w-6" aria-hidden="true" />
-                <span className="text-xs font-semibold">Settings</span>
-              </button>
-            </>
+              {moreMenuOpen && (
+                <div className="absolute bottom-full right-0 mb-2 bg-white border border-sand rounded-xl shadow-lg py-2 min-w-[160px] animate-[fade-in-up_0.15s_ease-out_both]">
+                  {overflowItems.map(item => (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        if (item.action) item.action();
+                        else navigate(item.path);
+                        setMoreMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm font-semibold text-left cursor-pointer transition-colors ${
+                        item.variant === "danger"
+                          ? "text-bark-light hover:text-terracotta hover:bg-cream-dark"
+                          : item.pathMatch && location.pathname.startsWith(item.pathMatch)
+                            ? "text-forest bg-cream-dark"
+                            : "text-bark-light hover:bg-cream-dark"
+                      }`}
+                    >
+                      <item.icon className="h-5 w-5" aria-hidden="true" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-          <button
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-1 py-2 px-4 text-bark-light hover:text-terracotta transition-colors cursor-pointer"
-          >
-            <LogOut className="h-6 w-6" aria-hidden="true" />
-            <span className="text-xs font-semibold">Log out</span>
-          </button>
         </div>
       </nav>
 
