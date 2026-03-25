@@ -85,6 +85,7 @@ function getTypeLabel(type: string): string {
     case "withdrawal": return "Withdrawal";
     case "allowance": return "Allowance";
     case "interest": return "Interest earned";
+    case "chore": return "Deposit";
     default: return type;
   }
 }
