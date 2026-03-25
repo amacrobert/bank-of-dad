@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { get } from "../api";
-import { getChores, createChore, updateChore, deleteChore, activateChore, deactivateChore, CreateChoreRequest } from "../api";
-import { Chore, ChildListResponse } from "../types";
+import { getChores, getCompletedChores, createChore, updateChore, deleteChore, activateChore, deactivateChore, CreateChoreRequest } from "../api";
+import { Chore, ChoreInstance, ChildListResponse } from "../types";
 import { useParentUser } from "../hooks/useAuthOutletContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -29,6 +29,24 @@ export default function ParentChoresPage() {
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [completedInstances, setCompletedInstances] = useState<ChoreInstance[]>([]);
+  const [completedTotal, setCompletedTotal] = useState(0);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+
+  const PAGE_SIZE = 10;
+
+  const fetchCompleted = useCallback(async (offset: number, append: boolean) => {
+    setLoadingCompleted(true);
+    try {
+      const res = await getCompletedChores(PAGE_SIZE, offset);
+      setCompletedInstances((prev) => append ? [...prev, ...(res.instances || [])] : (res.instances || []));
+      setCompletedTotal(res.total);
+    } catch {
+      // Error fetching completed chores
+    } finally {
+      setLoadingCompleted(false);
+    }
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -50,7 +68,8 @@ export default function ParentChoresPage() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchCompleted(0, false);
+  }, [fetchData, fetchCompleted]);
 
   const handleCreate = async (data: CreateChoreRequest) => {
     setSubmitting(true);
@@ -122,7 +141,7 @@ export default function ParentChoresPage() {
         </Button>
       </div>
 
-      <ChoreApprovalQueue onAction={fetchData} />
+      <ChoreApprovalQueue onAction={() => { fetchData(); fetchCompleted(0, false); }} />
 
       {chores.length === 0 ? (
         <Card>
@@ -219,6 +238,44 @@ export default function ParentChoresPage() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {completedInstances.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-bark">Completed</h2>
+          {completedInstances.map((instance) => (
+            <Card key={instance.id} padding="md">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-bark">{instance.child_name}</span>
+                    <span className="text-bark-light">&middot;</span>
+                    <span className="text-bark">{instance.chore_name}</span>
+                  </div>
+                  {instance.reviewed_at && (
+                    <p className="text-xs text-bark-light mt-1">
+                      {new Date(instance.reviewed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <p className="text-lg font-semibold text-forest flex-shrink-0">
+                  ${(instance.reward_cents / 100).toFixed(2)}
+                </p>
+              </div>
+            </Card>
+          ))}
+          {completedInstances.length < completedTotal && (
+            <div className="flex justify-center">
+              <Button
+                variant="secondary"
+                onClick={() => fetchCompleted(completedInstances.length, true)}
+                loading={loadingCompleted}
+              >
+                Load More
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

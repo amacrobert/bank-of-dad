@@ -227,6 +227,36 @@ func (r *ChoreInstanceRepo) GetEarnings(childID int64, recentLimit int) (totalCe
 	return agg.TotalCents, agg.CompletedCount, recent, nil
 }
 
+// ListCompletedByFamily returns approved chore instances for a family with pagination.
+// Includes chore name and child name. Ordered by reviewed_at DESC (most recent first).
+// Returns instances for the current page and the total count of completed instances.
+func (r *ChoreInstanceRepo) ListCompletedByFamily(familyID int64, limit, offset int) ([]PendingChoreInstance, int64, error) {
+	base := r.db.Table("chore_instances").
+		Joins("JOIN chores ON chores.id = chore_instances.chore_id").
+		Joins("JOIN children ON children.id = chore_instances.child_id").
+		Where("children.family_id = ? AND chore_instances.status = ?", familyID, "approved")
+
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count completed instances by family: %w", err)
+	}
+
+	var results []PendingChoreInstance
+	err := r.db.Table("chore_instances").
+		Select("chore_instances.*, chores.name as chore_name, children.first_name as child_name").
+		Joins("JOIN chores ON chores.id = chore_instances.chore_id").
+		Joins("JOIN children ON children.id = chore_instances.child_id").
+		Where("children.family_id = ? AND chore_instances.status = ?", familyID, "approved").
+		Order("chore_instances.reviewed_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&results).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("list completed instances by family: %w", err)
+	}
+	return results, total, nil
+}
+
 // DeleteByChoreID deletes all instances for a specific chore (used before chore deletion).
 func (r *ChoreInstanceRepo) DeleteByChoreID(choreID int64) error {
 	if err := r.db.Where("chore_id = ?", choreID).Delete(&models.ChoreInstance{}).Error; err != nil {

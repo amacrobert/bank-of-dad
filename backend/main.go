@@ -221,6 +221,7 @@ func main() {
 
 	// Chore instances — parent endpoints
 	mux.Handle("GET /api/chores/pending", requireParent(http.HandlerFunc(choreHandler.HandleListPending)))
+	mux.Handle("GET /api/chores/completed", requireParent(http.HandlerFunc(choreHandler.HandleListCompleted)))
 	mux.Handle("POST /api/chore-instances/{id}/approve", requireParent(http.HandlerFunc(choreHandler.HandleApprove)))
 	mux.Handle("POST /api/chore-instances/{id}/reject", requireParent(http.HandlerFunc(choreHandler.HandleReject)))
 	mux.Handle("PUT /api/chores/{id}", requireParent(http.HandlerFunc(choreHandler.HandleUpdateChore)))
