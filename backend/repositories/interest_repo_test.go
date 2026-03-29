@@ -356,7 +356,10 @@ func TestListDueForInterest_LastAccruedPreviousMonth(t *testing.T) {
 	require.NoError(t, err)
 
 	// Manually set last_interest_at to previous month
-	prevMonth := time.Now().AddDate(0, -1, 0).Format(time.RFC3339)
+	// Use first day of current month minus 1 day to guarantee landing in previous month
+	// (AddDate(0, -1, 0) can overflow back into the current month on the 29th-31st)
+	now := time.Now()
+	prevMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1).Format(time.RFC3339)
 	require.NoError(t, db.Exec("UPDATE children SET last_interest_at = ? WHERE id = ?", prevMonth, child.ID).Error)
 
 	// Should be due
