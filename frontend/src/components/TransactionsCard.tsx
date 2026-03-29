@@ -60,6 +60,7 @@ function formatUpcomingAmount(cents: number, estimated: boolean): string {
 const typeConfig: Record<string, { icon: typeof ArrowDownCircle; color: string; amountColor: string }> = {
   deposit: { icon: ArrowDownCircle, color: "text-[#2D5A3D]", amountColor: "text-[#2D5A3D]" },
   withdrawal: { icon: ArrowUpCircle, color: "text-[#C4704B]", amountColor: "text-[#C4704B]" },
+  withdrawal_request: { icon: ArrowUpCircle, color: "text-[#C4704B]", amountColor: "text-[#C4704B]" },
   allowance: { icon: Calendar, color: "text-[#2D5A3D]", amountColor: "text-[#2D5A3D]" },
   interest: { icon: TrendingUp, color: "text-[#D4A84B]", amountColor: "text-[#2D5A3D]" },
 };
@@ -76,13 +77,14 @@ function formatRecentDate(dateStr: string, timeZone: string): string {
 
 function formatRecentAmount(cents: number, type: string): string {
   const dollars = (cents / 100).toFixed(2);
-  return type === "withdrawal" ? `-$${dollars}` : `+$${dollars}`;
+  return (type === "withdrawal" || type === "withdrawal_request") ? `-$${dollars}` : `+$${dollars}`;
 }
 
 function getTypeLabel(type: string): string {
   switch (type) {
     case "deposit": return "Deposit";
     case "withdrawal": return "Withdrawal";
+    case "withdrawal_request": return "Withdrawal Request";
     case "allowance": return "Allowance";
     case "interest": return "Interest earned";
     case "chore": return "Deposit";

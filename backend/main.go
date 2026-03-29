@@ -15,6 +15,7 @@ import (
 	"bank-of-dad/internal/auth"
 	"bank-of-dad/internal/balance"
 	"bank-of-dad/internal/chore"
+	"bank-of-dad/internal/withdrawal"
 	"bank-of-dad/internal/config"
 	"bank-of-dad/internal/family"
 	"bank-of-dad/internal/goals"
@@ -92,6 +93,8 @@ func main() {
 	choreRepo := repositories.NewChoreRepo(db)
 	choreInstanceRepo := repositories.NewChoreInstanceRepo(db)
 	choreHandler := chore.NewHandler(choreRepo, choreInstanceRepo, txRepo, childRepo)
+	wrRepo := repositories.NewWithdrawalRequestRepo(db)
+	withdrawalHandler := withdrawal.NewHandler(wrRepo, txRepo, childRepo, goalRepo)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopAllowanceScheduler := make(chan struct{})
@@ -228,6 +231,15 @@ func main() {
 	mux.Handle("DELETE /api/chores/{id}", requireParent(http.HandlerFunc(choreHandler.HandleDeleteChore)))
 	mux.Handle("PATCH /api/chores/{id}/activate", requireParent(http.HandlerFunc(choreHandler.HandleActivate)))
 	mux.Handle("PATCH /api/chores/{id}/deactivate", requireParent(http.HandlerFunc(choreHandler.HandleDeactivate)))
+
+	// Withdrawal Requests (032-withdrawal-requests)
+	mux.Handle("POST /api/child/withdrawal-requests", requireAuth(http.HandlerFunc(withdrawalHandler.HandleSubmitRequest)))
+	mux.Handle("GET /api/child/withdrawal-requests", requireAuth(http.HandlerFunc(withdrawalHandler.HandleChildListRequests)))
+	mux.Handle("POST /api/child/withdrawal-requests/{id}/cancel", requireAuth(http.HandlerFunc(withdrawalHandler.HandleCancelRequest)))
+	mux.Handle("GET /api/withdrawal-requests", requireParent(http.HandlerFunc(withdrawalHandler.HandleParentListRequests)))
+	mux.Handle("POST /api/withdrawal-requests/{id}/approve", requireParent(http.HandlerFunc(withdrawalHandler.HandleApprove)))
+	mux.Handle("POST /api/withdrawal-requests/{id}/deny", requireParent(http.HandlerFunc(withdrawalHandler.HandleDeny)))
+	mux.Handle("GET /api/withdrawal-requests/pending/count", requireParent(http.HandlerFunc(withdrawalHandler.HandlePendingCount)))
 
 	// Apply middleware chain: CORS → Logging → Routes
 	corsMiddleware := middleware.CORS(cfg.FrontendURL)

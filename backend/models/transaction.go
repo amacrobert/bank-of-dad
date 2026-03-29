@@ -13,7 +13,8 @@ const (
 	TransactionTypeWithdrawal TransactionType = "withdrawal"
 	TransactionTypeAllowance  TransactionType = "allowance"
 	TransactionTypeInterest   TransactionType = "interest"
-	TransactionTypeChore      TransactionType = "chore"
+	TransactionTypeChore             TransactionType = "chore"
+	TransactionTypeWithdrawalRequest TransactionType = "withdrawal_request"
 )
 
 // ErrInsufficientFunds is returned when a withdrawal exceeds the available balance.

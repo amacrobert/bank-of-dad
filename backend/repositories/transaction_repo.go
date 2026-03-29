@@ -269,6 +269,67 @@ func (r *TransactionRepo) DepositChore(childID, parentID int64, amountCents int6
 	return &transaction, newBalance, nil
 }
 
+// WithdrawAsType removes money from a child's account using a specified transaction type.
+// Used for withdrawal requests which use TransactionTypeWithdrawalRequest.
+func (r *TransactionRepo) WithdrawAsType(childID, parentID, amountCents int64, note string, txType models.TransactionType) (*models.Transaction, int64, error) {
+	if amountCents <= 0 {
+		return nil, 0, fmt.Errorf("amount must be positive")
+	}
+
+	var transaction models.Transaction
+	var newBalance int64
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var child models.Child
+		if err := tx.Select("balance_cents").First(&child, childID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("child not found")
+			}
+			return fmt.Errorf("get current balance: %w", err)
+		}
+
+		if child.BalanceCents < amountCents {
+			newBalance = child.BalanceCents
+			return models.ErrInsufficientFunds
+		}
+
+		notePtr := nullableString(note)
+		transaction = models.Transaction{
+			ChildID:         childID,
+			ParentID:        parentID,
+			AmountCents:     amountCents,
+			TransactionType: txType,
+			Note:            notePtr,
+		}
+		if err := tx.Create(&transaction).Error; err != nil {
+			return fmt.Errorf("insert transaction: %w", err)
+		}
+
+		if err := tx.Exec(
+			`UPDATE children SET balance_cents = balance_cents - ?, updated_at = NOW() WHERE id = ?`,
+			amountCents, childID,
+		).Error; err != nil {
+			return fmt.Errorf("update balance: %w", err)
+		}
+
+		var updated models.Child
+		if err := tx.Select("balance_cents").First(&updated, childID).Error; err != nil {
+			return fmt.Errorf("get new balance: %w", err)
+		}
+		newBalance = updated.BalanceCents
+
+		return nil
+	})
+	if err != nil {
+		if err == models.ErrInsufficientFunds {
+			return nil, newBalance, err
+		}
+		return nil, 0, err
+	}
+
+	return &transaction, newBalance, nil
+}
+
 // nullableString returns nil for empty strings, otherwise a pointer to the trimmed string.
 func nullableString(s string) *string {
 	trimmed := strings.TrimSpace(s)

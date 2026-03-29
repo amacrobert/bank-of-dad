@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useParentUser } from "../hooks/useAuthOutletContext";
-import { get } from "../api";
+import { get, getPendingWithdrawalRequestCount } from "../api";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import ChildSelectorBar from "../components/ChildSelectorBar";
 import ManageChild from "../components/ManageChild";
 import { Child, ChildListResponse } from "../types";
-import { Link as LinkIcon, Copy, Check, Users } from "lucide-react";
+import { Link as LinkIcon, Copy, Check, Users, Bell } from "lucide-react";
 
 export default function ParentDashboard() {
   const user = useParentUser();
@@ -17,6 +17,7 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<Child[]>([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   // Derive selected child from URL param (disabled children cannot be selected)
   const selectedChild = useMemo(() => {
@@ -44,6 +45,9 @@ export default function ParentDashboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    getPendingWithdrawalRequestCount()
+      .then((res) => setPendingRequestCount(res.count))
+      .catch(() => {});
   }, [childRefreshKey]);
 
   const handleCopyFamilyUrl = () => {
@@ -62,7 +66,15 @@ export default function ParentDashboard() {
     <div className="max-w-[960px] mx-auto animate-fade-in-up">
       {/* Family info header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-forest mb-2">Your Family Bank</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-forest">Your Family Bank</h2>
+          {pendingRequestCount > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-honey/20 text-honey-dark text-xs font-semibold rounded-full">
+              <Bell className="h-3 w-3" />
+              {pendingRequestCount} pending request{pendingRequestCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-sm text-bark-light">
           <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Family URL:</span>

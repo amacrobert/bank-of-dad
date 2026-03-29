@@ -79,6 +79,7 @@ cd frontend && npm run lint
 - PostgreSQL 17 — 12 tables, schema managed by `golang-migrate` (unchanged) (029-gorm-backend-refactor)
 - Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + GORM (gorm.io/gorm), pgx/v5 (driver), Vite, Tailwind CSS 4, lucide-reac (031-chore-system)
 - PostgreSQL 17 — 3 new tables (`chores`, `chore_assignments`, `chore_instances`), 1 new transaction type (031-chore-system)
+- PostgreSQL 17 — 1 new table (`withdrawal_requests`), 1 new transaction type (032-withdrawal-requests)
 
 ## Recent Changes
 - 024-stripe-subscription: Added Go 1.24 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `github.com/stripe/stripe-go/v82` (new), pgx/v5 (existing), Vite + Tailwind CSS 4 (existing)
