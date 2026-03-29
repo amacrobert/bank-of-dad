@@ -346,3 +346,47 @@ export function deleteChore(choreId: number): Promise<void> {
   return request<void>(`/chores/${choreId}`, { method: "DELETE" });
 }
 
+// Withdrawal Requests API functions (032-withdrawal-requests)
+import {
+  WithdrawalRequestSubmitRequest,
+  WithdrawalRequestResponse,
+  WithdrawalRequestListResponse,
+  WithdrawalRequestApproveRequest,
+  WithdrawalRequestApproveResponse,
+  WithdrawalRequestDenyRequest,
+  WithdrawalRequestPendingCountResponse,
+} from "./types";
+
+export function submitWithdrawalRequest(data: WithdrawalRequestSubmitRequest): Promise<WithdrawalRequestResponse> {
+  return post<WithdrawalRequestResponse>("/child/withdrawal-requests", data);
+}
+
+export function getChildWithdrawalRequests(status?: string): Promise<WithdrawalRequestListResponse> {
+  const query = status ? `?status=${status}` : "";
+  return get<WithdrawalRequestListResponse>(`/child/withdrawal-requests${query}`);
+}
+
+export function cancelWithdrawalRequest(requestId: number): Promise<WithdrawalRequestResponse> {
+  return post<WithdrawalRequestResponse>(`/child/withdrawal-requests/${requestId}/cancel`);
+}
+
+export function getWithdrawalRequests(params?: { status?: string; child_id?: number }): Promise<WithdrawalRequestListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.child_id) searchParams.set("child_id", String(params.child_id));
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  return get<WithdrawalRequestListResponse>(`/withdrawal-requests${query}`);
+}
+
+export function approveWithdrawalRequest(requestId: number, data?: WithdrawalRequestApproveRequest): Promise<WithdrawalRequestApproveResponse> {
+  return post<WithdrawalRequestApproveResponse>(`/withdrawal-requests/${requestId}/approve`, data || {});
+}
+
+export function denyWithdrawalRequest(requestId: number, data?: WithdrawalRequestDenyRequest): Promise<WithdrawalRequestResponse> {
+  return post<WithdrawalRequestResponse>(`/withdrawal-requests/${requestId}/deny`, data || {});
+}
+
+export function getPendingWithdrawalRequestCount(): Promise<WithdrawalRequestPendingCountResponse> {
+  return get<WithdrawalRequestPendingCountResponse>("/withdrawal-requests/pending/count");
+}
+

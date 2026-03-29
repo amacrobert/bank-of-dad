@@ -79,7 +79,7 @@ export interface ChildListResponse {
 
 // Account Balances Feature (002-account-balances)
 
-export type TransactionType = 'deposit' | 'withdrawal' | 'allowance' | 'interest' | 'chore';
+export type TransactionType = 'deposit' | 'withdrawal' | 'allowance' | 'interest' | 'chore' | 'withdrawal_request';
 
 export interface Transaction {
   id: number;
@@ -389,6 +389,56 @@ export interface ChoreEarningsResponse {
     reward_cents: number;
     approved_at: string;
   }[];
+}
+
+// Withdrawal Requests Feature (032-withdrawal-requests)
+
+export type WithdrawalRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
+
+export interface WithdrawalRequest {
+  id: number;
+  child_id: number;
+  family_id: number;
+  amount_cents: number;
+  reason: string;
+  status: WithdrawalRequestStatus;
+  denial_reason?: string;
+  reviewed_by_parent_id?: number;
+  reviewed_at?: string;
+  transaction_id?: number;
+  child_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WithdrawalRequestSubmitRequest {
+  amount_cents: number;
+  reason: string;
+}
+
+export interface WithdrawalRequestResponse {
+  withdrawal_request: WithdrawalRequest;
+}
+
+export interface WithdrawalRequestListResponse {
+  withdrawal_requests: WithdrawalRequest[];
+}
+
+export interface WithdrawalRequestApproveRequest {
+  confirm_goal_impact?: boolean;
+}
+
+export interface WithdrawalRequestApproveResponse {
+  withdrawal_request: WithdrawalRequest;
+  new_balance_cents: number;
+}
+
+export interface WithdrawalRequestDenyRequest {
+  reason?: string;
+}
+
+export interface WithdrawalRequestPendingCountResponse {
+  count: number;
 }
 
 export const SCENARIO_COLORS = [

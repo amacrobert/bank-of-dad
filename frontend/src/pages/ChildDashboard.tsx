@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getBalance, getTransactions, getSavingsGoals } from "../api";
-import { Transaction, SavingsGoal } from "../types";
+import { getBalance, getTransactions, getSavingsGoals, getChildWithdrawalRequests, cancelWithdrawalRequest } from "../api";
+import { Transaction, SavingsGoal, WithdrawalRequest } from "../types";
 import { useChildUser } from "../hooks/useAuthOutletContext";
 import Card from "../components/ui/Card";
+import Modal from "../components/ui/Modal";
+import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import BalanceDisplay from "../components/BalanceDisplay";
 import TransactionsCard from "../components/TransactionsCard";
 import GoalProgressRing from "../components/GoalProgressRing";
-import { TrendingUp, Target } from "lucide-react";
+import WithdrawalRequestForm from "../components/WithdrawalRequestForm";
+import WithdrawalRequestCard from "../components/WithdrawalRequestCard";
+import { TrendingUp, Target, ArrowUpCircle } from "lucide-react";
 
 export default function ChildDashboard() {
   const user = useChildUser();
@@ -20,13 +24,23 @@ export default function ChildDashboard() {
   const [availableBalanceCents, setAvailableBalanceCents] = useState<number | undefined>();
   const [totalSavedCents, setTotalSavedCents] = useState<number | undefined>();
   const [activeGoals, setActiveGoals] = useState<SavingsGoal[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  const loadWithdrawalRequests = () => {
+    getChildWithdrawalRequests().then((res) => {
+      setWithdrawalRequests(res.withdrawal_requests || []);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     Promise.all([
       getBalance(user.user_id),
       getTransactions(user.user_id),
       getSavingsGoals(user.user_id).catch(() => ({ goals: [], available_balance_cents: 0, total_saved_cents: 0 })),
-    ]).then(([balanceRes, txRes, goalsRes]) => {
+      getChildWithdrawalRequests().catch(() => ({ withdrawal_requests: [] })),
+    ]).then(([balanceRes, txRes, goalsRes, wrRes]) => {
       setBalance(balanceRes.balance_cents);
       setInterestRateBps(balanceRes.interest_rate_bps);
       setInterestRateDisplay(balanceRes.interest_rate_display);
@@ -34,6 +48,7 @@ export default function ChildDashboard() {
       setTotalSavedCents(balanceRes.total_saved_cents);
       setTransactions(txRes.transactions || []);
       setActiveGoals(goalsRes.goals.filter((g: SavingsGoal) => g.status === "active").slice(0, 3));
+      setWithdrawalRequests(wrRes.withdrawal_requests || []);
     }).catch(() => {
       // Silently fail
     }).finally(() => {
@@ -75,6 +90,53 @@ export default function ChildDashboard() {
         )}
       </Card>
 
+      {/* Withdrawal Request */}
+      {!loadingData && (() => {
+        const pendingRequest = withdrawalRequests.find((r) => r.status === "pending");
+        const effectiveAvailable = availableBalanceCents !== undefined ? availableBalanceCents : balance;
+        return (
+          <>
+            {pendingRequest ? (
+              <WithdrawalRequestCard
+                request={pendingRequest}
+                onCancel={async (id) => {
+                  setCancellingId(id);
+                  try {
+                    await cancelWithdrawalRequest(id);
+                    loadWithdrawalRequests();
+                  } catch {
+                    // silently fail
+                  } finally {
+                    setCancellingId(null);
+                  }
+                }}
+                loading={cancellingId === pendingRequest.id}
+              />
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => setShowRequestForm(true)}
+                disabled={effectiveAvailable === 0}
+                className="w-full"
+              >
+                <ArrowUpCircle className="h-4 w-4" aria-hidden="true" />
+                Request Withdrawal
+              </Button>
+            )}
+            <Modal open={showRequestForm} onClose={() => setShowRequestForm(false)}>
+              <WithdrawalRequestForm
+                availableBalanceCents={effectiveAvailable}
+                onSuccess={() => {
+                  setShowRequestForm(false);
+                  loadWithdrawalRequests();
+                }}
+                onCancel={() => setShowRequestForm(false)}
+              />
+            </Modal>
+          </>
+        );
+      })()}
+
       {/* Savings Goals section */}
       {!loadingData && (
         <Card padding="sm" className="space-y-3">
@@ -104,6 +166,23 @@ export default function ChildDashboard() {
               })}
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Past Withdrawal Requests */}
+      {!loadingData && withdrawalRequests.filter((r) => r.status !== "pending").length > 0 && (
+        <Card padding="md">
+          <h4 className="text-sm font-semibold text-bark-light uppercase tracking-wide mb-3">
+            Past Requests
+          </h4>
+          <div className="space-y-2">
+            {withdrawalRequests
+              .filter((r) => r.status !== "pending")
+              .slice(0, 5)
+              .map((req) => (
+                <WithdrawalRequestCard key={req.id} request={req} />
+              ))}
+          </div>
         </Card>
       )}
 
