@@ -1,5 +1,5 @@
 # Development Dockerfile with Vite dev server for HMR
-FROM node:24.14.1-alpine
+FROM node:24.14.1-alpine3.22
 
 WORKDIR /app
 
