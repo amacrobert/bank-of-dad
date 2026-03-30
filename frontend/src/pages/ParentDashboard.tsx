@@ -109,6 +109,7 @@ export default function ParentDashboard() {
       )}
 
       {/* Child selector + full-width content */}
+      <h2 className="text-lg font-semibold text-bark">Accounts</h2>
       {(loading || children.length > 0) && (
         <div className="space-y-4">
           <ChildSelectorBar
