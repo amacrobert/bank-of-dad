@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBalance, getTransactions, getChildAllowance, getInterestSchedule, getSavingsGoals, getWithdrawalRequests } from "../api";
-import { Child, Transaction, AllowanceSchedule, InterestSchedule, SavingsGoal, WithdrawalRequest } from "../types";
+import { getBalance, getTransactions, getChildAllowance, getInterestSchedule, getSavingsGoals } from "../api";
+import { Child, Transaction, AllowanceSchedule, InterestSchedule, SavingsGoal } from "../types";
 import Card from "./ui/Card";
 import Button from "./ui/Button";
 import Modal from "./ui/Modal";
@@ -11,7 +11,6 @@ import InterestForm from "./InterestForm";
 import TransactionsCard from "./TransactionsCard";
 import ChildAllowanceForm from "./ChildAllowanceForm";
 import GoalCard from "./GoalCard";
-import PendingWithdrawalRequests from "./PendingWithdrawalRequests";
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Target, CheckCircle2 } from "lucide-react";
 
 interface ManageChildProps {
@@ -30,14 +29,6 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [availableBalanceCents, setAvailableBalanceCents] = useState<number | undefined>(undefined);
   const [totalSavedCents, setTotalSavedCents] = useState<number>(0);
-  const [pendingWithdrawalRequests, setPendingWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
-
-  const loadWithdrawalRequests = useCallback(() => {
-    getWithdrawalRequests({ status: "pending", child_id: child.id })
-      .then((res) => setPendingWithdrawalRequests(res.withdrawal_requests || []))
-      .catch(() => {});
-  }, [child.id]);
-
   const loadTransactions = useCallback(() => {
     getTransactions(child.id).then((data) => {
       setTransactions(data.transactions || []);
@@ -54,8 +45,7 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
     getChildAllowance(child.id).then(setAllowance).catch(() => {});
     getInterestSchedule(child.id).then(setInterestSchedule).catch(() => {});
     getSavingsGoals(child.id).then((res) => setSavingsGoals(res.goals)).catch(() => {});
-    loadWithdrawalRequests();
-  }, [child.id, loadTransactions, loadWithdrawalRequests]);
+  }, [child.id, loadTransactions]);
 
   const handleDepositSuccess = (newBalance: number) => {
     setCurrentBalance(newBalance);
@@ -68,17 +58,6 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
     setCurrentBalance(newBalance);
     setShowWithdraw(false);
     loadTransactions();
-    onUpdated();
-  };
-
-  const handleWithdrawalRequestUpdated = () => {
-    loadWithdrawalRequests();
-    loadTransactions();
-    getBalance(child.id).then((data) => {
-      setCurrentBalance(data.balance_cents);
-      setAvailableBalanceCents(data.available_balance_cents);
-      setTotalSavedCents(data.total_saved_cents || 0);
-    }).catch(() => {});
     onUpdated();
   };
 
@@ -128,12 +107,6 @@ export default function ManageChild({ child, onUpdated }: ManageChildProps) {
           </Button>
         </div>
       </Card>
-
-      {/* Pending withdrawal requests */}
-      <PendingWithdrawalRequests
-        requests={pendingWithdrawalRequests}
-        onUpdated={handleWithdrawalRequestUpdated}
-      />
 
       <Modal open={showDeposit} onClose={() => setShowDeposit(false)}>
         <DepositForm
