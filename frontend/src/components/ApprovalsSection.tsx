@@ -170,7 +170,7 @@ export default function ApprovalsSection({ onUpdated }: ApprovalsSectionProps) {
   const totalCount = choreInstances.length + withdrawalRequests.length;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 mb-6">
       <h2 className="text-lg font-semibold text-bark">
         Approvals{" "}
         <span className="text-sm font-normal text-bark-light">
