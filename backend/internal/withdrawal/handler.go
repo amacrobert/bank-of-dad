@@ -302,7 +302,7 @@ func (h *Handler) HandleApprove(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body for confirm_goal_impact
 	var approveReq ApproveRequest
-	json.NewDecoder(r.Body).Decode(&approveReq)
+	_ = json.NewDecoder(r.Body).Decode(&approveReq)
 
 	// Check for goal impact
 	if h.goalRepo != nil {
@@ -405,7 +405,7 @@ func (h *Handler) HandleDeny(w http.ResponseWriter, r *http.Request) {
 
 	// Parse optional denial reason
 	var denyReq DenyRequest
-	json.NewDecoder(r.Body).Decode(&denyReq)
+	_ = json.NewDecoder(r.Body).Decode(&denyReq)
 
 	reason := strings.TrimSpace(denyReq.Reason)
 	if len(reason) > MaxReasonLength {

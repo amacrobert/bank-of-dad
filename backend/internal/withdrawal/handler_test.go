@@ -31,7 +31,7 @@ func setupHandler(t *testing.T) (*Handler, *repositories.WithdrawalRequestRepo, 
 // =====================================================
 
 func TestHandleSubmitRequest_Success(t *testing.T) {
-	handler, _, _, _, _ := setupHandler(t)
+	handler, _, _, _, _ := setupHandler(t) //nolint:ineffassign,staticcheck // handler is reassigned below with test DB
 	db := testutil.SetupTestDB(t)
 	family := testutil.CreateTestFamily(t, db)
 	testutil.CreateTestParent(t, db, family.ID)
