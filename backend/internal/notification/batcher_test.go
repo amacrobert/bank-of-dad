@@ -39,16 +39,6 @@ func (m *mockSendTracker) getCalls() []mockSendCall {
 	return result
 }
 
-// testBatcher creates a batcher with a short flush window for testing.
-func testBatcher(tracker *mockSendTracker) *Batcher {
-	b := &Batcher{
-		entries: make(map[batchKey]*batchEntry),
-		// service is nil; we override flush behavior
-	}
-	// Override the flush method via a wrapper service
-	return b
-}
-
 func TestBatcher_SingleCompletion(t *testing.T) {
 	tracker := &mockSendTracker{}
 

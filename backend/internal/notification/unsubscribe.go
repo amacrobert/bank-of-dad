@@ -90,7 +90,7 @@ func (h *UnsubscribeHandler) HandleUnsubscribe(w http.ResponseWriter, r *http.Re
 	if token == "" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "Invalid or expired unsubscribe link.")
+		_, _ = fmt.Fprint(w, "Invalid or expired unsubscribe link.")
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *UnsubscribeHandler) HandleUnsubscribe(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "Invalid or expired unsubscribe link.")
+		_, _ = fmt.Fprint(w, "Invalid or expired unsubscribe link.")
 		return
 	}
 
@@ -111,11 +111,11 @@ func (h *UnsubscribeHandler) HandleUnsubscribe(w http.ResponseWriter, r *http.Re
 	if err := h.parentRepo.UpdateNotificationPrefs(parentID, prefs); err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "Something went wrong. Please try again later.")
+		_, _ = fmt.Fprint(w, "Something went wrong. Please try again later.")
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "You have been unsubscribed from all Bank of Dad email notifications.\nYou can re-enable notifications in your settings at any time.")
+	_, _ = fmt.Fprint(w, "You have been unsubscribed from all Bank of Dad email notifications.\nYou can re-enable notifications in your settings at any time.")
 }
