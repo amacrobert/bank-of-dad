@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/notification"
 	"bank-of-dad/models"
 	"bank-of-dad/repositories"
 )
@@ -19,19 +20,25 @@ const (
 
 // Handler handles withdrawal request HTTP endpoints.
 type Handler struct {
-	wrRepo    *repositories.WithdrawalRequestRepo
-	txRepo    *repositories.TransactionRepo
-	childRepo *repositories.ChildRepo
-	goalRepo  *repositories.SavingsGoalRepo
+	wrRepo      *repositories.WithdrawalRequestRepo
+	txRepo      *repositories.TransactionRepo
+	childRepo   *repositories.ChildRepo
+	goalRepo    *repositories.SavingsGoalRepo
+	notifier    *notification.Service
+	parentRepo  *repositories.ParentRepo
+	familyRepo  *repositories.FamilyRepo
 }
 
 // NewHandler creates a new withdrawal request handler.
-func NewHandler(wrRepo *repositories.WithdrawalRequestRepo, txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo, goalRepo *repositories.SavingsGoalRepo) *Handler {
+func NewHandler(wrRepo *repositories.WithdrawalRequestRepo, txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo, goalRepo *repositories.SavingsGoalRepo, notifier *notification.Service, parentRepo *repositories.ParentRepo, familyRepo *repositories.FamilyRepo) *Handler {
 	return &Handler{
-		wrRepo:    wrRepo,
-		txRepo:    txRepo,
-		childRepo: childRepo,
-		goalRepo:  goalRepo,
+		wrRepo:     wrRepo,
+		txRepo:     txRepo,
+		childRepo:  childRepo,
+		goalRepo:   goalRepo,
+		notifier:   notifier,
+		parentRepo: parentRepo,
+		familyRepo: familyRepo,
 	}
 }
 
@@ -151,6 +158,17 @@ func (h *Handler) HandleSubmitRequest(w http.ResponseWriter, r *http.Request) {
 			Message: "Failed to create withdrawal request.",
 		})
 		return
+	}
+
+	// Send notification to parents (fire-and-forget)
+	if h.notifier != nil {
+		bankName := "Bank of Dad"
+		if h.familyRepo != nil {
+			if bn, err := h.familyRepo.GetBankName(familyID); err == nil {
+				bankName = bn
+			}
+		}
+		h.notifier.NotifyWithdrawalRequest(r.Context(), familyID, child.FirstName, req.AmountCents, reason, bankName)
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
@@ -359,6 +377,23 @@ func (h *Handler) HandleApprove(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: withdrawal succeeded but request status update failed for request %d: %v", reqID, err)
 	}
 
+	// Notify other parents about the approval (fire-and-forget)
+	if h.notifier != nil {
+		bankName := "Bank of Dad"
+		if h.familyRepo != nil {
+			if bn, err := h.familyRepo.GetBankName(familyID); err == nil {
+				bankName = bn
+			}
+		}
+		actingParentName := ""
+		if h.parentRepo != nil {
+			if p, err := h.parentRepo.GetByID(parentID); err == nil && p != nil {
+				actingParentName = p.DisplayName
+			}
+		}
+		h.notifier.NotifyDecision(r.Context(), familyID, parentID, actingParentName, child.FirstName, "withdrawal request", "approved", wr.AmountCents, "", "", bankName)
+	}
+
 	// Fetch updated request
 	updated, _ := h.wrRepo.GetByID(reqID)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -429,6 +464,27 @@ func (h *Handler) HandleDeny(w http.ResponseWriter, r *http.Request) {
 			Message: "Failed to deny request.",
 		})
 		return
+	}
+
+	// Notify other parents about the denial (fire-and-forget)
+	if h.notifier != nil {
+		bankName := "Bank of Dad"
+		if h.familyRepo != nil {
+			if bn, err := h.familyRepo.GetBankName(familyID); err == nil {
+				bankName = bn
+			}
+		}
+		actingParentName := ""
+		if h.parentRepo != nil {
+			if p, err := h.parentRepo.GetByID(parentID); err == nil && p != nil {
+				actingParentName = p.DisplayName
+			}
+		}
+		childName := ""
+		if child, err := h.childRepo.GetByID(wr.ChildID); err == nil && child != nil {
+			childName = child.FirstName
+		}
+		h.notifier.NotifyDecision(r.Context(), familyID, parentID, actingParentName, childName, "withdrawal request", "denied", wr.AmountCents, "", reason, bankName)
 	}
 
 	updated, _ := h.wrRepo.GetByID(reqID)

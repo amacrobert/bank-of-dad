@@ -254,7 +254,7 @@ export function submitContact(body: string) {
 }
 
 // Settings API functions (013-parent-settings)
-import { SettingsResponse, UpdateTimezoneResponse, UpdateBankNameResponse } from "./types";
+import { SettingsResponse, UpdateTimezoneResponse, UpdateBankNameResponse, NotificationPreferences } from "./types";
 
 export function getSettings(): Promise<SettingsResponse> {
   return get<SettingsResponse>("/settings");
@@ -270,6 +270,16 @@ export function updateBankName(bankName: string): Promise<UpdateBankNameResponse
 
 export function deleteAccount(): Promise<void> {
   return request<void>("/account", { method: "DELETE" });
+}
+
+// Notification Preferences API functions (033-email-notifications)
+
+export function getNotificationPrefs(): Promise<NotificationPreferences> {
+  return get<NotificationPreferences>("/settings/notifications");
+}
+
+export function updateNotificationPrefs(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences & { message: string }> {
+  return put<NotificationPreferences & { message: string }>("/settings/notifications", prefs);
 }
 
 // Chore System API functions (031-chore-system)

@@ -16,10 +16,11 @@ var validBankName = regexp.MustCompile(`^[\p{L}\p{N} '\-]+$`)
 
 type Handlers struct {
 	familyRepo *repositories.FamilyRepo
+	parentRepo *repositories.ParentRepo
 }
 
-func NewHandlers(familyRepo *repositories.FamilyRepo) *Handlers {
-	return &Handlers{familyRepo: familyRepo}
+func NewHandlers(familyRepo *repositories.FamilyRepo, parentRepo *repositories.ParentRepo) *Handlers {
+	return &Handlers{familyRepo: familyRepo, parentRepo: parentRepo}
 }
 
 func (h *Handlers) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
@@ -41,9 +42,21 @@ func (h *Handlers) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	parentID := middleware.GetUserID(r)
+	parent, err := h.parentRepo.GetByID(parentID)
+	var notifications map[string]bool
+	if err == nil && parent != nil {
+		notifications = map[string]bool{
+			"notify_withdrawal_requests": parent.NotifyWithdrawalRequests,
+			"notify_chore_completions":   parent.NotifyChoreCompletions,
+			"notify_decisions":           parent.NotifyDecisions,
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"timezone":  tz,
-		"bank_name": bankName,
+		"timezone":      tz,
+		"bank_name":     bankName,
+		"notifications": notifications,
 	})
 }
 
@@ -139,6 +152,85 @@ func (h *Handlers) HandleUpdateBankName(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":   "Bank name updated",
 		"bank_name": req.BankName,
+	})
+}
+
+func (h *Handlers) HandleGetNotificationPrefs(w http.ResponseWriter, r *http.Request) {
+	parentID := middleware.GetUserID(r)
+
+	parent, err := h.parentRepo.GetByID(parentID)
+	if err != nil || parent == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"notify_withdrawal_requests": parent.NotifyWithdrawalRequests,
+		"notify_chore_completions":   parent.NotifyChoreCompletions,
+		"notify_decisions":           parent.NotifyDecisions,
+	})
+}
+
+func (h *Handlers) HandleUpdateNotificationPrefs(w http.ResponseWriter, r *http.Request) {
+	parentID := middleware.GetUserID(r)
+
+	var raw map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	validFields := map[string]bool{
+		"notify_withdrawal_requests": true,
+		"notify_chore_completions":   true,
+		"notify_decisions":           true,
+	}
+
+	prefs := make(map[string]bool)
+	for key, val := range raw {
+		if !validFields[key] {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error":   "invalid_request",
+				"message": "notification preferences must be boolean values",
+			})
+			return
+		}
+		boolVal, ok := val.(bool)
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error":   "invalid_request",
+				"message": "notification preferences must be boolean values",
+			})
+			return
+		}
+		prefs[key] = boolVal
+	}
+
+	if len(prefs) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error":   "invalid_request",
+			"message": "notification preferences must be boolean values",
+		})
+		return
+	}
+
+	if err := h.parentRepo.UpdateNotificationPrefs(parentID, prefs); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	// Fetch updated parent
+	parent, err := h.parentRepo.GetByID(parentID)
+	if err != nil || parent == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":                    "Notification preferences updated",
+		"notify_withdrawal_requests": parent.NotifyWithdrawalRequests,
+		"notify_chore_completions":   parent.NotifyChoreCompletions,
+		"notify_decisions":           parent.NotifyDecisions,
 	})
 }
 
