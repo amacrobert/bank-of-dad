@@ -33,6 +33,7 @@ func TestHandleCreateChore_Success_OneTime(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Mow the lawn","description":"Front yard","reward_cents":500,"recurrence":"one_time","child_ids":[%d]}`, child.ID)
@@ -83,6 +84,7 @@ func TestHandleCreateChore_Success_MultiChild(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Dishes","reward_cents":300,"recurrence":"one_time","child_ids":[%d,%d]}`, child1.ID, child2.ID)
@@ -126,6 +128,7 @@ func TestHandleCreateChore_Success_RecurringWeekly(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	dow := 1 // Monday
@@ -168,6 +171,7 @@ func TestHandleCreateChore_Forbidden_ChildUser(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Dishes","reward_cents":100,"recurrence":"one_time","child_ids":[%d]}`, child.ID)
@@ -196,6 +200,7 @@ func TestHandleCreateChore_InvalidName_Empty(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"","reward_cents":100,"recurrence":"one_time","child_ids":[%d]}`, child.ID)
@@ -224,6 +229,7 @@ func TestHandleCreateChore_InvalidName_TooLong(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	longName := strings.Repeat("a", 101)
@@ -253,6 +259,7 @@ func TestHandleCreateChore_InvalidAmount_Negative(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Dishes","reward_cents":-1,"recurrence":"one_time","child_ids":[%d]}`, child.ID)
@@ -281,6 +288,7 @@ func TestHandleCreateChore_InvalidRecurrence(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Dishes","reward_cents":100,"recurrence":"biweekly","child_ids":[%d]}`, child.ID)
@@ -308,6 +316,7 @@ func TestHandleCreateChore_MissingChildIDs(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := `{"name":"Dishes","reward_cents":100,"recurrence":"one_time","child_ids":[]}`
@@ -341,6 +350,7 @@ func TestHandleCreateChore_ChildNotInFamily(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Dishes","reward_cents":100,"recurrence":"one_time","child_ids":[%d]}`, otherChild.ID)
@@ -369,6 +379,7 @@ func TestHandleCreateChore_WeeklyWithoutDayOfWeek(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := fmt.Sprintf(`{"name":"Take out trash","reward_cents":200,"recurrence":"weekly","child_ids":[%d]}`, child.ID)
@@ -401,6 +412,7 @@ func TestHandleListChores_Success(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	// Create a chore first
@@ -440,6 +452,7 @@ func TestHandleListChores_EmptyList(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/chores", nil)
@@ -470,6 +483,7 @@ func TestHandleListChores_Forbidden_ChildUser(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/chores", nil)
@@ -504,6 +518,7 @@ func TestHandleChildListChores_Success(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	// Create a chore and instances
@@ -576,6 +591,7 @@ func TestHandleChildListChores_Empty(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/child/chores", nil)
@@ -608,6 +624,7 @@ func TestHandleChildListChores_ForbiddenForParent(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/child/chores", nil)
@@ -642,6 +659,7 @@ func TestHandleCompleteChore_Success(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	// Create chore and instance
@@ -697,6 +715,7 @@ func TestHandleCompleteChore_AlreadyPending(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -754,6 +773,7 @@ func TestHandleCompleteChore_WrongChild(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -802,6 +822,7 @@ func TestHandleCompleteChore_ForbiddenForParent(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("POST", "/api/child/chores/1/complete", nil)
@@ -837,6 +858,7 @@ func TestHandleListPending_Success(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -892,6 +914,7 @@ func TestHandleListPending_Empty(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/chores/pending", nil)
@@ -930,6 +953,7 @@ func TestHandleApprove_Success(t *testing.T) {
 		instanceRepo,
 		txRepo,
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -989,6 +1013,7 @@ func TestHandleApprove_ZeroReward(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1048,6 +1073,7 @@ func TestHandleApprove_NotPending(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1111,6 +1137,7 @@ func TestHandleApprove_WrongFamily(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1170,6 +1197,7 @@ func TestHandleReject_Success(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1226,6 +1254,7 @@ func TestHandleReject_WithReason(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1285,6 +1314,7 @@ func TestHandleReject_NotPending(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1342,6 +1372,7 @@ func TestHandleChildEarnings_Success(t *testing.T) {
 		instanceRepo,
 		txRepo,
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1402,6 +1433,7 @@ func TestHandleChildEarnings_Empty(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/child/chores/earnings", nil)
@@ -1429,6 +1461,7 @@ func TestHandleChildEarnings_ForbiddenForParent(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("GET", "/api/child/chores/earnings", nil)
@@ -1461,6 +1494,7 @@ func TestHandleUpdateChore_Success(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1505,6 +1539,7 @@ func TestHandleUpdateChore_InvalidName(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1555,6 +1590,7 @@ func TestHandleUpdateChore_WrongFamily(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1589,6 +1625,7 @@ func TestHandleUpdateChore_NotFound(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	body := `{"name":"Whatever"}`
@@ -1620,6 +1657,7 @@ func TestHandleDeleteChore_Success(t *testing.T) {
 		instanceRepo,
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1679,6 +1717,7 @@ func TestHandleDeleteChore_WrongFamily(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	chore := &models.Chore{
@@ -1712,6 +1751,7 @@ func TestHandleDeleteChore_NotFound(t *testing.T) {
 		repositories.NewChoreInstanceRepo(db),
 		repositories.NewTransactionRepo(db),
 		repositories.NewChildRepo(db),
+		nil, nil, nil,
 	)
 
 	req := httptest.NewRequest("DELETE", "/api/chores/99999", nil)
@@ -1739,7 +1779,7 @@ func TestChoreLifecycle_EndToEnd(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 
-	handler := NewHandler(choreRepo, instanceRepo, txRepo, childRepo)
+	handler := NewHandler(choreRepo, instanceRepo, txRepo, childRepo, nil, nil, nil)
 
 	// Step 1: Parent creates a chore
 	createBody := fmt.Sprintf(`{"name":"Wash car","description":"Wash the family car","reward_cents":1000,"recurrence":"one_time","child_ids":[%d]}`, child.ID)

@@ -80,6 +80,8 @@ cd frontend && npm run lint
 - Go 1.26 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + GORM (gorm.io/gorm), pgx/v5 (driver), Vite, Tailwind CSS 4, lucide-reac (031-chore-system)
 - PostgreSQL 17 — 3 new tables (`chores`, `chore_assignments`, `chore_instances`), 1 new transaction type (031-chore-system)
 - PostgreSQL 17 — 1 new table (`withdrawal_requests`), 1 new transaction type (032-withdrawal-requests)
+- Go 1.26 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + Brevo Go SDK (`github.com/getbrevo/brevo-go`), GORM (`gorm.io/gorm`), pgx/v5 (driver), Vite + Tailwind CSS 4 (frontend) (033-email-notifications)
+- PostgreSQL 17 — 3 new columns on existing `parents` table (033-email-notifications)
 
 ## Recent Changes
 - 024-stripe-subscription: Added Go 1.26 (backend), TypeScript 5.3.3 + React 18.2.0 (frontend) + `github.com/stripe/stripe-go/v82` (new), pgx/v5 (existing), Vite + Tailwind CSS 4 (existing)

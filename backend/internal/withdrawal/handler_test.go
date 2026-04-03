@@ -22,7 +22,7 @@ func setupHandler(t *testing.T) (*Handler, *repositories.WithdrawalRequestRepo, 
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 	return handler, wrRepo, txRepo, childRepo, goalRepo
 }
 
@@ -46,7 +46,7 @@ func TestHandleSubmitRequest_Success(t *testing.T) {
 	wrRepo := repositories.NewWithdrawalRequestRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler = NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler = NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	body := `{"amount_cents":2000,"reason":"New video game"}`
 	req := httptest.NewRequest("POST", "/api/child/withdrawal-requests", bytes.NewBufferString(body))
@@ -83,7 +83,7 @@ func TestHandleSubmitRequest_InsufficientFunds(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	body := `{"amount_cents":2000,"reason":"Something"}`
 	req := httptest.NewRequest("POST", "/api/child/withdrawal-requests", bytes.NewBufferString(body))
@@ -108,7 +108,7 @@ func TestHandleSubmitRequest_AlreadyPending(t *testing.T) {
 	wrRepo := repositories.NewWithdrawalRequestRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	// Create first request
 	_, err = wrRepo.Create(&models.WithdrawalRequest{
@@ -143,7 +143,7 @@ func TestHandleSubmitRequest_DisabledAccount(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	body := `{"amount_cents":100,"reason":"Something"}`
 	req := httptest.NewRequest("POST", "/api/child/withdrawal-requests", bytes.NewBufferString(body))
@@ -168,7 +168,7 @@ func TestHandleSubmitRequest_InvalidInput(t *testing.T) {
 	wrRepo := repositories.NewWithdrawalRequestRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -202,7 +202,7 @@ func TestHandleSubmitRequest_ParentForbidden(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	body := `{"amount_cents":100,"reason":"test"}`
 	req := httptest.NewRequest("POST", "/api/child/withdrawal-requests", bytes.NewBufferString(body))
@@ -239,7 +239,7 @@ func TestHandleApprove_Success(t *testing.T) {
 
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/approve", wr.ID), bytes.NewBufferString(`{}`))
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -291,7 +291,7 @@ func TestHandleApprove_InsufficientFunds(t *testing.T) {
 
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/approve", wr.ID), bytes.NewBufferString(`{}`))
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -328,7 +328,7 @@ func TestHandleApprove_NotPending(t *testing.T) {
 
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/approve", wr.ID), bytes.NewBufferString(`{}`))
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -361,7 +361,7 @@ func TestHandleApprove_WrongFamily(t *testing.T) {
 
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	// Use a different family ID
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/approve", wr.ID), bytes.NewBufferString(`{}`))
@@ -398,7 +398,7 @@ func TestHandleApprove_DisabledAccount(t *testing.T) {
 
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/approve", wr.ID), bytes.NewBufferString(`{}`))
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -432,7 +432,7 @@ func TestHandleDeny_Success_WithReason(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	body := `{"reason":"Save up a bit more first"}`
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/deny", wr.ID), bytes.NewBufferString(body))
@@ -474,7 +474,7 @@ func TestHandleDeny_Success_WithoutReason(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/withdrawal-requests/%d/deny", wr.ID), bytes.NewBufferString(`{}`))
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -508,7 +508,7 @@ func TestHandleCancelRequest_Success(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/child/withdrawal-requests/%d/cancel", wr.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -551,7 +551,7 @@ func TestHandleCancelRequest_NotPending(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/child/withdrawal-requests/%d/cancel", wr.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", wr.ID))
@@ -582,7 +582,7 @@ func TestHandleCancelRequest_WrongChild(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	// child2 tries to cancel child1's request
 	req := httptest.NewRequest("POST", fmt.Sprintf("/api/child/withdrawal-requests/%d/cancel", wr.ID), nil)
@@ -620,7 +620,7 @@ func TestHandleChildListRequests_Success(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/child/withdrawal-requests", nil)
 	req = testutil.SetRequestContext(req, "child", child.ID, family.ID)
@@ -671,7 +671,7 @@ func TestHandleChildListRequests_WithStatusFilter(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	// Filter for pending only
 	req := httptest.NewRequest("GET", "/api/child/withdrawal-requests?status=pending", nil)
@@ -715,7 +715,7 @@ func TestHandleParentListRequests_Success(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/withdrawal-requests", nil)
 	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)
@@ -766,7 +766,7 @@ func TestHandlePendingCount_Success(t *testing.T) {
 	txRepo := repositories.NewTransactionRepo(db)
 	childRepo := repositories.NewChildRepo(db)
 	goalRepo := repositories.NewSavingsGoalRepo(db)
-	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	handler := NewHandler(wrRepo, txRepo, childRepo, goalRepo, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/withdrawal-requests/pending/count", nil)
 	req = testutil.SetRequestContext(req, "parent", parent.ID, family.ID)

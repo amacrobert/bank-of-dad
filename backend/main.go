@@ -2,6 +2,7 @@ package main
 
 import (
 	"bank-of-dad/internal/contact"
+	"bank-of-dad/internal/notification"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -85,16 +86,22 @@ func main() {
 	scheduleRepo := repositories.NewScheduleRepo(db)
 	allowanceHandler := allowance.NewHandler(scheduleRepo, childRepo, familyRepo)
 	interestHandler := interest.NewHandler(interestRepo, childRepo, interestScheduleRepo, familyRepo)
-	settingsHandlers := settings.NewHandlers(familyRepo)
+	settingsHandlers := settings.NewHandlers(familyRepo, parentRepo)
 	goalsHandler := goals.NewHandler(goalRepo, childRepo, goalAllocationRepo)
 	webhookEventRepo := repositories.NewWebhookEventRepo(db)
 	subscriptionHandlers := subscription.NewHandlers(familyRepo, parentRepo, childRepo, webhookEventRepo, cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.FrontendURL)
 	contactHandler := contact.NewHandler(brevoClient, cfg.ContactRecipientEmail, cfg.ContactRecipientName, parentRepo)
 	choreRepo := repositories.NewChoreRepo(db)
 	choreInstanceRepo := repositories.NewChoreInstanceRepo(db)
-	choreHandler := chore.NewHandler(choreRepo, choreInstanceRepo, txRepo, childRepo)
+	// Notification service
+	notificationService := notification.NewService(brevoClient, parentRepo, familyRepo, jwtKey)
+	notificationService.StartBatcher()
+	defer notificationService.StopBatcher()
+	unsubscribeHandler := notification.NewUnsubscribeHandler(parentRepo, jwtKey)
+
+	choreHandler := chore.NewHandler(choreRepo, choreInstanceRepo, txRepo, childRepo, notificationService, parentRepo, familyRepo)
 	wrRepo := repositories.NewWithdrawalRequestRepo(db)
-	withdrawalHandler := withdrawal.NewHandler(wrRepo, txRepo, childRepo, goalRepo)
+	withdrawalHandler := withdrawal.NewHandler(wrRepo, txRepo, childRepo, goalRepo, notificationService, parentRepo, familyRepo)
 
 	// Start allowance scheduler goroutine (check every 5 minutes)
 	stopAllowanceScheduler := make(chan struct{})
@@ -185,6 +192,11 @@ func main() {
 	mux.Handle("GET /api/settings", requireParent(http.HandlerFunc(settingsHandlers.HandleGetSettings)))
 	mux.Handle("PUT /api/settings/timezone", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateTimezone)))
 	mux.Handle("PUT /api/settings/bank-name", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateBankName)))
+
+	// Notification preferences (033-email-notifications)
+	mux.Handle("GET /api/settings/notifications", requireParent(http.HandlerFunc(settingsHandlers.HandleGetNotificationPrefs)))
+	mux.Handle("PUT /api/settings/notifications", requireParent(http.HandlerFunc(settingsHandlers.HandleUpdateNotificationPrefs)))
+	mux.HandleFunc("GET /api/notifications/unsubscribe", unsubscribeHandler.HandleUnsubscribe)
 
 	// Subscription (024-stripe-subscription)
 	mux.Handle("GET /api/subscription", requireParent(http.HandlerFunc(subscriptionHandlers.HandleGetSubscription)))

@@ -170,9 +170,16 @@ export interface SetInterestResponse {
 
 // Settings Feature (013-parent-settings)
 
+export interface NotificationPreferences {
+  notify_withdrawal_requests: boolean;
+  notify_chore_completions: boolean;
+  notify_decisions: boolean;
+}
+
 export interface SettingsResponse {
   timezone: string;
   bank_name: string;
+  notifications?: NotificationPreferences;
 }
 
 export interface UpdateTimezoneResponse {

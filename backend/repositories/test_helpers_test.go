@@ -36,7 +36,7 @@ func testDB(t *testing.T) *gorm.DB {
 		sharedDB = db
 	})
 
-	result := sharedDB.Exec(`TRUNCATE chore_instances, chore_assignments, chores, goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
+	result := sharedDB.Exec(`TRUNCATE withdrawal_requests, chore_instances, chore_assignments, chores, goal_allocations, savings_goals, stripe_webhook_events, interest_schedules, transactions, allowance_schedules, auth_events, refresh_tokens, children, parents, families RESTART IDENTITY CASCADE`)
 	require.NoError(t, result.Error)
 
 	return sharedDB

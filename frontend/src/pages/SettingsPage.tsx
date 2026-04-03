@@ -9,8 +9,9 @@ import TimezoneSelect from "../components/TimezoneSelect";
 import BankNameInput from "../components/BankNameInput";
 import ChildrenSettings from "../components/ChildrenSettings";
 import AccountSettings from "../components/AccountSettings";
-import { Settings, Globe, Users, User, CreditCard } from "lucide-react";
+import { Settings, Globe, Users, User, CreditCard, Bell } from "lucide-react";
 import SubscriptionSettings from "../components/SubscriptionSettings";
+import NotificationSettings from "../components/NotificationSettings";
 import { useSetUser } from "../hooks/useAuthOutletContext";
 
 interface SettingsCategory {
@@ -21,6 +22,7 @@ interface SettingsCategory {
 
 const CATEGORIES: SettingsCategory[] = [
   { key: "general", label: "General", icon: Globe },
+  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "children", label: "Children", icon: Users },
   { key: "subscription", label: "Subscription", icon: CreditCard },
   { key: "account", label: "Account", icon: User },
@@ -229,6 +231,8 @@ export default function SettingsPage() {
               </div>
             </Card>
           )}
+
+          {activeCategory === "notifications" && <NotificationSettings />}
 
           {activeCategory === "children" && (
             <ChildrenSettings

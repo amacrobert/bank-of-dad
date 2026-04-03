@@ -97,3 +97,58 @@ func TestGetByID_Parent_NotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, found)
 }
+
+func TestGetByFamilyID(t *testing.T) {
+	db := testDB(t)
+	pr := NewParentRepo(db)
+	fr := NewFamilyRepo(db)
+
+	fam, err := fr.Create("notify-family")
+	require.NoError(t, err)
+
+	p1, err := pr.Create("google-fam-1", "parent1@example.com", "Parent One")
+	require.NoError(t, err)
+	require.NoError(t, pr.SetFamilyID(p1.ID, fam.ID))
+
+	p2, err := pr.Create("google-fam-2", "parent2@example.com", "Parent Two")
+	require.NoError(t, err)
+	require.NoError(t, pr.SetFamilyID(p2.ID, fam.ID))
+
+	parents, err := pr.GetByFamilyID(fam.ID)
+	require.NoError(t, err)
+	assert.Len(t, parents, 2)
+
+	// Family with no parents
+	fam2, err := fr.Create("empty-family")
+	require.NoError(t, err)
+	empty, err := pr.GetByFamilyID(fam2.ID)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+}
+
+func TestUpdateNotificationPrefs(t *testing.T) {
+	db := testDB(t)
+	pr := NewParentRepo(db)
+
+	p, err := pr.Create("google-prefs", "prefs@example.com", "Prefs User")
+	require.NoError(t, err)
+
+	// Defaults should be true
+	found, err := pr.GetByID(p.ID)
+	require.NoError(t, err)
+	assert.True(t, found.NotifyWithdrawalRequests)
+	assert.True(t, found.NotifyChoreCompletions)
+	assert.True(t, found.NotifyDecisions)
+
+	// Partial update — only change one field
+	err = pr.UpdateNotificationPrefs(p.ID, map[string]bool{
+		"notify_chore_completions": false,
+	})
+	require.NoError(t, err)
+
+	found, err = pr.GetByID(p.ID)
+	require.NoError(t, err)
+	assert.True(t, found.NotifyWithdrawalRequests)
+	assert.False(t, found.NotifyChoreCompletions)
+	assert.True(t, found.NotifyDecisions)
+}

@@ -61,6 +61,27 @@ func (r *ParentRepo) GetByID(id int64) (*models.Parent, error) {
 	return &p, nil
 }
 
+// GetByFamilyID retrieves all parents belonging to a family.
+func (r *ParentRepo) GetByFamilyID(familyID int64) ([]models.Parent, error) {
+	var parents []models.Parent
+	if err := r.db.Where("family_id = ?", familyID).Find(&parents).Error; err != nil {
+		return nil, fmt.Errorf("get parents by family id: %w", err)
+	}
+	return parents, nil
+}
+
+// UpdateNotificationPrefs updates only the provided notification preference fields for a parent.
+func (r *ParentRepo) UpdateNotificationPrefs(parentID int64, prefs map[string]bool) error {
+	updates := make(map[string]interface{})
+	for k, v := range prefs {
+		updates[k] = v
+	}
+	if err := r.db.Model(&models.Parent{}).Where("id = ?", parentID).Updates(updates).Error; err != nil {
+		return fmt.Errorf("update notification prefs: %w", err)
+	}
+	return nil
+}
+
 // SetFamilyID updates the family ID for a parent.
 func (r *ParentRepo) SetFamilyID(parentID, familyID int64) error {
 	if err := r.db.Model(&models.Parent{}).Where("id = ?", parentID).Update("family_id", familyID).Error; err != nil {

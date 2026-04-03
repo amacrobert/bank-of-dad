@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bank-of-dad/internal/middleware"
+	"bank-of-dad/internal/notification"
 	"bank-of-dad/models"
 	"bank-of-dad/repositories"
 )
@@ -25,15 +26,21 @@ type Handler struct {
 	choreInstanceRepo *repositories.ChoreInstanceRepo
 	txRepo            *repositories.TransactionRepo
 	childRepo         *repositories.ChildRepo
+	notifier          *notification.Service
+	parentRepo        *repositories.ParentRepo
+	familyRepo        *repositories.FamilyRepo
 }
 
 // NewHandler creates a new chore handler.
-func NewHandler(choreRepo *repositories.ChoreRepo, choreInstanceRepo *repositories.ChoreInstanceRepo, txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo) *Handler {
+func NewHandler(choreRepo *repositories.ChoreRepo, choreInstanceRepo *repositories.ChoreInstanceRepo, txRepo *repositories.TransactionRepo, childRepo *repositories.ChildRepo, notifier *notification.Service, parentRepo *repositories.ParentRepo, familyRepo *repositories.FamilyRepo) *Handler {
 	return &Handler{
 		choreRepo:         choreRepo,
 		choreInstanceRepo: choreInstanceRepo,
 		txRepo:            txRepo,
 		childRepo:         childRepo,
+		notifier:          notifier,
+		parentRepo:        parentRepo,
+		familyRepo:        familyRepo,
 	}
 }
 
@@ -469,6 +476,16 @@ func (h *Handler) HandleCompleteChore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Queue chore completion notification (fire-and-forget via batcher)
+	if h.notifier != nil {
+		familyID := middleware.GetFamilyID(r)
+		child, _ := h.childRepo.GetByID(childID)
+		chore, _ := h.choreRepo.GetByID(instance.ChoreID)
+		if child != nil && chore != nil {
+			h.notifier.QueueChoreCompletion(familyID, childID, child.FirstName, chore.Name, instance.RewardCents)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"instance": InstanceResponse{
 			ID:          instance.ID,
@@ -701,6 +718,23 @@ func (h *Handler) HandleApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notify other parents about the approval (fire-and-forget)
+	if h.notifier != nil {
+		bankName := "Bank of Dad"
+		if h.familyRepo != nil {
+			if bn, err := h.familyRepo.GetBankName(familyID); err == nil {
+				bankName = bn
+			}
+		}
+		actingParentName := ""
+		if h.parentRepo != nil {
+			if p, err := h.parentRepo.GetByID(parentID); err == nil && p != nil {
+				actingParentName = p.DisplayName
+			}
+		}
+		h.notifier.NotifyDecision(r.Context(), familyID, parentID, actingParentName, child.FirstName, "chore", "approved", 0, chore.Name, "", bankName)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"instance": InstanceResponse{
 			ID:            updated.ID,
@@ -813,6 +847,27 @@ func (h *Handler) HandleReject(w http.ResponseWriter, r *http.Request) {
 			Message: "Failed to retrieve updated instance.",
 		})
 		return
+	}
+
+	// Notify other parents about the rejection (fire-and-forget)
+	if h.notifier != nil {
+		bankName := "Bank of Dad"
+		if h.familyRepo != nil {
+			if bn, err := h.familyRepo.GetBankName(familyID); err == nil {
+				bankName = bn
+			}
+		}
+		actingParentName := ""
+		if h.parentRepo != nil {
+			if p, err := h.parentRepo.GetByID(parentID); err == nil && p != nil {
+				actingParentName = p.DisplayName
+			}
+		}
+		choreName := ""
+		if ch, err := h.choreRepo.GetByID(instance.ChoreID); err == nil && ch != nil {
+			choreName = ch.Name
+		}
+		h.notifier.NotifyDecision(r.Context(), familyID, parentID, actingParentName, child.FirstName, "chore", "rejected", 0, choreName, reason, bankName)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
